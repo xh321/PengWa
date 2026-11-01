@@ -21,13 +21,13 @@ class ContactsViewModel(application: Application) : AndroidViewModel(application
         val names = listOf("小熊", "Nana", "兔兔", "Kiyo", "狐狸娃")
         val now = System.currentTimeMillis()
         viewModelScope.launch {
+            val firstId = UUID.randomUUID()
             names.forEachIndexed { index, name ->
                 val dayMillis = 24L * 60 * 60 * 1000
-                store.recordMeeting(UUID.randomUUID(), name, now - (index + 1) * dayMillis)
+                store.recordMeeting(if (index == 0) firstId else UUID.randomUUID(), name, now - (index + 1) * dayMillis)
             }
             // 让第一个多碰两次，检查"遇见 N 次"的显示
-            val first = store.contacts.value.firstOrNull() ?: return@launch
-            repeat(2) { store.recordMeeting(first.id, first.displayName, now) }
+            repeat(2) { store.recordMeeting(firstId, names.first(), now) }
         }
     }
 }

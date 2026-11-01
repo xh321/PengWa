@@ -1,100 +1,32 @@
 package app.pengwa.contacts
 
-import android.content.ContentValues
 import android.content.Context
-import android.database.sqlite.SQLiteDatabase
-import android.database.sqlite.SQLiteOpenHelper
+import app.pengwa.identity.CardCodec
+import app.pengwa.identity.CardContent
+import app.pengwa.identity.Identity
 import java.util.UUID
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.*
 
-/**
- * 集邮册的本地存储。直接用系统自带的 SQLite，不引入 Room（省体积和注解处理器）。
- * 所有写入都在 IO 线程完成，并刷新 [contacts]，界面只需订阅这个流。
- */
-class ContactStore(context: Context) :
-    SQLiteOpenHelper(context.applicationContext, "pengwa.db", null, 2) {
+/** Room owns transactions, SQL validation and invalidation of the observed contact list. */
+class ContactStore(context: Context) {
+    private val database = ContactsDatabase.open(context)
+    private val dao = database.contacts()
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    val contacts: StateFlow<List<Contact>> = dao.observeAll().map { rows -> rows.map { it.toContact() } }
+        .stateIn(scope, SharingStarted.Eagerly, emptyList())
 
-    private val _contacts = MutableStateFlow<List<Contact>>(emptyList())
-    val contacts: StateFlow<List<Contact>> = _contacts.asStateFlow()
+    /** Wait for the initial database read (also surfaces migration failures to the caller). */
+    suspend fun load() { dao.all() }
 
-    override fun onCreate(db: SQLiteDatabase) {
-        db.execSQL(
-            """
-            CREATE TABLE contacts (
-                id TEXT PRIMARY KEY NOT NULL,
-                display_name TEXT NOT NULL,
-                first_met_at INTEGER NOT NULL,
-                last_met_at INTEGER NOT NULL,
-                met_count INTEGER NOT NULL,
-                card BLOB
-            )
-            """.trimIndent(),
-        )
-        db.execSQL("CREATE INDEX idx_contacts_last_met ON contacts(last_met_at DESC)")
+    suspend fun recordMeeting(id: UUID, displayName: String, at: Long, card: CardContent? = null) = withContext(Dispatchers.IO) {
+        val encoded = card?.let { CardCodec.encode(Identity(id, displayName, it)) }
+        dao.record(id.toString(), displayName, at, encoded)
     }
 
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        if (oldVersion < 2) db.execSQL("ALTER TABLE contacts ADD COLUMN card BLOB")
-    }
-
-    suspend fun load() = withContext(Dispatchers.IO) {
-        _contacts.value = queryAll()
-    }
-
-    /** 记录一次相遇：新朋友插入；老朋友更新名字、最近时间并把次数加一。 */
-    suspend fun recordMeeting(id: UUID, displayName: String, at: Long, card: app.pengwa.identity.CardContent? = null) = withContext(Dispatchers.IO) {
-        val encodedCard = card?.let { app.pengwa.identity.CardCodec.encode(app.pengwa.identity.Identity(id, displayName, it)) }
-        val db = writableDatabase
-        db.beginTransaction()
-        try {
-            val updated = db.compileStatement(
-                "UPDATE contacts SET display_name = ?, last_met_at = ?, met_count = met_count + 1, card = COALESCE(?, card) WHERE id = ?",
-            ).use { statement ->
-                statement.bindString(1, displayName)
-                statement.bindLong(2, at)
-                if (encodedCard == null) statement.bindNull(3) else statement.bindBlob(3, encodedCard)
-                statement.bindString(4, id.toString())
-                statement.executeUpdateDelete()
-            }
-            if (updated == 0) {
-                val values = ContentValues().apply {
-                    put("id", id.toString())
-                    put("display_name", displayName)
-                    put("first_met_at", at)
-                    put("last_met_at", at)
-                    put("met_count", 1)
-                    put("card", encodedCard)
-                }
-                db.insertOrThrow("contacts", null, values)
-            }
-            db.setTransactionSuccessful()
-        } finally {
-            db.endTransaction()
-        }
-        _contacts.value = queryAll()
-    }
-
-    private fun queryAll(): List<Contact> {
-        val result = mutableListOf<Contact>()
-        readableDatabase.rawQuery(
-            "SELECT id, display_name, first_met_at, last_met_at, met_count, card FROM contacts ORDER BY last_met_at DESC",
-            null,
-        ).use { cursor ->
-            while (cursor.moveToNext()) {
-                result += Contact(
-                    id = UUID.fromString(cursor.getString(0)),
-                    displayName = cursor.getString(1),
-                    firstMetAt = cursor.getLong(2),
-                    lastMetAt = cursor.getLong(3),
-                    metCount = cursor.getInt(4),
-                    card = if (cursor.isNull(5)) app.pengwa.identity.CardContent() else app.pengwa.identity.CardCodec.decode(cursor.getBlob(5))?.card ?: app.pengwa.identity.CardContent(),
-                )
-            }
-        }
-        return result
-    }
+    private fun ContactEntity.toContact() = Contact(
+        id = UUID.fromString(id), displayName = displayName,
+        firstMetAt = firstMetAt, lastMetAt = lastMetAt, metCount = metCount,
+        card = card?.let { CardCodec.decode(it)?.card } ?: CardContent(),
+    )
 }
