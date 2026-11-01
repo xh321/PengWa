@@ -51,6 +51,7 @@ class BleExchangeController(
     private val requests = IncomingRequests()
     private val timings = LinkedHashMap<UUID, ExchangeTiming>()
     private var discoveryPeer: UUID? = null
+    private var discoveryLocator: Long? = null
     private val receivingCards = mutableSetOf<String>()
     private var discoveryInitiator = false
     private var discoveryUntil = 0L
@@ -81,8 +82,9 @@ class BleExchangeController(
         context = appContext,
         identityProvider = identityProvider,
         listener = object : BleExchangeListener {
-            override fun onDeviceSeen(address: String, rssi: Int) {
-                list.onSeen(address, rssi, SystemClock.elapsedRealtime())
+            override fun onDeviceSeen(address: String, rssi: Int, locator: Long?) {
+                list.onSeen(address, rssi, SystemClock.elapsedRealtime(), locator)
+                mainHandler.post { tryDiscovery() }
                 schedulePublish()
             }
 
@@ -239,6 +241,7 @@ class BleExchangeController(
         discoveryAutoAccept = source == "NFC" && !initiate
         if (initiate) lastDiscovery = peer to source
         discoveryPeer = peer.id
+        discoveryLocator = peer.discoveryLocator
         discoveryInitiator = initiate
         discoveryUntil = SystemClock.elapsedRealtime() + 30_000L
         _discoveryStatus.value = when {
@@ -272,7 +275,7 @@ class BleExchangeController(
     private fun tryDiscovery() {
         val id = discoveryPeer ?: return
         if (!discoveryInitiator || SystemClock.elapsedRealtime() >= discoveryUntil) return
-        val peer = list.snapshot().firstOrNull { it.identityKey == identityKey(id) } ?: return
+        val peer = list.snapshot().firstOrNull { (discoveryLocator != null && it.locator == discoveryLocator) || it.identityKey == identityKey(id) } ?: return
         if (!list.beginExchange(peer.address)) return
         discoveryInitiator = false
         timings[id]?.mark("target_matched")

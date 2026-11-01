@@ -18,3 +18,9 @@
 同设备、Android 16 / API 36。`qr-v4-before/after-{light,dark}.png` 为 V3/V4 的主页二维码；
 `qr-request-v4-before/after-{light,dark}.png` 为同版本的确认弹窗，启动参数改为 `--es screen request`。
 弹窗内容和布局未调整。静态测试场景只能验证显示，申请先于图片的时序仍需双真机日志核验。
+
+## V5：直接匹配与连接复用
+
+同设备、Android 16 / API 36，`qr-v5-before/after-{light,dark}.png` 对应 V4/V5 的主页二维码。
+启动方式和主题切换同 V3，使用内置测试身份。定位符在每次进程启动时随机产生，因此重新启动二维码像素也会变化。
+截图不验证蓝牙广播、连接复用或实际交换性能，双真机验证待补。

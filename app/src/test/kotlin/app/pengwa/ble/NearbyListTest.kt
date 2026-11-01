@@ -8,6 +8,18 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class NearbyListTest {
+    @Test fun `session locator is available before a preview and survives repeated scans`() {
+        val list = NearbyList()
+        list.onSeen("A", -50, 100, locator = 123)
+        assertEquals(123L, list.snapshot().single().locator)
+        assertEquals(null, list.snapshot().single().identityKey)
+        assertTrue(list.beginExchange("A"))
+        list.onSeen("A", -45, 101)
+        assertEquals(123L, list.snapshot().single().locator)
+        list.onSeen("A", -45, 102, locator = 456)
+        assertEquals(456L, list.snapshot().single().locator)
+    }
+
     private fun NearbyList.peer(address: String) = snapshot().first { it.address == address }
 
     @Test

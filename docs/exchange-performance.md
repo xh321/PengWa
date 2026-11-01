@@ -46,3 +46,13 @@ After the small request, wait for consent; only Accepted sessions may upload a f
 The full card must match the accepted UUID, updates the same session without another prompt, and must complete before the server allows card download.
 Only final ACK records a card. Decline, expiry, disconnect and identity substitution cannot complete a card.
 This improves time-to-prompt and avoids sending images before consent; it does not hide image transfer time.
+
+## V5: direct advertisement matching and preview connection reuse
+
+Breaking D5 discovery: `[D5][UUID 16][process-session locator int64]`, 25 bytes. Service suffix `bac5`.
+An 8-byte random locator is generated once per process, shared by QR, NFC and BLE scan-response service data. It is not a stable ID or authentication credential.
+The 128-bit service-data AD entry fits the 31-byte legacy scan response (26 bytes including AD headers); the main advertisement still carries the service UUID.
+Controller matches locator as soon as a scan callback arrives, bypassing the UI's 300 ms publish delay and unrelated preview reads.
+Exchange requests interrupt unrelated active previews. If matching follows a preview read, a single main-loop turn allows upgrading that same GATT connection into an exchange, preserving MTU/services.
+Every targeted connection verifies the identity preview before sending its request; the completed card is still checked against the expected UUID.
+The locator rotates on process restart; QR must be rescanned after a peer process restart. No old-version fallback.
