@@ -15,6 +15,7 @@ class UiPreviewActivity : ComponentActivity() {
         setContent {
             when (screen) {
                 "card", "card-editor", "card-received", "card-images", "card-images-editor", "card-images-received", "card-masonry", "card-masonry-editor", "card-masonry-received", "card-social", "card-social-editor", "card-social-received" -> CustomCardPreview(screen)
+                "home-bluetooth-notice" -> HomeBluetoothNoticePreview()
                 "nearby-dedup" -> NearbyDedupPreview(index)
                 "bluetooth" -> BluetoothPagePreview(BluetoothPreviewProvider().values.toList().let { it[index.coerceIn(it.indices)] })
                 "contacts" -> ContactsScreenPreview(ContactsPreviewProvider().values.toList().let { it[index.coerceIn(it.indices)] })
