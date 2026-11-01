@@ -46,17 +46,19 @@ internal fun UserCardContent(identity: Identity) {
             CardAvatar(identity)
             Text(identity.displayName, style = MaterialTheme.typography.titleLarge)
         }
-        identity.card.blocks.forEach { block ->
-            if (block.type == BlockType.Image) {
-                CardImage(block.image, block.title.ifBlank { "卡片图片" })
-            } else Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
-                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (block.title.isNotBlank()) Text(block.title, style = MaterialTheme.typography.titleSmall)
-                    if (block.type != BlockType.Link) Text(block.text, style = MaterialTheme.typography.bodyMedium)
-                    val url = if (block.type == BlockType.Link) block.text else block.url
-                    if (CardCodec.validLink(url)) TextButton(onClick = {
-                        runCatching { uriHandler.openUri(url) }.onFailure { error = "无法打开链接，请检查是否安装浏览器" }
-                    }) { Text(if (block.type == BlockType.Social) "打开主页" else url) }
+        CardMasonry {
+            identity.card.blocks.forEach { block ->
+                if (block.type == BlockType.Image) {
+                    CardImage(block.image, block.title.ifBlank { "卡片图片" })
+                } else Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
+                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (block.title.isNotBlank()) Text(block.title, style = MaterialTheme.typography.titleSmall)
+                        if (block.type != BlockType.Link) Text(block.text, style = MaterialTheme.typography.bodyMedium)
+                        val url = if (block.type == BlockType.Link) block.text else block.url
+                        if (CardCodec.validLink(url)) TextButton(onClick = {
+                            runCatching { uriHandler.openUri(url) }.onFailure { error = "无法打开链接，请检查是否安装浏览器" }
+                        }) { Text(if (block.type == BlockType.Social) "打开主页" else url) }
+                    }
                 }
             }
         }

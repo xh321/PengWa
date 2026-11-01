@@ -44,3 +44,5 @@ adb shell am start -n app.pengwa.debug/app.pengwa.ui.UiPreviewActivity --es scre
 ![](transparent-import-after.png)
 
 本次不改变 BLE 传输流程；双真机完整链路仍待原 PR 所列硬件验收。
+
+图片在卡片内容区参与自适应瀑布流；布局变化的同场景对比见 [瀑布流截图](../card-masonry/README.md)。

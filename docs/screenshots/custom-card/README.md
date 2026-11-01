@@ -100,3 +100,5 @@ bash gradlew testDebugUnitTest assembleDebug lintDebug --console=plain
 这些截图证明运行界面和本地操作，不代表双机通信已验收。
 
 小图纯图片展示、透明 PNG 导入和自由比例的补充验证见 [小图截图](../image-only/README.md)。
+
+内容区瀑布流与屏幕适配的前后对比见 [瀑布流截图](../card-masonry/README.md)。

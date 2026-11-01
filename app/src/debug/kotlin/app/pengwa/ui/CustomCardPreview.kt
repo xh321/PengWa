@@ -48,15 +48,25 @@ private fun imageShapesCard() = Identity(UUID(0L, 1L), "小棉花", CardContent(
     CardBlock(BlockType.Image, "方形小图", image = sampleImage(96, 96)),
 )), cardComplete = true)
 
+private fun masonryCard() = Identity(UUID(0L, 1L), "小棉花", CardContent(sampleImage(), listOf(
+    CardBlock(BlockType.Text, "关于我", "喜欢拍照、逛展和认识新朋友。下次活动一起集邮吧！"),
+    CardBlock(BlockType.Image, image = sampleImage(240, 100)),
+    CardBlock(BlockType.Social, "社交账号", "@cotton_demo", url = "https://example.com/cotton"),
+    CardBlock(BlockType.Image, image = sampleImage(100, 240)),
+    CardBlock(BlockType.Link, "我的作品集", "https://example.com/gallery"),
+    CardBlock(BlockType.Image, image = sampleImage(160, 160, transparent = true)),
+    CardBlock(BlockType.Text, "一起出发", "周末见！"),
+)), cardComplete = true)
+
 @Composable
 internal fun CustomCardPreview(screen: String) {
-    var identity by remember { mutableStateOf(if (screen.startsWith("card-images")) imageShapesCard() else sampleCard()) }
+    var identity by remember { mutableStateOf(when { screen.startsWith("card-masonry") -> masonryCard(); screen.startsWith("card-images") -> imageShapesCard(); else -> sampleCard() }) }
     PreviewSurface {
         when (screen) {
-            "card-editor", "card-images-editor" -> Box(Modifier.systemBarsPadding()) {
+            "card-editor", "card-images-editor", "card-masonry-editor" -> Box(Modifier.systemBarsPadding()) {
                 CardEditorContent(identity, { identity = it }, { CardCodec.validate(identity.card) }, {})
             }
-            "card-received", "card-images-received" -> ContactDetails(Contact(identity.id, identity.displayName, 1761955200000L, 1761955200000L, 2, identity.card)) {}
+            "card-received", "card-images-received", "card-masonry-received" -> ContactDetails(Contact(identity.id, identity.displayName, 1761955200000L, 1761955200000L, 2, identity.card)) {}
             else -> Column(Modifier.systemBarsPadding().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text("我的卡片", style = MaterialTheme.typography.headlineSmall)
                 UserCardContent(identity)
