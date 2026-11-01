@@ -4,6 +4,7 @@
 
     <!-- 底部导航 -->
     <string name="tab_me">主页</string>
+    <string name="tab_exchange">扩列</string>
     <string name="tab_contacts">集邮册</string>
     <string name="tab_nearby">附近娃娃</string>
     <string name="tab_lab">实验室</string>
