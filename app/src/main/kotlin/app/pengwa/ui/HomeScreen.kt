@@ -74,7 +74,6 @@ fun HomeScreen(
         return
     }
 
-    ExchangeSession(role)
     Column(modifier = modifier.fillMaxSize()) {
         HomeHeader(identity, onEdit = { editing = true }, onSettings = { showSettings = true })
         FaceToFacePage(
