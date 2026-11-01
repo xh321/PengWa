@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Surface
-import app.pengwa.ui.components.NameStamp
 import app.pengwa.ui.components.PengWaIcon
 import app.pengwa.ui.components.PengWaIcons
 import app.pengwa.ui.theme.PageGutter
@@ -184,7 +183,10 @@ private fun PeerRow(peer: NearbyPeer, onExchange: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            NameStamp(peer.name.orEmpty())
+            CardAvatar(app.pengwa.identity.Identity(
+                peer.identityKey ?: java.util.UUID(0, 0), peer.name.orEmpty(),
+                app.pengwa.identity.CardContent(avatar = peer.avatar),
+            ), imageSize = 48.dp)
             Column(Modifier.weight(1f)) {
                 Text(peer.name ?: stringResource(R.string.bt_peer_unknown),
                     style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)

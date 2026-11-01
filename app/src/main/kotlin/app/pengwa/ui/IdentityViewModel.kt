@@ -54,6 +54,7 @@ class IdentityViewModel(application: Application) : AndroidViewModel(application
         return runCatching {
             repository.saveCard(normalized, onboardingStep = if (onboarding) OnboardingStep.PreviewCard else null)
             identity = repository.load()
+            getApplication<Application>().pengWa.bleExchange.refresh()
             if (onboarding) onboardingStep = OnboardingStep.PreviewCard
             PengWaNotification.refresh(getApplication())
             null

@@ -18,6 +18,7 @@ class UiPreviewActivity : ComponentActivity() {
                 "home-bluetooth-notice" -> HomeBluetoothNoticePreview()
                 "nearby-dedup" -> NearbyDedupPreview(index)
                 "nearby-refresh" -> NearbyRefreshPreview(index)
+                "nearby-avatar" -> NearbyAvatarPreview(index)
                 "bluetooth" -> BluetoothPagePreview(BluetoothPreviewProvider().values.toList().let { it[index.coerceIn(it.indices)] })
                 "contacts" -> ContactsScreenPreview(ContactsPreviewProvider().values.toList().let { it[index.coerceIn(it.indices)] })
                 "settings" -> SettingsPreview()

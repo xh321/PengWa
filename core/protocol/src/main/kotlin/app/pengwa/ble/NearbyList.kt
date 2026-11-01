@@ -20,6 +20,7 @@ data class NearbyPeer(
     val previewPending: Boolean = false,
     val identityKey: UUID? = null,
     val locator: Long? = null,
+    val avatar: String = "",
 )
 
 /**
@@ -78,6 +79,13 @@ class NearbyList(
         } else {
             old.copy(previewPending = false)
         }
+    }
+
+    /** Optional thumbnail arrives after the name; stale or unrelated callbacks cannot replace it. */
+    @Synchronized
+    fun onAvatar(address: String, identityKey: UUID, avatar: String) {
+        val old = peers[address]?.takeIf { it.identityKey == identityKey } ?: return
+        peers.replaceAll { _, peer -> if (sameIdentity(peer, old)) peer.copy(avatar = avatar) else peer }
     }
 
     /** 用户点了某个人。正在申请或等待中的不重复开始；成功开始返回 true。 */
@@ -152,6 +160,7 @@ class NearbyList(
                 name = latest.name ?: state.name,
                 lastSeenMillis = latest.lastSeenMillis,
                 rssi = latest.rssi,
+                avatar = group.firstOrNull { it.avatar.isNotEmpty() }?.avatar.orEmpty(),
             )
         }.sortedWith(compareByDescending<NearbyPeer> { it.rssi }.thenBy { it.address })
 

@@ -36,6 +36,7 @@ import app.pengwa.identity.CardCodec
 import java.nio.ByteBuffer
 import java.util.ArrayDeque
 import java.util.UUID
+import java.util.Base64
 
 /** 蓝牙事件回调。服务端和扫描来自系统线程，Nordic 客户端来自主线程；实现方需要处理线程。 */
 interface BleExchangeListener {
@@ -44,6 +45,9 @@ interface BleExchangeListener {
 
     /** 读完某个设备的预览：[preview] 包含显示名及可选的身份摘要，读取失败为 null。 */
     fun onPreview(address: String, preview: PeerPreview?)
+
+    /** Optional public thumbnail; the name is published before this best-effort read. */
+    fun onAvatar(address: String, identityKey: UUID, avatar: String) = Unit
 
     /** 我向某个设备发出的申请已经送达，接下来等对方同意。 */
     fun onExchangeWaiting(address: String)
@@ -80,6 +84,7 @@ class BleExchangeManager(
     context: Context,
     private val identityProvider: () -> Identity?,
     private val listener: BleExchangeListener,
+    private val avatarProvider: (Identity) -> ByteArray? = { null },
     private val log: (String) -> Unit,
 ) {
     private val appContext = context.applicationContext
@@ -93,6 +98,9 @@ class BleExchangeManager(
 
     private val lock = Any()
     private val devices = HashMap<String, BluetoothDevice>()
+    private val avatars = object : LinkedHashMap<UUID, String>(32, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<UUID, String>?) = size > 32
+    }
     private val sessions = GattExchangeSessions<String>()
     private class Transfer {
         val request = CardRequest()
@@ -188,6 +196,7 @@ class BleExchangeManager(
             BluetoothGattService.SERVICE_TYPE_PRIMARY,
         )
         service.addCharacteristic(readOnly(BleProtocol.PEER_PREVIEW_CHAR_UUID))
+        service.addCharacteristic(readOnly(BleProtocol.AVATAR_PREVIEW_CHAR_UUID))
         service.addCharacteristic(readOnly(BleProtocol.STATUS_CHAR_UUID))
         service.addCharacteristic(BluetoothGattCharacteristic(BleProtocol.CARD_CHAR_UUID,
             BluetoothGattCharacteristic.PROPERTY_WRITE, BluetoothGattCharacteristic.PERMISSION_WRITE))
@@ -264,6 +273,9 @@ class BleExchangeManager(
             val value: ByteArray? = when (characteristic.uuid) {
                 // 预览只含显示名，供附近的人列表使用，不需要申请
                 BleProtocol.PEER_PREVIEW_CHAR_UUID -> identityProvider()?.let(::encodePeerPreview)
+                BleProtocol.AVATAR_PREVIEW_CHAR_UUID -> identityProvider()?.let {
+                    avatarProvider(it) ?: NearbyAvatar.encode(identityKey(it.id), byteArrayOf())
+                }
                 // 状态只说明我对这个连接的申请做了什么决定
                 BleProtocol.STATUS_CHAR_UUID -> byteArrayOf(sessions.status(device.address).code)
                 else -> {
@@ -454,6 +466,7 @@ class BleExchangeManager(
         synchronized(lock) {
             queue.clear()
             devices.clear()
+            avatars.clear()
         }
         activeClient?.cancelConnection("scanning stopped")
         log("扫描已停止")
@@ -631,7 +644,7 @@ class BleExchangeManager(
         }
 
         /** One main-loop turn lets discovery enqueue the same peer before closing its preview. */
-        private fun finishPreview(gatt: BluetoothGatt, preview: PeerPreview?) {
+        private fun finishPreview(gatt: BluetoothGatt, preview: PeerPreview?, loadAvatar: Boolean = true) {
             mainHandler.post {
                 synchronized(this) {
                     if (finished) return@post
@@ -641,7 +654,11 @@ class BleExchangeManager(
                             current = it
                         }
                     }
-                    if (exchange == null) { disconnect().enqueue(); return@post }
+                    if (exchange == null) {
+                        if (loadAvatar && preview?.identityKey != null) readAvatar(gatt, preview)
+                        else disconnect().enqueue()
+                        return@post
+                    }
                     op = exchange
                     reported = false
                     mainHandler.removeCallbacks(timeout)
@@ -654,6 +671,40 @@ class BleExchangeManager(
                     } else beginExchange(gatt)
                 }
             }
+        }
+
+        private fun readAvatar(gatt: BluetoothGatt, preview: PeerPreview) {
+            val key = preview.identityKey ?: return
+            val cached = synchronized(lock) { avatars[key] }
+            if (cached != null) {
+                listener.onAvatar(op.address, key, cached)
+                finishPreview(gatt, preview, loadAvatar = false)
+                return
+            }
+            val characteristic = gatt.getService(BleProtocol.SERVICE_UUID)
+                ?.getCharacteristic(BleProtocol.AVATAR_PREVIEW_CHAR_UUID)
+            if (characteristic == null || mtu < 513) {
+                // Avoid long reads on small MTUs: optional images must not stall serial discovery.
+                finishPreview(gatt, preview, loadAvatar = false)
+                return
+            }
+            val started = SystemClock.elapsedRealtime()
+            readCharacteristic(characteristic).timeout(1_500)
+                .with { _, data ->
+                    if (!finished && !closing) {
+                        val image = NearbyAvatar.decode(data.value, key)
+                        if (image != null) {
+                            val avatar = Base64.getEncoder().encodeToString(image)
+                            synchronized(lock) { avatars[key] = avatar }
+                            listener.onAvatar(op.address, key, avatar)
+                        }
+                        log("头像预览：${data.size()} 字节，${SystemClock.elapsedRealtime() - started} ms")
+                        finishPreview(gatt, preview, loadAvatar = false)
+                    }
+                }
+                .fail { _, _ ->
+                    if (!finished && !closing) finishPreview(gatt, preview, loadAvatar = false)
+                }.enqueue()
         }
 
         private fun sendRequestChunk(gatt: BluetoothGatt) {
