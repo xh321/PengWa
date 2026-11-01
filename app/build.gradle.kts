@@ -33,8 +33,8 @@ android {
         val ciRun = providers.environmentVariable("GITHUB_RUN_NUMBER").orNull?.toInt()
         versionCode = providers.gradleProperty("appVersionCode").orNull?.toInt()
             ?: ciRun?.let { 100_000 + it * 100 + (providers.environmentVariable("GITHUB_RUN_ATTEMPT").orNull?.toInt() ?: 1) }
-            ?: 2
-        versionName = providers.gradleProperty("appVersionName").orNull ?: "0.1.1"
+            ?: 3
+        versionName = providers.gradleProperty("appVersionName").orNull ?: "0.1.2"
         val revision = providers.environmentVariable("GITHUB_SHA").orNull
             ?.takeIf { it.matches(Regex("[0-9a-fA-F]{40,64}")) } ?: "local"
         buildConfigField("String", "BUILD_REVISION", "\"$revision\"")
