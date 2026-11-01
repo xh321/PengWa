@@ -24,6 +24,8 @@ import android.os.Handler
 import android.os.Looper
 import android.os.ParcelUuid
 import android.os.SystemClock
+import app.pengwa.exchange.ExchangeTiming
+import android.util.Log
 import app.pengwa.identity.Identity
 import app.pengwa.identity.CardCodec
 import java.nio.ByteBuffer
@@ -459,6 +461,7 @@ class BleExchangeManager(
      *  - 交换：写我的名片（= 发出申请）→ 每秒读一次状态，等对方决定 → 同意后读对方的名片 → 断开。
      */
     private inner class ClientCallback(private val op: Op) : BluetoothGattCallback() {
+        private val timing = ExchangeTiming(op.kind.name, SystemClock::elapsedRealtime) { Log.d("PengWaExchange", it) }
         private var gatt: BluetoothGatt? = null
         private var finished = false
         private var reported = false
@@ -479,6 +482,7 @@ class BleExchangeManager(
 
         @Synchronized
         fun connect(device: BluetoothDevice) {
+            timing.mark("connect_start")
             gatt = device.connectGatt(appContext, false, this, BluetoothDevice.TRANSPORT_LE)
                 ?: error("无法建立蓝牙连接")
             activeGatt = gatt
@@ -492,6 +496,7 @@ class BleExchangeManager(
             when {
                 newState == BluetoothProfile.STATE_CONNECTED && status == BluetoothGatt.GATT_SUCCESS -> {
                     activeGatt = gatt
+                    timing.mark("connected")
                     // Negotiate larger chunks, but keep support for the default MTU 23.
                     if (!gatt.requestMtu(REQUESTED_MTU)) gatt.discoverServices()
                 }
@@ -503,12 +508,14 @@ class BleExchangeManager(
         override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
             if (finished) return
             if (status == BluetoothGatt.GATT_SUCCESS) this.mtu = mtu
+            timing.mark("mtu", mtu = this.mtu)
             gatt.discoverServices()
         }
 
         @Synchronized
         override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
             if (finished) return
+            timing.mark("services_ready")
             val service = gatt.getService(BleProtocol.SERVICE_UUID)
             if (status != BluetoothGatt.GATT_SUCCESS || service == null) {
                 failure = "对方不是碰碰娃"
@@ -537,6 +544,7 @@ class BleExchangeManager(
                         // 先出示我的名片，等于向对方发出申请
                         else -> {
                             upload = CardCodec.encode(me)
+                            timing.mark("upload_start", bytes = upload!!.size, mtu = mtu)
                             sendChunk(gatt)
                         }
                     }
@@ -590,6 +598,7 @@ class BleExchangeManager(
                         return
                     }
                     "ack" -> {
+                        timing.mark("ack_complete")
                         reported = true
                         report(op, null, downloadedPeer, null)
                         gatt.disconnect()
@@ -597,6 +606,7 @@ class BleExchangeManager(
                     }
                 }
             }
+            timing.mark("upload_complete", bytes = sent)
             // 申请已送达，开始等对方决定
             waitStartedAt = SystemClock.elapsedRealtime()
             listener.onExchangeWaiting(op.address)
@@ -639,6 +649,7 @@ class BleExchangeManager(
                         failure = "卡片传输不完整，请重试"
                         gatt.disconnect()
                     } else if (download.complete) {
+                        timing.mark("download_complete", bytes = download.received)
                         downloadedPeer = CardCodec.decode(download.result()!!)
                         if (downloadedPeer == null || (op.expectedId != null && downloadedPeer?.id != op.expectedId)) {
                             failure = "对方的卡片不合法"
@@ -668,6 +679,7 @@ class BleExchangeManager(
         private fun handleDecision(gatt: BluetoothGatt, code: Byte?) {
             when (code?.let(ExchangeStatus::fromCode)) {
                 ExchangeStatus.Accepted -> {
+                    timing.mark("accepted")
                     requestChunk(gatt)
                 }
                 ExchangeStatus.Pending -> {
@@ -697,6 +709,7 @@ class BleExchangeManager(
         private fun finish(gatt: BluetoothGatt, reason: String) {
             if (finished) return
             finished = true
+            timing.mark(if (reported) "closed" else "failed")
             mainHandler.removeCallbacks(timeout)
             mainHandler.removeCallbacks(poll)
             if (activeGatt === gatt) activeGatt = null
