@@ -19,6 +19,7 @@ data class NearbyPeer(
     val previewAttempts: Int = 0,
     val previewPending: Boolean = false,
     val identityKey: UUID? = null,
+    val locator: Long? = null,
 )
 
 /**
@@ -35,16 +36,16 @@ class NearbyList(
     private val peers = LinkedHashMap<String, NearbyPeer>()
 
     @Synchronized
-    fun onSeen(address: String, rssi: Int, now: Long) {
+    fun onSeen(address: String, rssi: Int, now: Long, locator: Long? = null) {
         val old = peers[address]
         if (old != null) {
-            peers[address] = old.copy(rssi = rssi, lastSeenMillis = now)
+            peers[address] = old.copy(rssi = rssi, lastSeenMillis = now, locator = locator ?: old.locator)
             return
         }
         if (peers.size >= capacity) {
             peers.values.minByOrNull { it.lastSeenMillis }?.let { peers.remove(it.address) }
         }
-        peers[address] = NearbyPeer(address, name = null, rssi = rssi, lastSeenMillis = now, state = PeerState.Discovered)
+        peers[address] = NearbyPeer(address, name = null, rssi = rssi, lastSeenMillis = now, state = PeerState.Discovered, locator = locator)
     }
 
     /** 取出需要读预览的设备，并标记为"读取中"。同一个设备不会被重复取出。 */

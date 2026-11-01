@@ -109,7 +109,7 @@ class CardCodecTest {
         var discovered: Identity? = null
         val handler = ApduHandler({ peer }, { discovered = it }, discoveryOnly = true)
         val result = runInitiator(card, true) { command ->
-            if (ApduProtocol.isExchange(command)) assertEquals(17, ApduProtocol.commandData(command)!!.size)
+            if (ApduProtocol.isExchange(command)) assertEquals(25, ApduProtocol.commandData(command)!!.size)
             handler.process(command)
         } as ExchangeResult.Peer
         assertEquals(peer.id, result.identity.id)

@@ -24,6 +24,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.ParcelUuid
 import android.os.SystemClock
+import app.pengwa.exchange.DiscoveryLocator
 import app.pengwa.exchange.ExchangeTiming
 import android.util.Log
 import app.pengwa.identity.Identity
@@ -35,7 +36,7 @@ import java.util.UUID
 /** 蓝牙事件回调。全部来自系统的蓝牙线程，实现方需要自己处理线程。 */
 interface BleExchangeListener {
     /** 扫描到一个碰碰娃的广播（同一个设备会反复回调）。 */
-    fun onDeviceSeen(address: String, rssi: Int)
+    fun onDeviceSeen(address: String, rssi: Int, locator: Long?)
 
     /** 读完某个设备的预览：[preview] 包含显示名及可选的身份摘要，读取失败为 null。 */
     fun onPreview(address: String, preview: PeerPreview?)
@@ -107,6 +108,7 @@ class BleExchangeManager(
     private val queue = ArrayDeque<Op>()
     private var current: Op? = null
     @Volatile private var activeGatt: BluetoothGatt? = null
+    @Volatile private var activeClient: ClientCallback? = null
 
     val isAdvertising: Boolean get() = advertiseCallback != null
     val isScanning: Boolean get() = scanCallback != null
@@ -159,7 +161,10 @@ class BleExchangeManager(
         }
         advertiseCallback = callback
         advertisingLowPower = lowPower
-        advertiser.startAdvertising(settings, data, callback)
+        val response = AdvertiseData.Builder()
+            .addServiceData(ParcelUuid(BleProtocol.SERVICE_UUID), DiscoveryLocator.encode(DiscoveryLocator.local))
+            .build()
+        advertiser.startAdvertising(settings, data, response, callback)
         return true
     }
 
@@ -357,7 +362,7 @@ class BleExchangeManager(
         val callback = object : ScanCallback() {
             override fun onScanResult(callbackType: Int, result: ScanResult) {
                 synchronized(lock) { devices[result.device.address] = result.device }
-                listener.onDeviceSeen(result.device.address, result.rssi)
+                listener.onDeviceSeen(result.device.address, result.rssi, DiscoveryLocator.decode(result.scanRecord?.getServiceData(ParcelUuid(BleProtocol.SERVICE_UUID))))
             }
 
             override fun onScanFailed(errorCode: Int) {
@@ -389,7 +394,10 @@ class BleExchangeManager(
     fun requestPreview(address: String) = enqueue(Op(Kind.Preview, address), front = false)
 
     /** 向某个设备申请交换。用户主动点选的，排在队列最前面。 */
-    fun requestExchange(address: String, expectedId: UUID? = null) = enqueue(Op(Kind.Exchange, address, expectedId), front = true)
+    fun requestExchange(address: String, expectedId: UUID? = null) {
+        enqueue(Op(Kind.Exchange, address, expectedId), front = true)
+        activeClient?.interruptUnrelatedPreview(address)
+    }
 
     private fun enqueue(op: Op, front: Boolean) {
         synchronized(lock) {
@@ -438,7 +446,7 @@ class BleExchangeManager(
      *  - 预览：读预览 → 断开；
      *  - 交换：写我的名片（= 发出申请）→ 每秒读一次状态，等对方决定 → 同意后读对方的名片 → 断开。
      */
-    private inner class ClientCallback(private val op: Op) : BluetoothGattCallback() {
+    private inner class ClientCallback(private var op: Op) : BluetoothGattCallback() {
         private val timing = ExchangeTiming(op.kind.name, SystemClock::elapsedRealtime) { Log.d("PengWaExchange", it) }
         private var gatt: BluetoothGatt? = null
         private var finished = false
@@ -464,6 +472,7 @@ class BleExchangeManager(
         @Synchronized
         fun connect(device: BluetoothDevice) {
             timing.mark("connect_start")
+            activeClient = this
             gatt = device.connectGatt(appContext, false, this, BluetoothDevice.TRANSPORT_LE)
                 ?: error("无法建立蓝牙连接")
             activeGatt = gatt
@@ -504,32 +513,65 @@ class BleExchangeManager(
                 gatt.disconnect()
                 return
             }
-            when (op.kind) {
-                Kind.Preview -> {
-                    val preview = service.getCharacteristic(BleProtocol.PEER_PREVIEW_CHAR_UUID)
-                    if (preview == null || !gatt.readCharacteristic(preview)) gatt.disconnect()
-                }
-                Kind.Exchange -> {
-                    val exchange = service.getCharacteristic(BleProtocol.CARD_CHAR_UUID)
-                    val hasStatus = service.getCharacteristic(BleProtocol.STATUS_CHAR_UUID) != null
-                    val me = identityProvider()
-                    when {
-                        exchange == null || !hasStatus || service.getCharacteristic(BleProtocol.REQUEST_CHAR_UUID) == null -> {
-                            failure = "对方版本不兼容"
-                            gatt.disconnect()
-                        }
-                        me == null -> {
-                            failure = "你还没有设置显示名"
-                            gatt.disconnect()
-                        }
-                        // 先出示我的名片，等于向对方发出申请
-                        else -> {
-                            upload = CardCodec.encodeBinary(me)
-                            requestBytes = encodeIdentity(me)
-                            timing.mark("request_start", bytes = requestBytes.size, mtu = mtu)
-                            sendRequestChunk(gatt)
+            val preview = service.getCharacteristic(BleProtocol.PEER_PREVIEW_CHAR_UUID)
+            if (preview == null || !gatt.readCharacteristic(preview)) gatt.disconnect()
+        }
+
+        private fun beginExchange(gatt: BluetoothGatt) {
+            val service = gatt.getService(BleProtocol.SERVICE_UUID)
+        val exchange = service.getCharacteristic(BleProtocol.CARD_CHAR_UUID)
+        val hasStatus = service.getCharacteristic(BleProtocol.STATUS_CHAR_UUID) != null
+        val me = identityProvider()
+        when {
+            exchange == null || !hasStatus || service.getCharacteristic(BleProtocol.REQUEST_CHAR_UUID) == null -> {
+                failure = "对方版本不兼容"
+                gatt.disconnect()
+            }
+            me == null -> {
+                failure = "你还没有设置显示名"
+                gatt.disconnect()
+            }
+            // 先出示我的名片，等于向对方发出申请
+            else -> {
+                upload = CardCodec.encodeBinary(me)
+                requestBytes = encodeIdentity(me)
+                timing.mark("request_start", bytes = requestBytes.size, mtu = mtu)
+                sendRequestChunk(gatt)
+            }
+        }
+        }
+
+        @Synchronized
+        fun interruptUnrelatedPreview(targetAddress: String) {
+            if (finished || op.kind != Kind.Preview || op.address == targetAddress) return
+            gatt?.let {
+                runCatching { it.disconnect() }
+                finish(it, "preview interrupted for targeted exchange")
+            }
+        }
+
+        /** One main-loop turn lets discovery enqueue the same peer before closing its preview. */
+        private fun finishPreview(gatt: BluetoothGatt, preview: PeerPreview?) {
+            mainHandler.post {
+                synchronized(this) {
+                    if (finished) return@post
+                    val exchange = synchronized(lock) {
+                        queue.firstOrNull { it.kind == Kind.Exchange && it.address == op.address }?.also {
+                            queue.remove(it)
+                            current = it
                         }
                     }
+                    if (exchange == null) { gatt.disconnect(); return@post }
+                    op = exchange
+                    reported = false
+                    mainHandler.removeCallbacks(timeout)
+                    mainHandler.postDelayed(timeout, EXCHANGE_TIMEOUT_MS)
+                    timing.mark("preview_connection_reused")
+                    setTransferPriority(gatt, true)
+                    if (preview == null || (op.expectedId != null && preview.identityKey != identityKey(op.expectedId!!))) {
+                        failure = "对方身份与识别结果不一致"
+                        gatt.disconnect()
+                    } else beginExchange(gatt)
                 }
             }
         }
@@ -664,9 +706,16 @@ class BleExchangeManager(
                 }
                 BleProtocol.PEER_PREVIEW_CHAR_UUID -> {
                     val preview = if (ok) decodePeerPreview(value) else null
-                    reported = true
-                    report(op, preview, null, null)
-                    gatt.disconnect()
+                    if (op.kind == Kind.Exchange) {
+                        if (preview == null || (op.expectedId != null && preview.identityKey != identityKey(op.expectedId!!))) {
+                            failure = "对方身份与识别结果不一致"
+                            gatt.disconnect()
+                        } else beginExchange(gatt)
+                    } else {
+                        reported = true
+                        report(op, preview, null, null)
+                        finishPreview(gatt, preview)
+                    }
                 }
                 BleProtocol.STATUS_CHAR_UUID -> handleDecision(gatt, if (ok) value?.firstOrNull() else null)
 
@@ -723,6 +772,7 @@ class BleExchangeManager(
             mainHandler.removeCallbacks(timeout)
             mainHandler.removeCallbacks(poll)
             if (activeGatt === gatt) activeGatt = null
+            if (activeClient === this) activeClient = null
             setTransferPriority(gatt, false)
             gatt.close()
             if (!reported) report(op, null, null, failure)
