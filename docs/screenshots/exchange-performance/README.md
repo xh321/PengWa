@@ -24,3 +24,9 @@
 同设备、Android 16 / API 36，`qr-v5-before/after-{light,dark}.png` 对应 V4/V5 的主页二维码。
 启动方式和主题切换同 V3，使用内置测试身份。定位符在每次进程启动时随机产生，因此重新启动二维码像素也会变化。
 截图不验证蓝牙广播、连接复用或实际交换性能，双真机验证待补。
+
+## V6：窗口通知下载
+
+同设备、Android 16 / API 36，`qr-v6-before/after-{light,dark}.png` 对应 V5/V6 的主页二维码；
+`qr-received-v6-before/after-{light,dark}.png` 对应 V5/V6 的收到的带图卡片测试场景，启动参数为 `--es screen card-images-received`。
+固定测试卡片含横图、竖图及透明 PNG。图文布局未调整。图片来自固定测试场景，不能当作真实蓝牙接收证据；端到端传图及实际提速需双真机补验。

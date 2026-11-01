@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
+import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattServer
 import android.bluetooth.BluetoothGattServerCallback
@@ -64,9 +65,9 @@ enum class RequestReply { Prompt, Decline }
 
 /**
  * BLE 名片交换的 Android 实现。
- *  - 服务端（广播）：只提供当前协议的身份预览、申请状态和二进制卡片特征；
+ *  - 服务端（广播）：只提供当前协议的预览、状态、申请、卡片写入和通知流特征；
  *  - 客户端（扫描）：扫描带该服务 UUID 的广播；读预览填列表；用户点选某人后，
- *    **先写入我的名片发出申请 → 轮询对方的决定 → 对方同意后读取它的名片**。
+ *    **先发送身份申请 → 等待同意 → 上传卡片 → 窗口通知下载 → 最终 ACK**。
  * 广播里不放 ID 和名字，连上之后才读取。所有主动连接排进一个串行队列，同一时刻只有一个。
  *
  * 所有方法要求调用前已取得对应的蓝牙权限，因此整体抑制 MissingPermission。
@@ -94,10 +95,10 @@ class BleExchangeManager(
         val request = CardRequest()
         val incoming = CardAssembler()
         var outgoing: ByteArray? = null
-        var cursor = 0
         var mtu = 23
         var acknowledged = false
-        var readEnd = 0
+        var subscribed = false
+        var stream: CardSendWindow? = null
     }
     private val peerMtus = java.util.concurrent.ConcurrentHashMap<String, Int>()
     private val transfers = java.util.concurrent.ConcurrentHashMap<String, Transfer>()
@@ -187,10 +188,14 @@ class BleExchangeManager(
         service.addCharacteristic(readOnly(BleProtocol.PEER_PREVIEW_CHAR_UUID))
         service.addCharacteristic(readOnly(BleProtocol.STATUS_CHAR_UUID))
         service.addCharacteristic(BluetoothGattCharacteristic(BleProtocol.CARD_CHAR_UUID,
-            BluetoothGattCharacteristic.PROPERTY_READ or BluetoothGattCharacteristic.PROPERTY_WRITE,
-            BluetoothGattCharacteristic.PERMISSION_READ or BluetoothGattCharacteristic.PERMISSION_WRITE))
+            BluetoothGattCharacteristic.PROPERTY_WRITE, BluetoothGattCharacteristic.PERMISSION_WRITE))
         service.addCharacteristic(BluetoothGattCharacteristic(BleProtocol.REQUEST_CHAR_UUID,
             BluetoothGattCharacteristic.PROPERTY_WRITE, BluetoothGattCharacteristic.PERMISSION_WRITE))
+        service.addCharacteristic(BluetoothGattCharacteristic(BleProtocol.STREAM_CHAR_UUID,
+            BluetoothGattCharacteristic.PROPERTY_NOTIFY, BluetoothGattCharacteristic.PERMISSION_READ).apply {
+                addDescriptor(BluetoothGattDescriptor(BleProtocol.CCCD_UUID,
+                    BluetoothGattDescriptor.PERMISSION_READ or BluetoothGattDescriptor.PERMISSION_WRITE))
+            })
         server.addService(service)
         gattServer = server
         return true
@@ -209,6 +214,7 @@ class BleExchangeManager(
         gattServer?.close()
         gattServer = null
         transfers.clear()
+        synchronized(notificationLock) { streamDevices.clear(); notificationInFlight = null }
     }
 
     /** 做出决定后仍等待完整传输确认，此时不入册。 */
@@ -229,6 +235,11 @@ class BleExchangeManager(
             val connected = newState == BluetoothProfile.STATE_CONNECTED
             if (!connected) {
                 val transfer = transfers.remove(device.address)
+                synchronized(notificationLock) {
+                    streamDevices.remove(device.address)
+                    if (notificationInFlight == device.address) notificationInFlight = null
+                }
+                pumpStream(null)
                 peerMtus.remove(device.address)
                 val pending = sessions.onDisconnected(device.address)
                 if (pending || (transfer != null && !transfer.acknowledged)) listener.onIncomingRequestEnded(device.address)
@@ -249,19 +260,6 @@ class BleExchangeManager(
         ) {
             val server = gattServer ?: return
             val value: ByteArray? = when (characteristic.uuid) {
-                BleProtocol.CARD_CHAR_UUID -> {
-                    val transfer = transfers[device.address]
-                    if (transfer == null || sessions.peerOf(device.address)?.cardComplete != true || !sessions.canRead(device.address) || offset != 0) {
-                        server.sendResponse(device, requestId, BluetoothGatt.GATT_INSUFFICIENT_AUTHORIZATION, offset, null)
-                        return
-                    }
-                    synchronized(transfer) {
-                        if (transfer.outgoing == null) transfer.outgoing = identityProvider()?.let { CardCodec.encodeBinary(it) }
-                        transfer.outgoing?.let { bytes ->
-                            if (transfer.cursor !in bytes.indices) null else CardTransfer.frame(bytes, transfer.cursor, minOf(transfer.mtu - 2, 510)).also { transfer.readEnd = transfer.cursor + it.size - CardTransfer.HEADER }
-                        }
-                    }
-                }
                 // 预览只含显示名，供附近的人列表使用，不需要申请
                 BleProtocol.PEER_PREVIEW_CHAR_UUID -> identityProvider()?.let(::encodePeerPreview)
                 // 状态只说明我对这个连接的申请做了什么决定
@@ -295,9 +293,75 @@ class BleExchangeManager(
             if (characteristic.uuid == BleProtocol.CARD_CHAR_UUID) {
                 val ok = !preparedWrite && offset == 0 && value != null && receiveCard(device.address, value)
                 if (responseNeeded) gattServer?.sendResponse(device, requestId, if (ok) BluetoothGatt.GATT_SUCCESS else BluetoothGatt.GATT_FAILURE, offset, null)
+                if (ok) pumpStream(device)
                 return
             }
             if (responseNeeded) gattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_WRITE_NOT_PERMITTED, offset, null)
+        }
+        override fun onDescriptorReadRequest(device: BluetoothDevice, requestId: Int, offset: Int, descriptor: BluetoothGattDescriptor) {
+            val value = if (transfers[device.address]?.subscribed == true) BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE else BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE
+            val ok = descriptor.uuid == BleProtocol.CCCD_UUID && descriptor.characteristic.uuid == BleProtocol.STREAM_CHAR_UUID && offset == 0
+            gattServer?.sendResponse(device, requestId, if (ok) BluetoothGatt.GATT_SUCCESS else BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED, offset, if (ok) value else null)
+        }
+
+        override fun onDescriptorWriteRequest(device: BluetoothDevice, requestId: Int, descriptor: BluetoothGattDescriptor,
+            preparedWrite: Boolean, responseNeeded: Boolean, offset: Int, value: ByteArray?) {
+            val transfer = transfers[device.address]
+            val enabled = value?.contentEquals(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE) == true
+            val disabled = value?.contentEquals(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE) == true
+            val ok = transfer != null && !preparedWrite && offset == 0 && descriptor.uuid == BleProtocol.CCCD_UUID &&
+                descriptor.characteristic.uuid == BleProtocol.STREAM_CHAR_UUID &&
+                (disabled || (enabled && sessions.canRead(device.address) && sessions.peerOf(device.address)?.cardComplete == true))
+            if (ok) synchronized(transfer) { transfer.subscribed = enabled }
+            if (responseNeeded) gattServer?.sendResponse(device, requestId, if (ok) BluetoothGatt.GATT_SUCCESS else BluetoothGatt.GATT_INSUFFICIENT_AUTHORIZATION, offset, null)
+        }
+
+        override fun onNotificationSent(device: BluetoothDevice, status: Int) {
+            synchronized(notificationLock) {
+                if (notificationInFlight != device.address) return
+                notificationInFlight = null
+            }
+            transfers[device.address]?.let { transfer ->
+                synchronized(transfer) { transfer.stream?.onSent(status == BluetoothGatt.GATT_SUCCESS) }
+            }
+            if (status != BluetoothGatt.GATT_SUCCESS) gattServer?.cancelConnection(device)
+            pumpStream(null)
+        }
+    }
+
+    private val notificationLock = Any()
+    private val streamDevices = LinkedHashMap<String, BluetoothDevice>()
+    private var notificationInFlight: String? = null
+
+    /** Serialize Android sends across devices, as well as bounding each application's window. */
+    @Suppress("DEPRECATION")
+    private fun pumpStream(device: BluetoothDevice?) {
+        val server = gattServer ?: return
+        synchronized(notificationLock) {
+            if (device != null) streamDevices[device.address] = device
+            if (notificationInFlight != null) return
+            for (peer in streamDevices.values.toList()) {
+                val transfer = transfers[peer.address] ?: continue
+                synchronized(transfer) transferLock@ {
+                    if (!transfer.subscribed || transfer.acknowledged || !sessions.canRead(peer.address) || sessions.peerOf(peer.address)?.cardComplete != true) return@transferLock
+                    val stream = transfer.stream ?: return@transferLock
+                    val characteristic = server.getService(BleProtocol.SERVICE_UUID)?.getCharacteristic(BleProtocol.STREAM_CHAR_UUID) ?: return@transferLock
+                    val frame = stream.nextFrame(minOf(transfer.mtu - 3, 512)) ?: return@transferLock
+                    streamDevices.remove(peer.address)
+                    streamDevices[peer.address] = peer
+                    notificationInFlight = peer.address
+                    val sent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        server.notifyCharacteristicChanged(peer, characteristic, false, frame) == BluetoothStatusCodes.SUCCESS
+                    } else {
+                        characteristic.value = frame
+                        server.notifyCharacteristicChanged(peer, characteristic, false)
+                    }
+                    if (sent) return
+                    notificationInFlight = null
+                    stream.onSent(false)
+                    server.cancelConnection(peer)
+                }
+            }
         }
     }
 
@@ -325,14 +389,19 @@ class BleExchangeManager(
             val total = header.int
             if (frame.contentEquals(CardTransfer.ACK)) {
                 val outgoing = transfer.outgoing ?: return false
-                if (sessions.peerOf(address)?.cardComplete != true || !sessions.canRead(address) || transfer.readEnd != outgoing.size || transfer.acknowledged) return false
+                if (sessions.peerOf(address)?.cardComplete != true || transfer.stream?.offeredBytes != outgoing.size || transfer.stream?.failed != false || transfer.acknowledged) return false
                 transfer.acknowledged = true
                 sessions.peerOf(address)?.let { listener.onCardCompleted(address, it) }
                 return true
             }
-            if (total == -1 && frame.size == CardTransfer.HEADER && sessions.canRead(address)) {
-                if (offset < 0 || offset >= (transfer.outgoing?.size ?: CardCodec.MAX_BYTES) || (offset != transfer.readEnd && offset != transfer.cursor)) return false
-                transfer.cursor = offset
+            if (total == CardSendWindow.CREDIT_TOTAL && frame.size == CardTransfer.HEADER) {
+                if (!transfer.subscribed || sessions.peerOf(address)?.cardComplete != true) return false
+                val stream = transfer.stream
+                if (stream != null) return stream.grant(offset)
+                if (offset != 0) return false
+                val me = identityProvider() ?: return false
+                transfer.outgoing = CardCodec.encodeBinary(me)
+                transfer.stream = CardSendWindow(transfer.outgoing!!)
                 return true
             }
             if (!transfer.incoming.append(frame)) return false
@@ -444,7 +513,7 @@ class BleExchangeManager(
     /**
      * 客户端流程：连接 → 协商 MTU → 发现服务 →
      *  - 预览：读预览 → 断开；
-     *  - 交换：写我的名片（= 发出申请）→ 每秒读一次状态，等对方决定 → 同意后读对方的名片 → 断开。
+     *  - 交换：读身份预览 → 小申请 → 等待同意 → 上传 → 订阅窗口通知 → 收齐并 ACK → 断开。
      */
     private inner class ClientCallback(private var op: Op) : BluetoothGattCallback() {
         private val timing = ExchangeTiming(op.kind.name, SystemClock::elapsedRealtime) { Log.d("PengWaExchange", it) }
@@ -462,7 +531,10 @@ class BleExchangeManager(
         private var lastSent = 0
         private val download = CardAssembler()
         private var downloadedPeer: Identity? = null
-        private var phase = "upload"
+        private var phase = "request"
+        private var streamControlPending = false
+        private var pendingCredit = 0
+        private var receivedInWindow = 0
         private val timeout = Runnable {
             failure = "连接或交换超时，请重试"
             gatt?.let { runCatching { it.disconnect() }; finish(it, "timeout") }
@@ -519,26 +591,26 @@ class BleExchangeManager(
 
         private fun beginExchange(gatt: BluetoothGatt) {
             val service = gatt.getService(BleProtocol.SERVICE_UUID)
-        val exchange = service.getCharacteristic(BleProtocol.CARD_CHAR_UUID)
-        val hasStatus = service.getCharacteristic(BleProtocol.STATUS_CHAR_UUID) != null
-        val me = identityProvider()
-        when {
-            exchange == null || !hasStatus || service.getCharacteristic(BleProtocol.REQUEST_CHAR_UUID) == null -> {
-                failure = "对方版本不兼容"
-                gatt.disconnect()
+            val exchange = service.getCharacteristic(BleProtocol.CARD_CHAR_UUID)
+            val hasStatus = service.getCharacteristic(BleProtocol.STATUS_CHAR_UUID) != null
+            val me = identityProvider()
+            when {
+                exchange == null || !hasStatus || service.getCharacteristic(BleProtocol.REQUEST_CHAR_UUID) == null || service.getCharacteristic(BleProtocol.STREAM_CHAR_UUID)?.getDescriptor(BleProtocol.CCCD_UUID) == null -> {
+                    failure = "对方版本不兼容"
+                    gatt.disconnect()
+                }
+                me == null -> {
+                    failure = "你还没有设置显示名"
+                    gatt.disconnect()
+                }
+                // 先出示我的名片，等于向对方发出申请
+                else -> {
+                    upload = CardCodec.encodeBinary(me)
+                    requestBytes = encodeIdentity(me)
+                    timing.mark("request_start", bytes = requestBytes.size, mtu = mtu)
+                    sendRequestChunk(gatt)
+                }
             }
-            me == null -> {
-                failure = "你还没有设置显示名"
-                gatt.disconnect()
-            }
-            // 先出示我的名片，等于向对方发出申请
-            else -> {
-                upload = CardCodec.encodeBinary(me)
-                requestBytes = encodeIdentity(me)
-                timing.mark("request_start", bytes = requestBytes.size, mtu = mtu)
-                sendRequestChunk(gatt)
-            }
-        }
         }
 
         @Synchronized
@@ -599,10 +671,81 @@ class BleExchangeManager(
             writeRequest(gatt, gatt.getService(BleProtocol.SERVICE_UUID).getCharacteristic(BleProtocol.CARD_CHAR_UUID), frame)
         }
 
-        private fun requestChunk(gatt: BluetoothGatt) {
-            phase = "cursor"
-            val cursor = ByteBuffer.allocate(8).putInt(download.received).putInt(-1).array()
-            writeRequest(gatt, gatt.getService(BleProtocol.SERVICE_UUID).getCharacteristic(BleProtocol.CARD_CHAR_UUID), cursor)
+        @Suppress("DEPRECATION")
+        private fun beginDownload(gatt: BluetoothGatt) {
+            val characteristic = gatt.getService(BleProtocol.SERVICE_UUID).getCharacteristic(BleProtocol.STREAM_CHAR_UUID)
+            val descriptor = characteristic.getDescriptor(BleProtocol.CCCD_UUID)
+            phase = "subscribe"
+            if (!gatt.setCharacteristicNotification(characteristic, true)) { gatt.disconnect(); return }
+            val started = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                gatt.writeDescriptor(descriptor, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE) == BluetoothStatusCodes.SUCCESS
+            } else {
+                descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                gatt.writeDescriptor(descriptor)
+            }
+            if (!started) gatt.disconnect()
+        }
+
+        @Synchronized
+        override fun onDescriptorWrite(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
+            if (finished || phase != "subscribe" || descriptor.uuid != BleProtocol.CCCD_UUID) return
+            if (status != BluetoothGatt.GATT_SUCCESS) { gatt.disconnect(); return }
+            timing.mark("download_start")
+            writeCredit(gatt, 0, initial = true)
+        }
+
+        private fun writeCredit(gatt: BluetoothGatt, offset: Int, initial: Boolean = false) {
+            phase = if (initial) "stream_start" else "stream_credit"
+            streamControlPending = true
+            val frame = ByteBuffer.allocate(8).putInt(offset).putInt(CardSendWindow.CREDIT_TOTAL).array()
+            writeRequest(gatt, gatt.getService(BleProtocol.SERVICE_UUID).getCharacteristic(BleProtocol.CARD_CHAR_UUID), frame)
+        }
+
+        /** A notification can beat a control-write callback; never overlap GATT writes. */
+        private fun drainStreamControl(gatt: BluetoothGatt) {
+            if (streamControlPending || finished || phase == "ack") return
+            if (download.complete) {
+                phase = "ack"
+                writeRequest(gatt, gatt.getService(BleProtocol.SERVICE_UUID).getCharacteristic(BleProtocol.CARD_CHAR_UUID), CardTransfer.ACK)
+            } else if (pendingCredit > 0) {
+                val credit = pendingCredit
+                pendingCredit = 0
+                writeCredit(gatt, credit)
+            }
+        }
+
+        @Deprecated("Deprecated in Java")
+        @Suppress("DEPRECATION")
+        override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) receiveNotification(gatt, characteristic.uuid, characteristic.value)
+        }
+
+        override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray) {
+            receiveNotification(gatt, characteristic.uuid, value)
+        }
+
+        @Synchronized
+        private fun receiveNotification(gatt: BluetoothGatt, uuid: UUID, value: ByteArray?) {
+            if (finished || uuid != BleProtocol.STREAM_CHAR_UUID) return
+            if (phase !in setOf("stream_start", "stream_credit", "stream") || value == null || !download.append(value)) {
+                failure = "卡片传输不完整，请重试"
+                gatt.disconnect()
+                return
+            }
+            receivedInWindow++
+            if (download.complete) {
+                timing.mark("download_complete", bytes = download.received)
+                downloadedPeer = CardCodec.decodeBinary(download.result()!!)
+                if (downloadedPeer == null || (op.expectedId != null && downloadedPeer?.id != op.expectedId)) {
+                    failure = "对方的卡片不合法"
+                    gatt.disconnect()
+                    return
+                }
+            } else if (receivedInWindow == CardSendWindow.WINDOW_FRAMES) {
+                pendingCredit = download.received
+                receivedInWindow = 0
+            }
+            drainStreamControl(gatt)
         }
 
         @Suppress("DEPRECATION")
@@ -637,11 +780,13 @@ class BleExchangeManager(
                         sent += lastSent
                         if (sent < (upload?.size ?: 0)) { sendChunk(gatt); return }
                         timing.mark("upload_complete", bytes = sent)
-                        requestChunk(gatt)
+                        beginDownload(gatt)
                         return
                     }
-                    "cursor" -> {
-                        if (!gatt.readCharacteristic(characteristic)) gatt.disconnect()
+                    "stream_start", "stream_credit" -> {
+                        streamControlPending = false
+                        phase = "stream"
+                        drainStreamControl(gatt)
                         return
                     }
                     "ack" -> {
@@ -688,22 +833,6 @@ class BleExchangeManager(
             if (finished) return
             val ok = status == BluetoothGatt.GATT_SUCCESS
             when (uuid) {
-                BleProtocol.CARD_CHAR_UUID -> {
-                    if (!ok || value == null || !download.append(value)) {
-                        failure = "卡片传输不完整，请重试"
-                        gatt.disconnect()
-                    } else if (download.complete) {
-                        timing.mark("download_complete", bytes = download.received)
-                        downloadedPeer = CardCodec.decodeBinary(download.result()!!)
-                        if (downloadedPeer == null || (op.expectedId != null && downloadedPeer?.id != op.expectedId)) {
-                            failure = "对方的卡片不合法"
-                            gatt.disconnect()
-                        } else {
-                            phase = "ack"
-                            writeRequest(gatt, gatt.getService(BleProtocol.SERVICE_UUID).getCharacteristic(BleProtocol.CARD_CHAR_UUID), CardTransfer.ACK)
-                        }
-                    } else requestChunk(gatt)
-                }
                 BleProtocol.PEER_PREVIEW_CHAR_UUID -> {
                     val preview = if (ok) decodePeerPreview(value) else null
                     if (op.kind == Kind.Exchange) {

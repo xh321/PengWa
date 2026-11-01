@@ -60,8 +60,8 @@ class BlePreviewTest {
     }
 
     @Test
-    fun `预览特征与另外两个特征的 UUID 互不相同`() {
-        val all = setOf(BleProtocol.PREVIEW_CHAR_UUID, BleProtocol.IDENTITY_CHAR_UUID, BleProtocol.EXCHANGE_CHAR_UUID, BleProtocol.PEER_PREVIEW_CHAR_UUID, BleProtocol.STATUS_CHAR_UUID)
+    fun `当前五个服务特征的 UUID 互不相同`() {
+        val all = setOf(BleProtocol.PEER_PREVIEW_CHAR_UUID, BleProtocol.STATUS_CHAR_UUID, BleProtocol.CARD_CHAR_UUID, BleProtocol.REQUEST_CHAR_UUID, BleProtocol.STREAM_CHAR_UUID)
         assertEquals(5, all.size)
     }
 
