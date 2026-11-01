@@ -30,6 +30,8 @@ internal fun OnboardingScreen(
     modifier: Modifier = Modifier,
 ) {
     var error by remember { mutableStateOf<String?>(null) }
+    var shareUsage by rememberSaveable { mutableStateOf(true) }
+    var completing by remember { mutableStateOf(false) }
     val step = viewModel.onboardingStep
     val scope = rememberCoroutineScope()
     fun moveTo(next: OnboardingStep) { scope.launch { error = viewModel.moveOnboardingTo(next) } }
@@ -72,12 +74,17 @@ internal fun OnboardingScreen(
             OnboardingStep.LearnExchange -> ExchangeGuide(
                 onBack = { moveTo(OnboardingStep.PreviewCard) },
                 onFinish = { tab ->
-                    scope.launch {
-                        error = viewModel.moveOnboardingTo(OnboardingStep.Complete)
-                        if (error == null) onFinish(tab)
+                    if (!completing) scope.launch {
+                        completing = true
+                        try {
+                            error = viewModel.finishOnboarding(shareUsage)
+                            if (error == null) onFinish(tab)
+                        } finally { completing = false }
                     }
                 },
                 modifier = Modifier.weight(1f),
+                finishEnabled = !completing,
+                completionOption = { OnboardingAnalyticsOption(shareUsage, { shareUsage = it }, enabled = !completing) },
             )
             OnboardingStep.Complete -> Unit
         }
@@ -123,10 +130,16 @@ private fun ExchangeLesson.illustration(): IllustratedLesson = when (this) {
 
 /** Illustrations lead the lesson; short native captions stay scalable and accessible. */
 @Composable
-internal fun ExchangeGuide(onBack: () -> Unit, onFinish: (Int) -> Unit, modifier: Modifier = Modifier) {
+internal fun ExchangeGuide(
+    onBack: () -> Unit,
+    onFinish: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    finishEnabled: Boolean = true,
+    completionOption: @Composable () -> Unit = {},
+) {
     var lesson by rememberSaveable { mutableStateOf(ExchangeLesson.Qr) }
     val illustration = lesson.illustration()
-    BackHandler(onBack = onBack)
+    BackHandler { if (finishEnabled) onBack() }
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -137,6 +150,7 @@ internal fun ExchangeGuide(onBack: () -> Unit, onFinish: (Int) -> Unit, modifier
             ExchangeLesson.entries.forEach { item ->
                 FilterChip(
                     selected = lesson == item,
+                    enabled = finishEnabled,
                     onClick = { lesson = item },
                     label = { Text(item.label) },
                     leadingIcon = { PengWaIcon(item.icon, tint = if (lesson == item) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) },
@@ -161,11 +175,12 @@ internal fun ExchangeGuide(onBack: () -> Unit, onFinish: (Int) -> Unit, modifier
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Button(onClick = { onFinish(if (lesson == ExchangeLesson.Nearby) MainActivity.TAB_NEARBY else MainActivity.TAB_ME) }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
+        completionOption()
+        Button(enabled = finishEnabled, onClick = { onFinish(if (lesson == ExchangeLesson.Nearby) MainActivity.TAB_NEARBY else MainActivity.TAB_ME) }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
             Text(when (lesson) { ExchangeLesson.Qr -> "去主页，试试扫码"; ExchangeLesson.Nearby -> "去附近，找娃友"; ExchangeLesson.Nfc -> "去主页，试试碰一碰" })
         }
         Text("在主页设置里，随时重看“扩列图解”。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        TextButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("返回") }
+        TextButton(enabled = finishEnabled, onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("返回") }
     }
 }
 

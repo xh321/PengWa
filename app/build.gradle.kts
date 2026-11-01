@@ -16,6 +16,10 @@ val keystoreProperties = Properties().apply {
     if (file.exists()) file.inputStream().use { load(it) }
 }
 
+fun analyticsString(value: String): String = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r") + "\""
+val aptabaseAppKey = providers.gradleProperty("aptabaseAppKey").orElse(providers.environmentVariable("APTABASE_APP_KEY")).orElse("")
+val aptabaseHost = providers.gradleProperty("aptabaseHost").orElse(providers.environmentVariable("APTABASE_HOST")).orElse("")
+
 android {
     namespace = "app.pengwa"
     // AndroidX 最新版要求 compileSdk >= 37；targetSdk 仍保持 36，不影响运行时行为
@@ -34,6 +38,8 @@ android {
         val revision = providers.environmentVariable("GITHUB_SHA").orNull
             ?.takeIf { it.matches(Regex("[0-9a-fA-F]{40,64}")) } ?: "local"
         buildConfigField("String", "BUILD_REVISION", "\"$revision\"")
+        buildConfigField("String", "APTABASE_APP_KEY", analyticsString(aptabaseAppKey.get()))
+        buildConfigField("String", "APTABASE_HOST", analyticsString(aptabaseHost.get()))
         val updateProxy = providers.gradleProperty("updateProxyBaseUrl").orNull ?: "https://gh-proxy.com/"
         val proxyUri = URI(updateProxy)
         require(proxyUri.scheme == "https" && proxyUri.host != null && proxyUri.userInfo == null &&
@@ -107,6 +113,7 @@ android {
 }
 
 dependencies {
+    implementation("com.github.aptabase:aptabase-kotlin:0.1.0")
     implementation(libs.coil.compose)
     implementation(project(":core:model"))
     implementation(project(":core:protocol"))

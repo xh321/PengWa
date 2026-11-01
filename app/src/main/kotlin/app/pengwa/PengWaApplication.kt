@@ -32,6 +32,8 @@ class PengWaApplication : Application(), coil3.SingletonImageLoader.Factory {
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
+    val analytics by lazy { app.pengwa.analytics.AppAnalytics(this) }
+
     val identityRepository: IdentityRepository by lazy { IdentityRepository(this) }
     val contactStore: ContactStore by lazy { ContactStore(this) }
     val meetings: MeetingRecorder by lazy {
@@ -69,6 +71,7 @@ class PengWaApplication : Application(), coil3.SingletonImageLoader.Factory {
         BleExchangeController(
             context = this,
             identityProvider = { identityRepository.load() },
+            onAnalytics = { analytics.track(it) },
             onPeer = { peer, how -> meetings.record(peer, "蓝牙：$how") },
         )
     }

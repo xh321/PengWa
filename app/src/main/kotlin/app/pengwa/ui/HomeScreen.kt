@@ -25,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -155,12 +156,14 @@ internal fun ExchangeSession(mode: ExchangeMode) {
 @Composable
 private fun SettingsSheet(onDismiss: () -> Unit, onShowGuide: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        SettingsContent(backgroundBroadcast = { BackgroundBroadcastToggle() }, notification = { NotificationToggle() }, onShowGuide = onShowGuide, update = { AppUpdateSection() })
+        val context = LocalContext.current
+        LaunchedEffect(Unit) { context.pengWa.analytics.track(app.pengwa.analytics.AnalyticsEvent.SettingsViewed) }
+        SettingsContent(backgroundBroadcast = { BackgroundBroadcastToggle() }, notification = { NotificationToggle() }, onShowGuide = onShowGuide, update = { AppUpdateSection() }, analytics = { AnalyticsToggle() })
     }
 }
 
 @Composable
-internal fun SettingsContent(backgroundBroadcast: @Composable () -> Unit, notification: @Composable () -> Unit, onShowGuide: (() -> Unit)? = null, update: @Composable () -> Unit = {}) {
+internal fun SettingsContent(backgroundBroadcast: @Composable () -> Unit, notification: @Composable () -> Unit, onShowGuide: (() -> Unit)? = null, update: @Composable () -> Unit = {}, analytics: @Composable () -> Unit = {}) {
     Column(
         modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = PageGutter, end = PageGutter, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -172,6 +175,9 @@ internal fun SettingsContent(backgroundBroadcast: @Composable () -> Unit, notifi
         }
         Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
             Column(Modifier.padding(16.dp)) { notification() }
+        }
+        Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
+            Column(Modifier.padding(16.dp)) { analytics() }
         }
         Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
             Column(Modifier.padding(16.dp)) { update() }

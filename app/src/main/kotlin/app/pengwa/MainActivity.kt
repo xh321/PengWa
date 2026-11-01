@@ -73,6 +73,7 @@ class MainActivity : ComponentActivity() {
         }
         lifecycleScope.launch {
             pengWa.storageReady.await()
+            if (savedInstanceState == null) pengWa.analytics.track(app.pengwa.analytics.AnalyticsEvent.AppStarted)
             if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) BleBroadcastService.ensureRunning(this@MainActivity)
             setContent {
                 PengWaTheme {

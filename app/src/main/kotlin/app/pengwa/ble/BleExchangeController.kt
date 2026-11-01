@@ -2,6 +2,7 @@ package app.pengwa.ble
 
 import app.pengwa.pengWa
 
+import app.pengwa.analytics.AnalyticsEvent
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.content.BroadcastReceiver
@@ -53,6 +54,7 @@ class BleExchangeController(
     private val identityProvider: () -> Identity?,
     /** 对方名片到手时回调；返回 true 表示算一次有效相遇（自己的名片或刚碰过的返回 false）。 */
     private val onPeer: (peer: Identity, how: String) -> Boolean,
+    private val onAnalytics: (AnalyticsEvent) -> Unit = {},
 ) {
     private val appContext = context.applicationContext
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -119,6 +121,7 @@ class BleExchangeController(
             }
 
             override fun onExchanged(address: String, peer: Identity?, error: String?) {
+                onAnalytics(if (peer != null) AnalyticsEvent.ExchangeSucceeded else AnalyticsEvent.ExchangeFailed)
                 list.onExchanged(address, peer?.displayName, error, peer?.id?.let(::identityKey))
                 mainHandler.post {
                     if (peer != null) {
@@ -146,6 +149,7 @@ class BleExchangeController(
 
             override fun onCardCompleted(address: String, peer: Identity) {
                 mainHandler.post {
+                    onAnalytics(AnalyticsEvent.CardReceived)
                     receivingCards.remove(address)
                     handlePeer(peer, "完整卡片交换完成")
                     if (discoveryPeer == peer.id) discoveryPeer = null
@@ -284,6 +288,7 @@ class BleExchangeController(
         if (discoveryPeer == peer.id && SystemClock.elapsedRealtime() < discoveryUntil) return
         timings[peer.id] = ExchangeTiming(source, SystemClock::elapsedRealtime) { Log.d("PengWaExchange", it) }.also { it.mark("identified") }
         while (timings.size > 32) timings.remove(timings.keys.first())
+        onAnalytics(if (source == "NFC") AnalyticsEvent.NfcRecognized else AnalyticsEvent.QrRecognized)
         discoveryAutoAccept = source == "NFC" && !initiate
         if (initiate) lastDiscovery = peer to source
         discoveryPeer = peer.id
@@ -329,6 +334,7 @@ class BleExchangeController(
         publish()
         // Connection/consent/transfer has its own deadline in the BLE manager.
         discoveryUntil = SystemClock.elapsedRealtime() + 180_000L
+        onAnalytics(AnalyticsEvent.ExchangeStarted)
         manager.requestExchange(peer.address, expectedId = id)
     }
 
@@ -338,6 +344,7 @@ class BleExchangeController(
     fun exchangeWith(address: String) {
         if (!list.beginExchange(address)) return
         publish()
+        onAnalytics(AnalyticsEvent.ExchangeStarted)
         manager.requestExchange(address)
     }
 

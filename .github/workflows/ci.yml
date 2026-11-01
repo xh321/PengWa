@@ -49,6 +49,9 @@ jobs:
           fi
 
       - name: Build debug APK and run unit tests
+        env:
+          APTABASE_APP_KEY: ${{ vars.APTABASE_APP_KEY }}
+          APTABASE_HOST: ${{ vars.APTABASE_HOST }}
         run: bash ./gradlew --no-daemon --stacktrace --continue :app:assembleDebug testDebugUnitTest :core:model:test :core:protocol:test
 
       - name: Test update metadata generation
