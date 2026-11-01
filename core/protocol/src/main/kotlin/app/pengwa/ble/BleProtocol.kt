@@ -26,6 +26,9 @@ object BleProtocol {
     /** 当前协议的显示名和身份摘要预览，不要求交换授权。 */
     val PEER_PREVIEW_CHAR_UUID: UUID = UUID.fromString("21e42f2e-31a7-4ea4-a8bb-6e0306d532fa")
 
+    /** Optional public thumbnail, bounded to one 512-byte GATT attribute. */
+    val AVATAR_PREVIEW_CHAR_UUID: UUID = UUID.fromString("21e42f2e-31a7-4ea4-a8bb-6e0306d532fb")
+
     val CARD_CHAR_UUID: UUID = UUID.fromString("98af05e8-12f7-4d33-8850-69ddac40c2b2")
 
     val REQUEST_CHAR_UUID: UUID = UUID.fromString("b41fc11d-33e5-4689-a447-585b13f0f902")

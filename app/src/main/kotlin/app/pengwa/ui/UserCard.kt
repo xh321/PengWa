@@ -32,12 +32,12 @@ import coil3.size.Size
 import kotlinx.coroutines.withContext
 
 @Composable
-internal fun CardAvatar(identity: Identity, modifier: Modifier = Modifier) {
+internal fun CardAvatar(identity: Identity, modifier: Modifier = Modifier, imageSize: androidx.compose.ui.unit.Dp = 56.dp) {
     val painter = rememberCardImagePainter(identity.card.avatar)
     val state by painter.state.collectAsState()
     Box(modifier) {
         if (state !is AsyncImagePainter.State.Success) NameStamp(identity.displayName)
-        else Image(painter, "头像", Modifier.size(56.dp).clip(CircleShape), contentScale = ContentScale.Crop)
+        else Image(painter, "头像", Modifier.size(imageSize).clip(CircleShape), contentScale = ContentScale.Crop)
     }
 }
 

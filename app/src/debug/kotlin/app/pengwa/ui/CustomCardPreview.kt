@@ -16,7 +16,7 @@ import java.io.ByteArrayOutputStream
 import java.util.Base64
 import java.util.UUID
 
-private fun sampleImage(width: Int = 192, height: Int = 192, transparent: Boolean = false): String {
+internal fun sampleImage(width: Int = 192, height: Int = 192, transparent: Boolean = false): String {
     val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
     canvas.scale(width / 192f, height / 192f)

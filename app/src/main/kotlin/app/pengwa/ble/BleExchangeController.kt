@@ -27,6 +27,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.isActive
+import app.pengwa.identity.NearbyAvatarImages
 
 /**
  * 蓝牙交换的总控：全应用只有这一个，持有唯一的 [BleExchangeManager]。
@@ -50,6 +57,10 @@ class BleExchangeController(
     private val appContext = context.applicationContext
     private val mainHandler = Handler(Looper.getMainLooper())
     private val list = NearbyList()
+    private val avatarScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var avatarJob: Job? = null
+    private var avatarSource: Pair<UUID, String>? = null
+    @Volatile private var avatarPacket: Pair<Pair<UUID, String>, ByteArray>? = null
     private val requests = IncomingRequests()
     private val timings = LinkedHashMap<UUID, ExchangeTiming>()
     private var discoveryPeer: UUID? = null
@@ -83,6 +94,7 @@ class BleExchangeController(
     private val manager: BleExchangeManager = BleExchangeManager(
         context = appContext,
         identityProvider = identityProvider,
+        avatarProvider = { me -> avatarPacket?.takeIf { it.first == (me.id to me.card.avatar) }?.second },
         listener = object : BleExchangeListener {
             override fun onDeviceSeen(address: String, rssi: Int, locator: Long?) {
                 list.onSeen(address, rssi, SystemClock.elapsedRealtime(), locator)
@@ -93,6 +105,11 @@ class BleExchangeController(
             override fun onPreview(address: String, preview: PeerPreview?) {
                 list.onPreview(address, preview?.name, preview?.identityKey)
                 mainHandler.post { tryDiscovery() }
+                schedulePublish()
+            }
+
+            override fun onAvatar(address: String, identityKey: UUID, avatar: String) {
+                list.onAvatar(address, identityKey, avatar)
                 schedulePublish()
             }
 
@@ -207,6 +224,7 @@ class BleExchangeController(
     fun observeBackgroundBroadcast(onChange: (Boolean) -> Unit): () -> Unit = BroadcastSettings.observe(appContext, onChange)
 
     fun refresh() {
+        prepareAvatar()
         val bluetoothOn = isBluetoothOn()
         _bluetoothOn.value = bluetoothOn
         val plan = BleRunPolicy.plan(
@@ -234,6 +252,21 @@ class BleExchangeController(
             }
         }.onFailure { log("蓝牙操作失败：${it.message}") }
         _running.value = manager.isAdvertising || manager.isScanning
+    }
+
+    /** Re-encode only when the local avatar changes; never decode pixels on a GATT callback. */
+    private fun prepareAvatar() {
+        val me = identityProvider()
+        val source = me?.let { it.id to it.card.avatar }
+        if (source == avatarSource) return
+        avatarSource = source
+        avatarPacket = null
+        avatarJob?.cancel()
+        if (source == null) return
+        avatarJob = avatarScope.launch {
+            val packet = NearbyAvatar.encode(identityKey(source.first), NearbyAvatarImages.encode(source.second))
+            if (isActive) avatarPacket = source to packet
+        }
     }
 
     /** NFC only identifies the peer. The reader initiates BLE; the display side accepts only that peer briefly. */
