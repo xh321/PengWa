@@ -62,6 +62,13 @@ android {
         }
     }
 
+    // 直接分发 APK 时压缩 DEX 和原生库，安装时由系统解压。
+    // 保留全部 CPU 架构、资源和功能；DEX 设置不影响 AAB。
+    packaging {
+        dex.useLegacyPackaging = true
+        jniLibs.useLegacyPackaging = true
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
