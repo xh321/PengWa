@@ -27,6 +27,7 @@
 | --- | --- | --- |
 | 自动模式回退到 GitHub（固定下载状态） | ![自动回退](auto-fallback.png) | ![深色自动回退](auto-fallback-dark.png) |
 | 中断后可重试下载（固定状态） | ![重试下载](download-retry.png) | ![深色重试](download-retry-dark.png) |
+| 校验后待安装（固定状态，线路选择禁用） | ![待安装](ready-after.png) | ![深色待安装](ready-after-dark.png) |
 | 手动选择 GitHub（固定状态） | ![直连选择](direct-selected.png) | ![深色直连选择](direct-selected-dark.png) |
 
 | 窄屏大字体（已滚动至更新区域） | 截图 |
