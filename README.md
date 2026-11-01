@@ -69,7 +69,7 @@
 本地构建需要 JDK 21、Android SDK platform 37 和 build-tools 36，使用仓库自带的 Gradle Wrapper：
 
 ```bash
-./gradlew testDebugUnitTest  # 运行单元测试
+./gradlew :core:model:test :core:protocol:test testDebugUnitTest  # 所有模块单元测试
 ./gradlew assembleDebug     # 构建调试 APK
 ```
 
@@ -82,4 +82,5 @@
 | [设计系统](docs/design-system.md) | 主题、组件与界面规范 |
 | [首次使用引导](docs/screenshots/onboarding-white-figures/README.md) | 创建卡片与纯白小人扩列图解、运行截图和验证步骤 |
 | [应用图标](docs/app-icon.md) | 图标设计与 Android 资源说明 |
+| [模块说明](docs/modules.md) | Gradle 模块职责、依赖与验证方式 |
 | [项目背景与开发记录](docs/project-notes.md) | 原始需求、架构取舍、历史验证、预览工具与 CI 说明 |

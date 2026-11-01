@@ -87,7 +87,7 @@ fun FaceToFacePage(
 
     val mode by context.pengWa.exchangeMode.mode.collectAsStateWithLifecycle()
     val nfcState = rememberNfcState(role)
-    val wallet = remember(context) { NfcWallet(context) }
+    val wallet = remember(context) { NfcWallet(context, context.pengWa.nfcService) }
     var defaultWallet by remember(wallet) { mutableStateOf(wallet.isDefault()) }
     LifecycleResumeEffect(wallet) {
         defaultWallet = wallet.isDefault()

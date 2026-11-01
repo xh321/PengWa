@@ -37,7 +37,7 @@ jobs:
         uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
 
       - name: Build debug APK and run unit tests
-        run: bash ./gradlew --no-daemon --stacktrace --continue :app:assembleDebug :app:testDebugUnitTest
+        run: bash ./gradlew --no-daemon --stacktrace --continue :app:assembleDebug testDebugUnitTest :core:model:test :core:protocol:test
 
       - name: Upload unit test reports
         if: ${{ !cancelled() }}
@@ -47,6 +47,8 @@ jobs:
           path: |
             app/build/reports/tests/testDebugUnitTest/
             app/build/test-results/testDebugUnitTest/
+            core/**/build/reports/tests/
+            core/**/build/test-results/
           retention-days: 14
 
       - name: Upload debug APK
