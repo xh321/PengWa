@@ -62,12 +62,16 @@ internal class NfcPreviewProvider : PreviewParameterProvider<NfcPreviewState> {
 @Composable
 internal fun FaceToFacePagePreview(@PreviewParameter(NfcPreviewProvider::class) sample: NfcPreviewState) {
     var role by remember(sample) { mutableStateOf(sample.role) }
+    var walletPromptDismissed by remember(sample) { mutableStateOf(false) }
     PreviewHome {
         FaceToFacePageContent(
             identity = Identity(UUID(0L, 1L), "小棉花"),
             role = role,
             nfcState = sample.state,
             defaultWallet = sample.defaultWallet,
+            showWalletPrompt = !walletPromptDismissed,
+            onDismissWalletPrompt = { walletPromptDismissed = true },
+            onRequestWallet = { walletPromptDismissed = true },
             onRoleChange = { role = it },
             onScan = {},
             onOpenNfcSettings = {},

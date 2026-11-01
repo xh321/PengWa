@@ -30,6 +30,7 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -95,6 +96,7 @@ fun FaceToFacePage(
     val walletLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         defaultWallet = wallet.isDefault()
     }
+    var walletPromptDismissed by rememberSaveable { mutableStateOf(false) }
     ExchangeSession(if (!scanning && nfcState == NfcState.Ready) role else ExchangeMode.None)
 
     BrightnessLock(enabled = (mode == ExchangeMode.NfcDisplay || mode == ExchangeMode.NfcRead) && !scanning)
@@ -123,7 +125,10 @@ fun FaceToFacePage(
         onRoleChange = onRoleChange,
         onOpenNfcSettings = { context.startActivity(Intent(Settings.ACTION_NFC_SETTINGS)) },
         defaultWallet = defaultWallet,
+        showWalletPrompt = !walletPromptDismissed,
+        onDismissWalletPrompt = { walletPromptDismissed = true },
         onRequestWallet = {
+            walletPromptDismissed = true
             runCatching { walletLauncher.launch(wallet.requestIntent()) }
                 .onFailure {
                     if (!wallet.openSettings()) onMessage(resources.getString(R.string.nfc_wallet_open_failed))
@@ -147,6 +152,8 @@ internal fun FaceToFacePageContent(
     onOpenLab: (() -> Unit)? = null,
     defaultWallet: Boolean = false,
     onRequestWallet: () -> Unit = {},
+    showWalletPrompt: Boolean = false,
+    onDismissWalletPrompt: () -> Unit = {},
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     BoxWithConstraints(modifier.fillMaxSize()) {
@@ -181,6 +188,19 @@ internal fun FaceToFacePageContent(
         }
     }
     if (expanded) QrCardDialog(identity) { expanded = false }
+    if (showWalletPrompt && role == ExchangeMode.NfcDisplay && nfcState == NfcState.Ready && !defaultWallet) {
+        AlertDialog(
+            onDismissRequest = onDismissWalletPrompt,
+            title = { Text(stringResource(R.string.nfc_wallet_set_default)) },
+            text = { Text(stringResource(R.string.nfc_wallet_help)) },
+            confirmButton = {
+                TextButton(onClick = onRequestWallet) { Text(stringResource(R.string.nfc_wallet_set_default)) }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismissWalletPrompt) { Text(stringResource(R.string.cancel)) }
+            },
+        )
+    }
 }
 
 @Composable

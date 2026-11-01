@@ -136,6 +136,7 @@ UTF-8 非法、名字不是规范形式、名字未通过校验。
 - **读取**：`enableReaderMode` 使用 `FLAG_READER_NFC_A | FLAG_READER_SKIP_NDEF_CHECK`，
   通过 `IsoDep` 直接 SELECT 私有 AID，不先探测标准 NDEF 标签。Reader Mode 会关闭本机卡模拟。
 - **钱包兼容提示**：所有品牌在本应用尚非默认钱包时，NFC 出示页均提供“设为默认钱包”入口。Android 15+ 使用 `RoleManager.createRequestRoleIntent(ROLE_WALLET)` 请求本应用的钱包角色，旧系统使用指定本服务的 `CardEmulation.ACTION_CHANGE_DEFAULT`。
+  NFC 可用的出示页在本应用尚非默认钱包时，自动显示应用内设置提示；点击“设为默认钱包”才发起系统请求。取消提示或点击设置后，同次页面访问（包括旋转屏幕、扫码返回）不再自动显示提示；离开页面重新进入可再次提示。读取、NFC 关闭或硬件不支持时不显示。
   系统请求返回和页面恢复前台时都重新查询实际默认状态：成为默认钱包后隐藏提示，取消则继续显示，切回其他钱包再返回时重现。
   系统确认入口不可用时回退到 `Settings.ACTION_NFC_PAYMENT_SETTINGS`、NFC 设置、默认应用设置和系统设置，全部失败则给出手动搜索提示。
   钱包是否为本应用不影响出示会话启动；部分机型使用其他第三方钱包为默认时也能正常前台 HCE。
