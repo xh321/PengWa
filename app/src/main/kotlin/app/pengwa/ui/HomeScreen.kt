@@ -146,12 +146,12 @@ internal fun ExchangeSession(mode: ExchangeMode) {
 @Composable
 private fun SettingsSheet(onDismiss: () -> Unit, onShowGuide: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        SettingsContent(backgroundBroadcast = { BackgroundBroadcastToggle() }, notification = { NotificationToggle() }, onShowGuide = onShowGuide)
+        SettingsContent(backgroundBroadcast = { BackgroundBroadcastToggle() }, notification = { NotificationToggle() }, onShowGuide = onShowGuide, update = { AppUpdateSection() })
     }
 }
 
 @Composable
-internal fun SettingsContent(backgroundBroadcast: @Composable () -> Unit, notification: @Composable () -> Unit, onShowGuide: (() -> Unit)? = null) {
+internal fun SettingsContent(backgroundBroadcast: @Composable () -> Unit, notification: @Composable () -> Unit, onShowGuide: (() -> Unit)? = null, update: @Composable () -> Unit = {}) {
     Column(
         modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = PageGutter, end = PageGutter, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -163,6 +163,9 @@ internal fun SettingsContent(backgroundBroadcast: @Composable () -> Unit, notifi
         }
         Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
             Column(Modifier.padding(16.dp)) { notification() }
+        }
+        Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
+            Column(Modifier.padding(16.dp)) { update() }
         }
     }
 }

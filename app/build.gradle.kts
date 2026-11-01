@@ -25,8 +25,11 @@ android {
         // 29：往自己创建的相册条目写照片不需要存储权限，省掉旧版本的一整套分支
         minSdk = 29
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.1.1"
+        val ciRun = providers.environmentVariable("GITHUB_RUN_NUMBER").orNull?.toInt()
+        versionCode = providers.gradleProperty("appVersionCode").orNull?.toInt()
+            ?: ciRun?.let { 100_000 + it * 100 + (providers.environmentVariable("GITHUB_RUN_ATTEMPT").orNull?.toInt() ?: 1) }
+            ?: 2
+        versionName = providers.gradleProperty("appVersionName").orNull ?: "0.1.1"
         val revision = providers.environmentVariable("GITHUB_SHA").orNull
             ?.takeIf { it.matches(Regex("[0-9a-fA-F]{40,64}")) } ?: "local"
         buildConfigField("String", "BUILD_REVISION", "\"$revision\"")
@@ -48,6 +51,8 @@ android {
 
     buildTypes {
         debug {
+            val run = providers.environmentVariable("GITHUB_RUN_NUMBER").orNull?.toInt()
+            if (run != null) versionNameSuffix = "-nightly.$run"
             // 调试版可与正式版共存
             applicationIdSuffix = ".debug"
         }

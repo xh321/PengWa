@@ -36,8 +36,34 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
 
+      # A persistent signing key is required to update Nightly without removing user data.
+      # Fork PRs intentionally get no secret and build using a temporary debug key.
+      - name: Restore Nightly signing key
+        env:
+          NIGHTLY_KEYSTORE: ${{ secrets.PENGWA_NIGHTLY_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$NIGHTLY_KEYSTORE" ]; then
+            mkdir -p "$HOME/.android"
+            printf '%s' "$NIGHTLY_KEYSTORE" | base64 --decode > "$HOME/.android/debug.keystore"
+            chmod 600 "$HOME/.android/debug.keystore"
+          fi
+
       - name: Build debug APK and run unit tests
         run: bash ./gradlew --no-daemon --stacktrace --continue :app:assembleDebug testDebugUnitTest :core:model:test :core:protocol:test
+
+      - name: Test update metadata generation
+        run: python3 -m unittest discover -s scripts -p test_create_update_manifest.py
+
+      - name: Generate Nightly update metadata
+        env:
+          APK_URL: https://github.com/${{ github.repository }}/releases/download/nightly/pengwa-nightly-${{ github.run_number }}-${{ github.run_attempt }}.apk
+        run: |
+          python3 scripts/create-update-manifest.py \
+            --apk app/build/outputs/apk/debug/app-debug.apk \
+            --metadata app/build/outputs/apk/debug/output-metadata.json \
+            --apk-url "$APK_URL" \
+            --notes "main 分支已通过 CI 的 Nightly 构建。" \
+            --output app/build/outputs/apk/debug/update.json
 
       - name: Upload unit test reports
         if: ${{ !cancelled() }}
@@ -55,7 +81,9 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: pengwa-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/debug/update.json
           if-no-files-found: error
           retention-days: 14
 
@@ -99,7 +127,7 @@ jobs:
               "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GH_REPO" "$GITHUB_SHA"
             printf '构建：[CI #%s](%s/%s/actions/runs/%s)\n\n' \
               "$GITHUB_RUN_NUMBER" "$GITHUB_SERVER_URL" "$GH_REPO" "$GITHUB_RUN_ID"
-            printf '包名为 app.pengwa.debug，可与正式版共存。CI 使用临时调试签名，跨次安装可能需要先卸载旧调试版；卸载会清除旧调试版的本地数据。\n'
+            printf '包名为 app.pengwa.debug，可与正式版共存。应用内更新要求配置固定 Nightly 签名（PENGWA_NIGHTLY_KEYSTORE_BASE64）。签名不同时会阻止覆盖安装；请勿为更新直接卸载，以免丢失本地数据。\n'
           } > "$notes"
 
           update_nightly_tag() {
@@ -116,6 +144,7 @@ jobs:
           if gh api "repos/$GH_REPO/releases/tags/nightly" --silent 2> "$RUNNER_TEMP/nightly-release-error"; then
             old_assets=$(gh release view nightly --json assets --jq '.assets[].name')
             gh release upload nightly "$apk"
+            gh release upload nightly nightly/update.json --clobber
             update_nightly_tag
             gh release edit nightly --title Nightly --notes-file "$notes" --prerelease --latest=false --draft=false
 
@@ -128,7 +157,7 @@ jobs:
             done <<< "$old_assets"
           elif grep -q '(HTTP 404)' "$RUNNER_TEMP/nightly-release-error"; then
             update_nightly_tag
-            gh release create nightly "$apk" --verify-tag \
+            gh release create nightly "$apk" nightly/update.json --verify-tag \
               --title Nightly --notes-file "$notes" --prerelease --latest=false
           else
             cat "$RUNNER_TEMP/nightly-release-error" >&2

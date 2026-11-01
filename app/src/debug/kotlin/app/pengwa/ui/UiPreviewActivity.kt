@@ -22,6 +22,7 @@ class UiPreviewActivity : ComponentActivity() {
                 "bluetooth" -> BluetoothPagePreview(BluetoothPreviewProvider().values.toList().let { it[index.coerceIn(it.indices)] })
                 "contacts" -> ContactsScreenPreview(ContactsPreviewProvider().values.toList().let { it[index.coerceIn(it.indices)] })
                 "settings" -> SettingsPreview()
+                "update" -> SettingsPreview(updatePreviewState(index))
                 "request" -> RequestPreview()
                 "permission" -> ScannerPermissionPreview()
                 "name" -> NameFormPreview()
