@@ -31,9 +31,21 @@ class IdentityRepository(context: Context) {
         prefs.edit().putString(KEY_NAME, name).apply()
     }
 
-    fun saveCard(identity: Identity) {
+    // Missing progress belongs to an existing installation only when it already has a name.
+    fun onboardingStep(): OnboardingStep = OnboardingStep.restore(
+        hasIdentity = prefs.contains(KEY_NAME),
+        storedValue = if (prefs.contains("onboarding_step")) prefs.getInt("onboarding_step", 0) else null,
+    )
+
+    fun saveOnboardingStep(step: OnboardingStep) {
+        check(prefs.edit().putInt("onboarding_step", step.storedValue).commit())
+    }
+
+    fun saveCard(identity: Identity, onboardingStep: OnboardingStep? = null) {
         val encoded = java.util.Base64.getEncoder().encodeToString(CardCodec.encode(identity))
-        check(prefs.edit().putString(KEY_NAME, identity.displayName).putString("card", encoded).commit())
+        val editor = prefs.edit().putString(KEY_NAME, identity.displayName).putString("card", encoded)
+        onboardingStep?.let { editor.putInt("onboarding_step", it.storedValue) }
+        check(editor.commit())
     }
 
     private companion object {

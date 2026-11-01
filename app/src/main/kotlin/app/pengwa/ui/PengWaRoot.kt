@@ -22,6 +22,7 @@ import app.pengwa.MainActivity
 import app.pengwa.BuildConfig
 import app.pengwa.R
 import app.pengwa.exchange.ExchangeMode
+import app.pengwa.identity.OnboardingStep
 import app.pengwa.pengWa
 import app.pengwa.ui.components.ExchangeRequestDialog
 import kotlinx.coroutines.flow.collectLatest
@@ -76,22 +77,28 @@ fun PengWaRoot(
         )
     }
 
-    // 还没设置显示名时，只显示首次设置页，不展示底部导航
-    val hasIdentity = identityViewModel.identity != null
+    // 首次创建和教学完成后才展示导航；已有用户直接进入主页。
+    val readyForExchange = identityViewModel.identity != null && identityViewModel.onboardingStep == OnboardingStep.Complete
     BackHandler(enabled = selectedTab == MainActivity.TAB_LAB) { selectedTab = MainActivity.TAB_ME }
 
     PengWaScaffold(
         selectedTab = selectedTab,
-        showNavigation = hasIdentity,
+        showNavigation = readyForExchange,
         onSelect = { selectedTab = it },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { contentModifier ->
         when {
-            !hasIdentity || selectedTab == MainActivity.TAB_ME -> HomeScreen(
+            !readyForExchange -> OnboardingScreen(
+                viewModel = identityViewModel,
+                onFinish = { selectedTab = it },
+                modifier = contentModifier,
+            )
+            selectedTab == MainActivity.TAB_ME -> HomeScreen(
                 viewModel = identityViewModel,
                 role = nfcRole,
                 onRoleChange = { nfcRole = it },
                 onMessage = showMessage,
+                onOpenNearby = { selectedTab = MainActivity.TAB_NEARBY },
                 onOpenLab = if (BuildConfig.DEBUG) ({ selectedTab = MainActivity.TAB_LAB }) else null,
                 modifier = contentModifier,
             )
