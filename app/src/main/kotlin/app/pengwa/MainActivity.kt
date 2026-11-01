@@ -63,8 +63,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         if (savedInstanceState == null) {
             requestedTab = tabFrom(intent)
-            handleNdefLaunch(intent)
         }
+        handleNdefLaunch(intent)
         // 只有主页在前台时，才接收别人的卡；切走或退到后台立即关闭
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.RESUMED) {
@@ -110,6 +110,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        setIntent(intent)
         tabFrom(intent)?.let { requestedTab = it }
         handleNdefLaunch(intent)
     }
@@ -118,9 +119,20 @@ class MainActivity : ComponentActivity() {
         if (intent.action == NfcAdapter.ACTION_NDEF_DISCOVERED) {
             pengWa.nfcDiagnostics.record("NDEF launch received")
         }
-        val peer = NdefLaunchParser.peerFrom(intent) ?: return
-        pengWa.bleExchange.discover(peer, initiate = true)
-        pengWa.nfcDiagnostics.record("NDEF launch identified; starting BLE")
+        val peer = NdefLaunchParser.peerFrom(intent) ?: run {
+            if (intent.action == NfcAdapter.ACTION_NDEF_DISCOVERED) {
+                pengWa.nfcDiagnostics.record("NDEF launch ignored: missing or invalid discovery payload")
+            }
+            return
+        }
+        lifecycleScope.launch {
+            // 冷启动先加载本机身份，避免在存储初始化前发起交换。
+            pengWa.storageReady.await()
+            pengWa.bleExchange.discover(peer, initiate = true)
+            // 完成消费后清空；等待存储时重建 Activity 仍可继续处理原始参数。
+            intent.removeExtra(NfcAdapter.EXTRA_NDEF_MESSAGES)
+            pengWa.nfcDiagnostics.record("NDEF launch identified; starting BLE")
+        }
     }
 
     private fun onTagDiscovered(tag: Tag) {
