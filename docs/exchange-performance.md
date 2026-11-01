@@ -38,3 +38,11 @@ All lengths are checked before allocation; 12 KiB/image, 96 KiB/wire and the exi
 Local persisted cards remain readable; this is storage preservation, not network compatibility.
 For image bytes only this removes approximately 25% of the old wire payload, without lossy recompression.
 QR pixels change with the new discovery marker. Emulator screenshots show the running QR fixture before/after; no physical NFC/BLE performance result is claimed.
+
+## V4: consent before image upload (breaking protocol)
+
+D4 / service suffix `bac4`; V3/V4 cannot exchange. REQUEST characteristic is mandatory and accepts framed basic identity only (18–49 bytes).
+After the small request, wait for consent; only Accepted sessions may upload a full PWC3 card.
+The full card must match the accepted UUID, updates the same session without another prompt, and must complete before the server allows card download.
+Only final ACK records a card. Decline, expiry, disconnect and identity substitution cannot complete a card.
+This improves time-to-prompt and avoids sending images before consent; it does not hide image transfer time.

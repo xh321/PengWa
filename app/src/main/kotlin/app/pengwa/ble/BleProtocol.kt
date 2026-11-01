@@ -17,7 +17,7 @@ import java.security.MessageDigest
  * 以后做 iOS 版时照着这份规格重新实现即可。
  */
 object BleProtocol {
-    val SERVICE_UUID: UUID = UUID.fromString("da9c7844-c076-4b1e-9a5f-b9433bc5bac3")
+    val SERVICE_UUID: UUID = UUID.fromString("da9c7844-c076-4b1e-9a5f-b9433bc5bac4")
 
     /** 只读：对方读取我的名片。要求对方先发出申请，并且我**同意**了。 */
     val IDENTITY_CHAR_UUID: UUID = UUID.fromString("f5181d1f-bfb7-44d6-bc07-6e14fa5eb21a")
@@ -35,6 +35,8 @@ object BleProtocol {
     val PEER_PREVIEW_CHAR_UUID: UUID = UUID.fromString("21e42f2e-31a7-4ea4-a8bb-6e0306d532fa")
 
     val CARD_CHAR_UUID: UUID = UUID.fromString("98af05e8-12f7-4d33-8850-69ddac40c2b2")
+
+    val REQUEST_CHAR_UUID: UUID = UUID.fromString("b41fc11d-33e5-4689-a447-585b13f0f902")
 
     const val VERSION: Byte = 1
     private const val ID_SIZE = 16
