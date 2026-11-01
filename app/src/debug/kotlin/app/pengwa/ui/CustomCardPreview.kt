@@ -16,10 +16,11 @@ import java.io.ByteArrayOutputStream
 import java.util.Base64
 import java.util.UUID
 
-private fun sampleImage(): String {
-    val bitmap = Bitmap.createBitmap(192, 192, Bitmap.Config.ARGB_8888)
+private fun sampleImage(width: Int = 192, height: Int = 192, transparent: Boolean = false): String {
+    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
-    canvas.drawColor(0xffffd9df.toInt())
+    canvas.scale(width / 192f, height / 192f)
+    if (!transparent) canvas.drawColor(0xffffd9df.toInt())
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xffaa3953.toInt() }
     canvas.drawCircle(96f, 90f, 56f, paint)
     paint.color = 0xffffffff.toInt()
@@ -27,7 +28,7 @@ private fun sampleImage(): String {
     canvas.drawCircle(116f, 80f, 7f, paint)
     canvas.drawArc(75f, 90f, 118f, 120f, 0f, 180f, false, paint.apply { style = Paint.Style.STROKE; strokeWidth = 6f })
     return ByteArrayOutputStream().use { output ->
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 85, output)
+        bitmap.compress(if (transparent) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG, 85, output)
         bitmap.recycle()
         Base64.getEncoder().encodeToString(output.toByteArray())
     }
@@ -40,15 +41,22 @@ private fun sampleCard() = Identity(UUID(0L, 1L), "小棉花", CardContent(sampl
     CardBlock(BlockType.Image, "今天的小表情", image = sampleImage()),
 )), cardComplete = true)
 
+private fun imageShapesCard() = Identity(UUID(0L, 1L), "小棉花", CardContent(blocks = listOf(
+    CardBlock(BlockType.Image, "横向小图", image = sampleImage(240, 80)),
+    CardBlock(BlockType.Image, "竖向小图", image = sampleImage(64, 192)),
+    CardBlock(BlockType.Image, "透明圆形小图", image = sampleImage(160, 160, transparent = true)),
+    CardBlock(BlockType.Image, "方形小图", image = sampleImage(96, 96)),
+)), cardComplete = true)
+
 @Composable
 internal fun CustomCardPreview(screen: String) {
-    var identity by remember { mutableStateOf(sampleCard()) }
+    var identity by remember { mutableStateOf(if (screen.startsWith("card-images")) imageShapesCard() else sampleCard()) }
     PreviewSurface {
         when (screen) {
-            "card-editor" -> Box(Modifier.systemBarsPadding()) {
+            "card-editor", "card-images-editor" -> Box(Modifier.systemBarsPadding()) {
                 CardEditorContent(identity, { identity = it }, { CardCodec.validate(identity.card) }, {})
             }
-            "card-received" -> ContactDetails(Contact(identity.id, identity.displayName, 1761955200000L, 1761955200000L, 2, identity.card)) {}
+            "card-received", "card-images-received" -> ContactDetails(Contact(identity.id, identity.displayName, 1761955200000L, 1761955200000L, 2, identity.card)) {}
             else -> Column(Modifier.systemBarsPadding().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text("我的卡片", style = MaterialTheme.typography.headlineSmall)
                 UserCardContent(identity)

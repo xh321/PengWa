@@ -17,14 +17,30 @@ object CardImages {
             decoder.setTargetSize(maxOf(1, (info.size.width * scale).toInt()), maxOf(1, (info.size.height * scale).toInt()))
             decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
         }
+        val preserveAlpha = !avatar && bitmap.hasAlpha()
+        var current = bitmap
         try {
-            for (quality in listOf(85, 65, 45, 25)) {
-                val out = ByteArrayOutputStream()
-                bitmap.compress(Bitmap.CompressFormat.JPEG, quality, out)
-                if (out.size() <= CardCodec.MAX_IMAGE_BYTES) return Base64.getEncoder().encodeToString(out.toByteArray())
+            while (true) {
+                val qualities = if (preserveAlpha) listOf(100) else listOf(85, 65, 45, 25)
+                for (quality in qualities) {
+                    val out = ByteArrayOutputStream()
+                    current.compress(if (preserveAlpha) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG, quality, out)
+                    if (out.size() <= CardCodec.MAX_IMAGE_BYTES) return Base64.getEncoder().encodeToString(out.toByteArray())
+                }
+                if (current.width == 1 && current.height == 1) error("图片无法压缩，请选择其他图片")
+                // Recompute both sides from the original aspect ratio, including very narrow images.
+                val longest = (maxOf(current.width, current.height) * 0.75f).toInt().coerceAtLeast(1)
+                val scale = longest.toFloat() / maxOf(bitmap.width, bitmap.height)
+                val smaller = Bitmap.createScaledBitmap(bitmap,
+                    (bitmap.width * scale).toInt().coerceAtLeast(1),
+                    (bitmap.height * scale).toInt().coerceAtLeast(1), true)
+                if (current !== bitmap) current.recycle()
+                current = smaller
             }
-            error("图片过于复杂，请选择更小的图片")
-        } finally { bitmap.recycle() }
+        } finally {
+            if (current !== bitmap) current.recycle()
+            bitmap.recycle()
+        }
     }
 
     fun decode(value: String): Bitmap? = runCatching {

@@ -47,14 +47,12 @@ internal fun UserCardContent(identity: Identity) {
             Text(identity.displayName, style = MaterialTheme.typography.titleLarge)
         }
         identity.card.blocks.forEach { block ->
-            Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
+            if (block.type == BlockType.Image) {
+                CardImage(block.image, block.title.ifBlank { "卡片图片" })
+            } else Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (block.title.isNotBlank()) Text(block.title, style = MaterialTheme.typography.titleSmall)
-                    if (block.type == BlockType.Image) {
-                        val image = remember(block.image) { CardImages.decode(block.image) }
-                        if (image != null) Image(image.asImageBitmap(), block.title.ifBlank { "卡片图片" }, Modifier.fillMaxWidth().heightIn(max = 240.dp), contentScale = ContentScale.Fit)
-                        else Text("图片无法显示")
-                    } else if (block.type != BlockType.Link) Text(block.text, style = MaterialTheme.typography.bodyMedium)
+                    if (block.type != BlockType.Link) Text(block.text, style = MaterialTheme.typography.bodyMedium)
                     val url = if (block.type == BlockType.Link) block.text else block.url
                     if (CardCodec.validLink(url)) TextButton(onClick = {
                         runCatching { uriHandler.openUri(url) }.onFailure { error = "无法打开链接，请检查是否安装浏览器" }
@@ -63,6 +61,21 @@ internal fun UserCardContent(identity: Identity) {
             }
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+    }
+}
+
+/** Scale to the available space without cropping, shaping, or painting behind transparent pixels. */
+@Composable
+private fun CardImage(value: String, description: String) {
+    val image = remember(value) { CardImages.decode(value) }
+    if (image == null) {
+        Text("图片无法显示", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        return
+    }
+    BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        val ratio = image.width.toFloat() / image.height
+        val width = minOf(maxWidth, image.width.dp, 240.dp * ratio)
+        Image(image.asImageBitmap(), description, Modifier.width(width).aspectRatio(ratio), contentScale = ContentScale.Fit)
     }
 }
 
@@ -130,12 +143,11 @@ internal fun CardEditorContent(
                 OutlinedCard(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("${index + 1} · ${block.type.label()}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                        OutlinedTextField(block.title, { changeBlock(index, block.copy(title = it)) }, label = { Text(if (block.type == BlockType.Social) "社媒平台" else "标题（可选）") }, modifier = Modifier.fillMaxWidth())
+                        if (block.type != BlockType.Image) OutlinedTextField(block.title, { changeBlock(index, block.copy(title = it)) }, label = { Text(if (block.type == BlockType.Social) "社媒平台" else "标题（可选）") }, modifier = Modifier.fillMaxWidth())
                         if (block.type != BlockType.Image) OutlinedTextField(block.text, { changeBlock(index, block.copy(text = it)) }, label = { Text(when (block.type) { BlockType.Link -> "https://…"; BlockType.Social -> "账号"; else -> "文字内容" }) }, modifier = Modifier.fillMaxWidth())
                         if (block.type == BlockType.Social) OutlinedTextField(block.url, { changeBlock(index, block.copy(url = it)) }, label = { Text("主页链接（可选）") }, modifier = Modifier.fillMaxWidth())
                         if (block.type == BlockType.Image) {
-                            val image = remember(block.image) { CardImages.decode(block.image) }
-                            if (image != null) Image(image.asImageBitmap(), "已选择的图片", Modifier.fillMaxWidth().height(120.dp), contentScale = ContentScale.Fit)
+                            if (block.image.isNotEmpty()) CardImage(block.image, "已选择的图片")
                             TextButton(onClick = { imageTarget = index; picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, enabled = !loading) { Text("选择图片") }
                         }
                         Row {

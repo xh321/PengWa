@@ -64,7 +64,7 @@ adb shell settings put system font_scale 1.0
 
 ## 已验证
 
-- `testDebugUnitTest`：179 项通过，0 失败。覆盖原有逻辑及完整卡片编解码、96 KiB 总限额、
+- `testDebugUnitTest`：180 项通过，0 失败。覆盖原有逻辑及完整卡片编解码、96 KiB 总限额、
   12 KiB 图片参与的多包传输、MTU 23/64/247/517、重复／跳包／总长变更／超限拒绝、
   不安全链接、NFC 仅含标识、旧 NFC 不兼容、新二维码不包含卡片字段、旧二维码仅提取标识。
 - `assembleDebug`、`lintDebug` 成功；Lint 没有 error，仍有 SDK／资源／依赖等 warning。
@@ -98,3 +98,5 @@ bash gradlew testDebugUnitTest assembleDebug lintDebug --console=plain
 
 后续 PR 描述应内嵌上述已有界面对比与新增页面截图，并明确保留这些未验证项；
 这些截图证明运行界面和本地操作，不代表双机通信已验收。
+
+小图纯图片展示、透明 PNG 导入和自由比例的补充验证见 [小图截图](../image-only/README.md)。

@@ -9,7 +9,7 @@ import java.io.DataOutputStream
 import java.net.URI
 import java.util.Base64
 
-/** Images are bounded JPEG thumbnails, embedded so received cards work offline. */
+/** Images are bounded JPEG/PNG thumbnails, embedded so received cards work offline. */
 enum class BlockType { Text, Link, Social, Image }
 data class CardBlock(val type: BlockType, val title: String = "", val text: String = "", val image: String = "", val url: String = "")
 data class CardContent(val avatar: String = "", val blocks: List<CardBlock> = emptyList())
@@ -29,8 +29,13 @@ object CardCodec {
         if (value.isEmpty()) return true
         if (value.length > MAX_IMAGE_BYTES * 4 / 3 + 4) return false
         val bytes = runCatching { Base64.getDecoder().decode(value) }.getOrNull() ?: return false
-        return bytes.size in 4..MAX_IMAGE_BYTES && bytes[0] == 0xff.toByte() && bytes[1] == 0xd8.toByte() &&
+        if (bytes.size !in 4..MAX_IMAGE_BYTES) return false
+        val jpeg = bytes[0] == 0xff.toByte() && bytes[1] == 0xd8.toByte() &&
             bytes[bytes.size - 2] == 0xff.toByte() && bytes.last() == 0xd9.toByte()
+        val png = bytes.size >= 45 &&
+            bytes.copyOfRange(0, 8).contentEquals(byteArrayOf(0x89.toByte(), 0x50, 0x4e, 0x47, 13, 10, 26, 10)) &&
+            bytes.takeLast(12).toByteArray().contentEquals(byteArrayOf(0, 0, 0, 0, 0x49, 0x45, 0x4e, 0x44, 0xae.toByte(), 0x42, 0x60, 0x82.toByte()))
+        return jpeg || png
     }
 
     fun validate(card: CardContent): String? = when {

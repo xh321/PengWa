@@ -67,6 +67,16 @@ class CardCodecTest {
         assertFalse(CardAssembler().append(ByteBuffer.allocate(9).putInt(0).putInt(Int.MAX_VALUE).put(0).array()))
         assertFalse(CardAssembler().append(CardTransfer.ACK))
     }
+    @Test fun `transparent PNG survives card transfer and malformed PNG is rejected`() {
+        val png = "iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAD0lEQVR4nGP4z8DQwAAEAAqBAYANgP7nAAAAAElFTkSuQmCC"
+        val identity = card.copy(card = CardContent(blocks = listOf(CardBlock(BlockType.Image, image = png))))
+        assertEquals(identity, CardCodec.decode(CardCodec.encode(identity)))
+        val bytes = Base64.getDecoder().decode(png)
+        for (invalid in listOf(bytes.dropLast(1).toByteArray(), bytes.copyOf().also { it[0] = 0 })) {
+            assertNotNull(CardCodec.validate(CardContent(blocks = listOf(CardBlock(BlockType.Image,
+                image = Base64.getEncoder().encodeToString(invalid))))))
+        }
+    }
     @Test fun `NFC discovery contains only identifier and never full card`() {
         val peer = card.copy(id = UUID.randomUUID(), displayName = "小蓝")
         var discovered: Identity? = null
