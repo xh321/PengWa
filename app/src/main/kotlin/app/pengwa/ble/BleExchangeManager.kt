@@ -468,6 +468,7 @@ class BleExchangeManager(
         private var failure = "连接中断"
         private var waitStartedAt = 0L
         private var mtu = 23
+        private var highPriority = false
         private var upload: ByteArray? = null
         private var sent = 0
         private var lastSent = 0
@@ -497,6 +498,7 @@ class BleExchangeManager(
                 newState == BluetoothProfile.STATE_CONNECTED && status == BluetoothGatt.GATT_SUCCESS -> {
                     activeGatt = gatt
                     timing.mark("connected")
+                    if (op.kind == Kind.Exchange) setTransferPriority(gatt, true)
                     // Negotiate larger chunks, but keep support for the default MTU 23.
                     if (!gatt.requestMtu(REQUESTED_MTU)) gatt.discoverServices()
                 }
@@ -599,6 +601,7 @@ class BleExchangeManager(
                     }
                     "ack" -> {
                         timing.mark("ack_complete")
+                        setTransferPriority(gatt, false)
                         reported = true
                         report(op, null, downloadedPeer, null)
                         gatt.disconnect()
@@ -607,6 +610,7 @@ class BleExchangeManager(
                 }
             }
             timing.mark("upload_complete", bytes = sent)
+            setTransferPriority(gatt, false)
             // 申请已送达，开始等对方决定
             waitStartedAt = SystemClock.elapsedRealtime()
             listener.onExchangeWaiting(op.address)
@@ -680,6 +684,7 @@ class BleExchangeManager(
             when (code?.let(ExchangeStatus::fromCode)) {
                 ExchangeStatus.Accepted -> {
                     timing.mark("accepted")
+                    setTransferPriority(gatt, true)
                     requestChunk(gatt)
                 }
                 ExchangeStatus.Pending -> {
@@ -705,6 +710,16 @@ class BleExchangeManager(
             }
         }
 
+        /** Best effort: a rejected parameter request must not fail a valid exchange. */
+        private fun setTransferPriority(gatt: BluetoothGatt, high: Boolean) {
+            if (highPriority == high) return
+            val accepted = runCatching {
+                gatt.requestConnectionPriority(if (high) BluetoothGatt.CONNECTION_PRIORITY_HIGH else BluetoothGatt.CONNECTION_PRIORITY_BALANCED)
+            }.getOrDefault(false)
+            if (accepted) highPriority = high
+            timing.mark(if (high) "priority_high_requested" else "priority_balanced_requested")
+        }
+
         @Synchronized
         private fun finish(gatt: BluetoothGatt, reason: String) {
             if (finished) return
@@ -713,6 +728,7 @@ class BleExchangeManager(
             mainHandler.removeCallbacks(timeout)
             mainHandler.removeCallbacks(poll)
             if (activeGatt === gatt) activeGatt = null
+            setTransferPriority(gatt, false)
             gatt.close()
             if (!reported) report(op, null, null, failure)
             log("[客户端] ${op.address} ${op.kind} $reason")
