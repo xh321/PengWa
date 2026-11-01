@@ -79,6 +79,8 @@ internal fun PengWaScaffold(
 @Composable
 internal fun PengWaNavigation(selectedTab: Int, onSelect: (Int) -> Unit) {
     val barColor = MaterialTheme.colorScheme.surface
+    val accentColor = MaterialTheme.colorScheme.primary
+    val bottomInset = NavigationBarDefaults.windowInsets.getBottom(LocalDensity.current)
     // Draw one continuous bar silhouette: the central crest belongs to the bar itself.
     Box(Modifier.drawBehind {
         val top = 16.dp.toPx()
@@ -95,6 +97,15 @@ internal fun PengWaNavigation(selectedTab: Int, onSelect: (Int) -> Unit) {
             close()
         }
         drawPath(path, barColor)
+        val accent = Path().apply {
+            moveTo(center - shoulder, top)
+            cubicTo(center - shoulder / 2f, top, center - shoulder / 2f, 0f, center, 0f)
+            cubicTo(center + shoulder / 2f, 0f, center + shoulder / 2f, top, center + shoulder, top)
+            lineTo(center + shoulder, size.height - bottomInset)
+            lineTo(center - shoulder, size.height - bottomInset)
+            close()
+        }
+        drawPath(accent, accentColor)
     }) {
         NavigationBar(
             modifier = Modifier.padding(top = 16.dp),
@@ -129,22 +140,22 @@ private fun PrimaryDestination(selected: Boolean, onClick: () -> Unit, modifier:
     Column(
         modifier = modifier
             .heightIn(min = 80.dp)
-            .background(if (inRail) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+            .background(if (inRail) MaterialTheme.colorScheme.primary else Color.Transparent)
             .selectable(selected = selected, onClick = onClick, role = Role.Tab)
             .padding(vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
     ) {
         Box(Modifier.size(width = 72.dp, height = 44.dp), contentAlignment = Alignment.Center) {
-            PengWaIcon(PengWaIcons.Tap, Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary)
+            PengWaIcon(PengWaIcons.Tap, Modifier.size(32.dp), tint = MaterialTheme.colorScheme.onPrimary)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (selected) Box(Modifier.size(4.dp).background(MaterialTheme.colorScheme.primary, CircleShape))
+            if (selected) Box(Modifier.size(4.dp).background(MaterialTheme.colorScheme.onPrimary, CircleShape))
             Text(
                 stringResource(R.string.tab_exchange),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
+                color = MaterialTheme.colorScheme.onPrimary,
             )
         }
     }

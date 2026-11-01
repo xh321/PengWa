@@ -1,6 +1,6 @@
 # 扩列主导航入口
 
-将碰一碰／二维码／扫一扫所在的默认页面从“主页”改为导航正中的“扩列”。导航顺序为“附近娃娃／扩列／集邮册”。底部导航栏中央以连续曲线向上凸起，扩列图标与文字位于这段凸起中，没有独立的实底胶囊或阴影。放大的主题色图标、加粗标签和选中圆点保留主入口强调；两侧保留常规导航样式。横屏短窗口的侧栏使用通栏浅色背景强调扩列，无圆角卡片和阴影。默认打开的页面与交换逻辑沿用现有实现。
+将碰一碰／二维码／扫一扫所在的默认页面从“主页”改为导航正中的“扩列”。导航顺序为“附近娃娃／扩列／集邮册”。底部导航栏中央以连续曲线向上凸起，凸起及其下方扩列区域统一使用主题强调色，图标、标签和选中圆点使用 onPrimary 高对比颜色。强调区域贴合栏体，无阴影或悬浮间隙；两侧保留常规导航样式。横屏短窗口的侧栏同样使用通栏强调色背景，无圆角卡片和阴影。默认打开的页面与交换逻辑沿用现有实现。
 
 ## 运行环境与测试数据
 
@@ -34,7 +34,7 @@
    adb -s emulator-5560 shell am start -n app.pengwa.debug/app.pengwa.ui.UiPreviewActivity --es screen home --ei sample 1
    ```
 
-3. 分别使用 `--es screen bluetooth --ei sample 0`、`--es screen contacts --ei sample 0` 打开两侧页面。确认扩列在导航栏正中凸起处，轮廓与栏体连续、没有悬浮阴影；仅选中扩列时标签前有圆点。
+3. 分别使用 `--es screen bluetooth --ei sample 0`、`--es screen contacts --ei sample 0` 打开两侧页面。确认扩列在导航栏正中凸起处，区域使用强调色、图标文字有清晰对比，轮廓与栏体连续、没有悬浮阴影；仅选中扩列时标签前有圆点。
 4. 用 `adb -s emulator-5560 shell cmd uimode night yes` 切换深色，`no` 恢复浅色。
 5. 窄屏验证：`adb -s emulator-5560 shell wm size 840x1680`，`adb -s emulator-5560 shell settings put system font_scale 1.5`，确认三个入口及标签可见。
 6. 字体恢复 `1.0`，使用 `wm size 1680x840` 验证横屏侧栏。完成后执行 `wm size reset`、`font_scale 1.0` 和 `cmd uimode night no` 恢复配置。
