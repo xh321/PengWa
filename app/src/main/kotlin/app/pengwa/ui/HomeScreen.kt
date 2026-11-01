@@ -80,10 +80,7 @@ fun HomeScreen(
     }
 
     Column(modifier = modifier.fillMaxSize()) {
-        HomeHeader(identity, onEdit = { viewModel.beginEdit(); editing = true }, onSettings = { showSettings = true })
-        Row(Modifier.fillMaxWidth().padding(horizontal = PageGutter), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = { showingCard = true }) { Text("查看我的卡片") }
-        }
+        HomeHeader(identity, onView = { showingCard = true }, onEdit = { viewModel.beginEdit(); editing = true }, onSettings = { showSettings = true })
         HomeBluetoothStatus()
         FaceToFacePage(
             identity = identity, role = role, onRoleChange = onRoleChange,
@@ -101,7 +98,7 @@ fun HomeScreen(
 }
 
 @Composable
-internal fun HomeHeader(identity: Identity, onEdit: () -> Unit, onSettings: () -> Unit) {
+internal fun HomeHeader(identity: Identity, onView: () -> Unit, onEdit: () -> Unit, onSettings: () -> Unit) {
     val compact = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.height.toDp() < 480.dp }
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = PageGutter, vertical = if (compact) 4.dp else 12.dp),
@@ -115,6 +112,7 @@ internal fun HomeHeader(identity: Identity, onEdit: () -> Unit, onSettings: () -
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp))
         }
+        IconButton(onClick = onView) { PengWaIcon(PengWaIcons.View, contentDescription = stringResource(R.string.home_view_card)) }
         IconButton(onClick = onEdit) { PengWaIcon(PengWaIcons.Edit, contentDescription = stringResource(R.string.home_edit)) }
         IconButton(onClick = onSettings) { PengWaIcon(PengWaIcons.Settings, contentDescription = stringResource(R.string.home_settings)) }
     }

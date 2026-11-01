@@ -2,6 +2,11 @@ package app.pengwa.ui
 
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.unit.dp
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.foundation.background
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.MaterialTheme
@@ -195,7 +200,7 @@ internal fun PreviewDestination(tab: Int, content: @Composable () -> Unit) {
 internal fun PreviewHome(content: @Composable () -> Unit) {
     PreviewDestination(MainActivity.TAB_ME) {
         Column(Modifier.fillMaxSize()) {
-            HomeHeader(Identity(UUID(0L, 1L), "小棉花"), onEdit = {}, onSettings = {})
+            HomeHeader(Identity(UUID(0L, 1L), "小棉花"), onView = {}, onEdit = {}, onSettings = {})
             Box(Modifier.weight(1f)) { content() }
         }
     }
@@ -235,4 +240,19 @@ internal fun ScannerPermissionPreview() {
 @Composable
 internal fun ContactDetailsPreview() {
     PreviewSurface { ContactDetails(previewContacts[1]) {} }
+}
+
+
+@PengWaPreviews
+@Composable
+internal fun HomeBluetoothNoticePreview() {
+    PreviewHome {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            HomeBluetoothNotice("交换卡片需要蓝牙授权") { TextButton(onClick = {}) { Text("授权蓝牙", maxLines = 1) } }
+            HomeBluetoothNotice("交换卡片需要蓝牙授权") { TextButton(onClick = {}) { Text("前往设置", maxLines = 1) } }
+            HomeBluetoothNotice("请开启蓝牙以交换卡片") { TextButton(onClick = {}) { Text("开启蓝牙", maxLines = 1) } }
+            HomeBluetoothNotice("连接已断开，请保持双方应用打开后重试") { TextButton(onClick = {}) { Text("重试连接", maxLines = 1) } }
+            HomeBluetoothNotice("正在通过蓝牙交换卡片")
+        }
+    }
 }

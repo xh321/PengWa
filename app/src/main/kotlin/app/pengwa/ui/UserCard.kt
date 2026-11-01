@@ -208,18 +208,31 @@ internal fun HomeBluetoothStatus() {
         controller.refresh()
         onPauseOrDispose { }
     }
-    if (!permitted || !bluetoothOn || status != null) Surface(
+    if (!permitted || !bluetoothOn || status != null) HomeBluetoothNotice(
+        message = when { !permitted -> "交换卡片需要蓝牙授权"; !bluetoothOn -> "请开启蓝牙以交换卡片"; else -> status.orEmpty() },
+    ) {
+        if (permitted && bluetoothOn && status != null && !status.orEmpty().contains("正在") && status != "卡片交换完成") TextButton(onClick = controller::retryDiscovery) { Text("重试连接", maxLines = 1) }
+        if (!permitted || !bluetoothOn) TextButton(onClick = {
+            if (!permitted && denied) context.startActivity(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.fromParts("package", context.packageName, null)))
+            else if (!permitted) permissions.launch(app.pengwa.ble.BlePermissions.required())
+            else enable.launch(android.content.Intent(android.bluetooth.BluetoothAdapter.ACTION_REQUEST_ENABLE))
+        }) { Text(if (!permitted) { if (denied) "前往设置" else "授权蓝牙" } else "开启蓝牙", maxLines = 1) }
+    }
+}
+
+@Composable
+internal fun HomeBluetoothNotice(message: String, action: @Composable () -> Unit = {}) {
+    Surface(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
         color = MaterialTheme.colorScheme.surfaceContainer, shape = MaterialTheme.shapes.medium,
     ) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(when { !permitted -> "授权蓝牙后，碰一碰即可交换完整卡片"; !bluetoothOn -> "请开启蓝牙以交换卡片"; else -> status.orEmpty() }, style = MaterialTheme.typography.bodySmall)
-            if (permitted && bluetoothOn && status != null && !status.orEmpty().contains("正在") && status != "卡片交换完成") TextButton(onClick = controller::retryDiscovery) { Text("重试连接") }
-            if (!permitted || !bluetoothOn) TextButton(onClick = {
-                if (!permitted && denied) context.startActivity(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.fromParts("package", context.packageName, null)))
-                else if (!permitted) permissions.launch(app.pengwa.ble.BlePermissions.required())
-                else enable.launch(android.content.Intent(android.bluetooth.BluetoothAdapter.ACTION_REQUEST_ENABLE))
-            }) { Text(if (!permitted) { if (denied) "前往设置" else "授权蓝牙" } else "开启蓝牙") }
+        Row(
+            Modifier.padding(horizontal = 12.dp, vertical = 4.dp).heightIn(min = 24.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(message, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+            action()
         }
     }
 }
