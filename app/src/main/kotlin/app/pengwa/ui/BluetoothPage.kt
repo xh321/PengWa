@@ -7,6 +7,11 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -39,6 +44,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -46,6 +53,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.pengwa.R
 import app.pengwa.ble.BlePermissions
 import app.pengwa.ble.NearbyPeer
+import app.pengwa.ble.NearbySignal
 import app.pengwa.ble.PeerState
 import app.pengwa.pengWa
 
@@ -136,7 +144,9 @@ internal fun BluetoothPageContent(
             nearby.isEmpty() -> Prompt(message = stringResource(R.string.bt_search_help), actionLabel = null) {}
             else -> {
                 Text(stringResource(R.string.bt_search_count, nearby.size), style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(bottom = 12.dp))
+                    color = MaterialTheme.colorScheme.primary)
+                Text(stringResource(R.string.bt_distance_hint), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp, bottom = 12.dp))
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 20.dp)) {
                     items(nearby, key = { it.identityKey?.toString() ?: it.address }) { peer -> PeerRow(peer) { onExchange(peer.address) } }
                 }
@@ -172,15 +182,16 @@ private fun PeerRow(peer: NearbyPeer, onExchange: () -> Unit) {
                 NameStamp(peer.name.orEmpty())
                 Column(Modifier.weight(1f)) {
                     Text(peer.name ?: stringResource(R.string.bt_peer_unknown), style = MaterialTheme.typography.titleSmall)
-                    Text(
-                        text = when {
-                            peer.state == PeerState.Failed -> peer.message ?: stringResource(R.string.bt_failed)
-                            peer.state == PeerState.Exchanging -> stringResource(R.string.bt_requesting)
-                            peer.state == PeerState.Waiting -> stringResource(R.string.bt_waiting)
-                            peer.state == PeerState.Done -> stringResource(R.string.bt_done)
-                            peer.name == null -> stringResource(R.string.bt_reading_name)
-                            else -> stringResource(signalLabel(peer.rssi))
-                        },
+                    val status = when {
+                        peer.state == PeerState.Failed -> peer.message ?: stringResource(R.string.bt_failed)
+                        peer.state == PeerState.Exchanging -> stringResource(R.string.bt_requesting)
+                        peer.state == PeerState.Waiting -> stringResource(R.string.bt_waiting)
+                        peer.state == PeerState.Done -> stringResource(R.string.bt_done)
+                        peer.name == null -> stringResource(R.string.bt_reading_name)
+                        else -> null
+                    }
+                    if (status != null) Text(
+                        text = status,
                         style = MaterialTheme.typography.bodyMedium,
                         color = when (peer.state) {
                             PeerState.Failed -> MaterialTheme.colorScheme.error
@@ -190,6 +201,7 @@ private fun PeerRow(peer: NearbyPeer, onExchange: () -> Unit) {
                     )
                 }
             }
+            PeerSignal(peer.rssi)
             when (peer.state) {
                 PeerState.Exchanging, PeerState.Waiting -> CircularProgressIndicator(
                     modifier = Modifier.align(Alignment.End).size(24.dp), strokeWidth = 2.dp)
@@ -202,8 +214,42 @@ private fun PeerRow(peer: NearbyPeer, onExchange: () -> Unit) {
     }
 }
 
-private fun signalLabel(rssi: Int): Int = when {
-    rssi >= -60 -> R.string.bt_signal_strong
-    rssi >= -75 -> R.string.bt_signal_medium
-    else -> R.string.bt_signal_weak
+@Composable
+private fun PeerSignal(rssi: Int) {
+    val signal = NearbySignal.fromRssi(rssi)
+    val strength = stringResource(when (signal) {
+        NearbySignal.Strong -> R.string.bt_signal_strong
+        NearbySignal.Medium -> R.string.bt_signal_medium
+        NearbySignal.Weak -> R.string.bt_signal_weak
+        NearbySignal.Unknown -> R.string.bt_signal_unknown
+    })
+    val proximity = stringResource(when (signal) {
+        NearbySignal.Strong -> R.string.bt_distance_near
+        NearbySignal.Medium -> R.string.bt_distance_medium
+        NearbySignal.Weak -> R.string.bt_distance_far
+        NearbySignal.Unknown -> R.string.bt_distance_unknown
+    })
+    val description = "$proximity，$strength"
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = MaterialTheme.shapes.small,
+        modifier = Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = description },
+    ) {
+        Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.size(32.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                repeat(3) { index ->
+                    Box(Modifier.width(7.dp).height((10 + index * 10).dp).background(
+                        color = if (index < signal.bars) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.outlineVariant,
+                        shape = RoundedCornerShape(2.dp),
+                    ))
+                }
+            }
+            Text(proximity, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+        }
+    }
 }

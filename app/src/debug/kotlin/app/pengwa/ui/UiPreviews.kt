@@ -94,6 +94,15 @@ internal class BluetoothPreviewProvider : PreviewParameterProvider<BluetoothPrev
         BluetoothPreviewState("蓝牙关闭", bluetoothOn = false),
         BluetoothPreviewState("搜索中"),
         BluetoothPreviewState("附近的人与交换状态", nearby = previewPeers),
+        BluetoothPreviewState("信号与距离参考", nearby = signalPreviewPeers),
+        BluetoothPreviewState("信号与交换状态", nearby = signalPreviewPeers.mapIndexed { index, peer ->
+            peer.copy(
+                name = if (index == 0) "名字很长很长很长的测试娃友" else peer.name,
+                rssi = if (index == 0) 127 else peer.rssi,
+                state = listOf(PeerState.Waiting, PeerState.Failed, PeerState.Done)[index],
+                message = if (index == 1) "对方暂时没有回应，请稍后重试" else null,
+            )
+        }),
     )
 
     override fun getDisplayName(index: Int): String = values.elementAt(index).name
@@ -123,6 +132,16 @@ private val previewPeers = PeerState.entries.mapIndexed { index, state ->
         lastSeenMillis = 0L,
         state = state,
         message = if (state == PeerState.Failed) "对方暂时没有回应，请稍后重试" else null,
+    )
+}
+
+private val signalPreviewPeers = listOf(-48, -68, -88).mapIndexed { index, rssi ->
+    NearbyPeer(
+        address = "02:00:00:00:01:0$index",
+        name = listOf("测试小熊", "测试小兔", "测试小鹿")[index],
+        rssi = rssi,
+        lastSeenMillis = 0L,
+        state = PeerState.Ready,
     )
 }
 
