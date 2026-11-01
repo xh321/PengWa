@@ -88,6 +88,13 @@
     <string name="bt_signal_strong">信号强</string>
     <string name="bt_signal_medium">信号中</string>
     <string name="bt_signal_weak">信号弱</string>
+    <string name="bt_signal_unknown">信号未知</string>
+    <string name="bt_distance_near">较近</string>
+    <string name="bt_distance_medium">稍远</string>
+    <string name="bt_distance_far">较远</string>
+    <string name="bt_distance_unknown">距离未知</string>
+    <string name="bt_distance_hint">距离仅供参考</string>
+    <string name="bt_request_short">交换</string>
     <string name="bt_request">申请交换</string>
     <string name="bt_requesting">正在发出申请…</string>
     <string name="bt_waiting">等待对方同意…</string>
