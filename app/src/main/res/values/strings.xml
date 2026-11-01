@@ -48,6 +48,19 @@
     <string name="lab_add_demo">添加 5 条假名片</string>
     <string name="lab_simulate_request">5 秒后模拟收到一个交换申请</string>
 
+    <string name="contact_photos">照片 · %1$d</string>
+    <string name="contact_photos_empty">还没有合影，拍一张或从相册添加吧。照片仅保存在本机。</string>
+    <string name="contact_photos_private">与这位娃友的合影，仅保存在本机</string>
+    <string name="contact_photos_add">从相册添加</string>
+    <string name="contact_photos_failed">操作未完成，请检查相机权限或照片文件后重试。</string>
+    <string name="contact_photo_description">合影 %1$d，点按查看大图</string>
+    <string name="contact_photo_view">查看合影</string>
+    <string name="contact_photo_remove">移除照片</string>
+    <string name="contact_photo_remove_confirm">移除此合影？系统相册中的原照片不受影响。</string>
+    <string name="contact_photo_remove_yes">确认移除</string>
+    <string name="contact_photo_unavailable">照片无法显示</string>
+    <string name="contact_photo_loading">照片加载中</string>
+
     <!-- 相机 -->
     <string name="camera_button">拍照</string>
     <string name="photo_saved">已保存到相册 · Pictures/PengWa</string>

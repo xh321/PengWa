@@ -14,7 +14,7 @@ class UiPreviewActivity : ComponentActivity() {
         val index = intent.getIntExtra("sample", 0)
         setContent {
             when (screen) {
-                "card", "card-editor", "card-received", "card-images", "card-images-editor", "card-images-received", "card-masonry", "card-masonry-editor", "card-masonry-received", "card-social", "card-social-editor", "card-social-received" -> CustomCardPreview(screen)
+                "my-card", "card", "card-editor", "card-received", "card-images", "card-images-editor", "card-images-received", "card-masonry", "card-masonry-editor", "card-masonry-received", "card-social", "card-social-editor", "card-social-received" -> CustomCardPreview(screen)
                 "home-bluetooth-notice" -> HomeBluetoothNoticePreview()
                 "nearby-dedup" -> NearbyDedupPreview(index)
                 "nearby-refresh" -> NearbyRefreshPreview(index)
