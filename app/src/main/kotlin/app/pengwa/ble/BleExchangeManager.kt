@@ -90,6 +90,7 @@ class BleExchangeManager(
     private val devices = HashMap<String, BluetoothDevice>()
     private val sessions = GattExchangeSessions<String>()
     private class Transfer {
+        val request = CardRequest()
         val incoming = CardAssembler()
         var outgoing: ByteArray? = null
         var cursor = 0
@@ -183,6 +184,8 @@ class BleExchangeManager(
         service.addCharacteristic(BluetoothGattCharacteristic(BleProtocol.CARD_CHAR_UUID,
             BluetoothGattCharacteristic.PROPERTY_READ or BluetoothGattCharacteristic.PROPERTY_WRITE,
             BluetoothGattCharacteristic.PERMISSION_READ or BluetoothGattCharacteristic.PERMISSION_WRITE))
+        service.addCharacteristic(BluetoothGattCharacteristic(BleProtocol.REQUEST_CHAR_UUID,
+            BluetoothGattCharacteristic.PROPERTY_WRITE, BluetoothGattCharacteristic.PERMISSION_WRITE))
         server.addService(service)
         gattServer = server
         return true
@@ -243,7 +246,7 @@ class BleExchangeManager(
             val value: ByteArray? = when (characteristic.uuid) {
                 BleProtocol.CARD_CHAR_UUID -> {
                     val transfer = transfers[device.address]
-                    if (transfer == null || !sessions.canRead(device.address) || offset != 0) {
+                    if (transfer == null || sessions.peerOf(device.address)?.cardComplete != true || !sessions.canRead(device.address) || offset != 0) {
                         server.sendResponse(device, requestId, BluetoothGatt.GATT_INSUFFICIENT_AUTHORIZATION, offset, null)
                         return
                     }
@@ -279,6 +282,11 @@ class BleExchangeManager(
             offset: Int,
             value: ByteArray?,
         ) {
+            if (characteristic.uuid == BleProtocol.REQUEST_CHAR_UUID) {
+                val ok = !preparedWrite && offset == 0 && value != null && receiveRequest(device.address, value)
+                if (responseNeeded) gattServer?.sendResponse(device, requestId, if (ok) BluetoothGatt.GATT_SUCCESS else BluetoothGatt.GATT_FAILURE, offset, null)
+                return
+            }
             if (characteristic.uuid == BleProtocol.CARD_CHAR_UUID) {
                 val ok = !preparedWrite && offset == 0 && value != null && receiveCard(device.address, value)
                 if (responseNeeded) gattServer?.sendResponse(device, requestId, if (ok) BluetoothGatt.GATT_SUCCESS else BluetoothGatt.GATT_FAILURE, offset, null)
@@ -288,17 +296,31 @@ class BleExchangeManager(
         }
     }
 
-    private fun receiveCard(address: String, frame: ByteArray): Boolean {
-        if (frame.size < CardTransfer.HEADER) return false
+    private fun receiveRequest(address: String, frame: ByteArray): Boolean {
         if (!transfers.containsKey(address) && transfers.size >= 16) return false
         val transfer = transfers.getOrPut(address) { Transfer().also { it.mtu = peerMtus[address] ?: 23 } }
         synchronized(transfer) {
+            if (transfer.request.complete || !transfer.request.append(frame)) return false
+            if (transfer.request.complete) {
+                val peer = transfer.request.peer ?: return false
+                sessions.onRequest(address, peer)
+                if (listener.onIncomingRequest(address, peer) == RequestReply.Decline) sessions.decide(address, false)
+            }
+            return true
+        }
+    }
+
+    private fun receiveCard(address: String, frame: ByteArray): Boolean {
+        if (frame.size < CardTransfer.HEADER) return false
+        val transfer = transfers[address] ?: return false
+        synchronized(transfer) {
+            if (!sessions.canRead(address) || !transfer.request.complete) return false
             val header = ByteBuffer.wrap(frame)
             val offset = header.int
             val total = header.int
             if (frame.contentEquals(CardTransfer.ACK)) {
                 val outgoing = transfer.outgoing ?: return false
-                if (!sessions.canRead(address) || transfer.readEnd != outgoing.size || transfer.acknowledged) return false
+                if (sessions.peerOf(address)?.cardComplete != true || !sessions.canRead(address) || transfer.readEnd != outgoing.size || transfer.acknowledged) return false
                 transfer.acknowledged = true
                 sessions.peerOf(address)?.let { listener.onCardCompleted(address, it) }
                 return true
@@ -311,8 +333,7 @@ class BleExchangeManager(
             if (!transfer.incoming.append(frame)) return false
             if (transfer.incoming.complete) {
                 val peer = CardCodec.decodeBinary(transfer.incoming.result()!!) ?: return false
-                sessions.onRequest(address, peer)
-                if (listener.onIncomingRequest(address, peer) == RequestReply.Decline) sessions.decide(address, false)
+                if (!sessions.completeCard(address, peer)) return false
             }
             return true
         }
@@ -426,6 +447,8 @@ class BleExchangeManager(
         private var waitStartedAt = 0L
         private var mtu = 23
         private var highPriority = false
+        private var requestBytes = byteArrayOf()
+        private var requestSent = 0
         private var upload: ByteArray? = null
         private var sent = 0
         private var lastSent = 0
@@ -491,7 +514,7 @@ class BleExchangeManager(
                     val hasStatus = service.getCharacteristic(BleProtocol.STATUS_CHAR_UUID) != null
                     val me = identityProvider()
                     when {
-                        exchange == null || !hasStatus -> {
+                        exchange == null || !hasStatus || service.getCharacteristic(BleProtocol.REQUEST_CHAR_UUID) == null -> {
                             failure = "对方版本不兼容"
                             gatt.disconnect()
                         }
@@ -502,12 +525,28 @@ class BleExchangeManager(
                         // 先出示我的名片，等于向对方发出申请
                         else -> {
                             upload = CardCodec.encodeBinary(me)
-                            timing.mark("upload_start", bytes = upload!!.size, mtu = mtu)
-                            sendChunk(gatt)
+                            requestBytes = encodeIdentity(me)
+                            timing.mark("request_start", bytes = requestBytes.size, mtu = mtu)
+                            sendRequestChunk(gatt)
                         }
                     }
                 }
             }
+        }
+
+        private fun sendRequestChunk(gatt: BluetoothGatt) {
+            val frame = CardTransfer.frame(requestBytes, requestSent, minOf(mtu - 3, 512))
+            lastSent = frame.size - CardTransfer.HEADER
+            phase = "request"
+            writeRequest(gatt, gatt.getService(BleProtocol.SERVICE_UUID).getCharacteristic(BleProtocol.REQUEST_CHAR_UUID), frame)
+        }
+
+        private fun waitForDecision() {
+            timing.mark("request_complete", bytes = requestSent)
+            setTransferPriority(gatt ?: return, false)
+            waitStartedAt = SystemClock.elapsedRealtime()
+            listener.onExchangeWaiting(op.address)
+            readStatus()
         }
 
         private fun sendChunk(gatt: BluetoothGatt) {
@@ -545,11 +584,19 @@ class BleExchangeManager(
                 gatt.disconnect()
                 return
             }
+            if (characteristic.uuid == BleProtocol.REQUEST_CHAR_UUID && phase == "request") {
+                requestSent += lastSent
+                if (requestSent < requestBytes.size) sendRequestChunk(gatt) else waitForDecision()
+                return
+            }
             if (characteristic.uuid == BleProtocol.CARD_CHAR_UUID) {
                 when (phase) {
                     "upload" -> {
                         sent += lastSent
                         if (sent < (upload?.size ?: 0)) { sendChunk(gatt); return }
+                        timing.mark("upload_complete", bytes = sent)
+                        requestChunk(gatt)
+                        return
                     }
                     "cursor" -> {
                         if (!gatt.readCharacteristic(characteristic)) gatt.disconnect()
@@ -565,12 +612,7 @@ class BleExchangeManager(
                     }
                 }
             }
-            timing.mark("upload_complete", bytes = sent)
-            setTransferPriority(gatt, false)
-            // 申请已送达，开始等对方决定
-            waitStartedAt = SystemClock.elapsedRealtime()
-            listener.onExchangeWaiting(op.address)
-            readStatus()
+
         }
 
         @Synchronized
@@ -637,7 +679,8 @@ class BleExchangeManager(
                 ExchangeStatus.Accepted -> {
                     timing.mark("accepted")
                     setTransferPriority(gatt, true)
-                    requestChunk(gatt)
+                    timing.mark("upload_start", bytes = upload!!.size, mtu = mtu)
+                    sendChunk(gatt)
                 }
                 ExchangeStatus.Pending -> {
                     if (SystemClock.elapsedRealtime() - waitStartedAt > WAIT_LIMIT_MS) {

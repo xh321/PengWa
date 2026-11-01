@@ -35,7 +35,7 @@ enum class ExchangeStatus(val code: Byte) {
  * [K] 是连接对象的标识（真机上是设备地址）。
  */
 class GattExchangeSessions<K : Any>(private val capacity: Int = 16) {
-    private class Entry(val peer: Identity, var status: ExchangeStatus)
+    private class Entry(var peer: Identity, var status: ExchangeStatus)
 
     // 按插入顺序保存；超过容量时丢掉最早的，防止被大量连接撑爆内存
     private val entries = LinkedHashMap<K, Entry>()
@@ -76,6 +76,15 @@ class GattExchangeSessions<K : Any>(private val capacity: Int = 16) {
         val entry = entries[key] ?: return false
         if (entry.status != ExchangeStatus.Pending) return false
         entry.status = ExchangeStatus.Expired
+        return true
+    }
+
+    /** Attach the full card only to the identity whose request was accepted. */
+    @Synchronized
+    fun completeCard(key: K, peer: Identity): Boolean {
+        val entry = entries[key] ?: return false
+        if (entry.status != ExchangeStatus.Accepted || entry.peer.id != peer.id || !peer.cardComplete || entry.peer.cardComplete) return false
+        entry.peer = peer
         return true
     }
 

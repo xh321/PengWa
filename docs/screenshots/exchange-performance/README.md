@@ -12,3 +12,9 @@
 | 主页二维码／深色 | ![](qr-before-dark.png) | ![](qr-after-dark.png) |
 
 二维码像素随 D3 载荷改变，布局没有调整。截图仅验证运行中的显示，不证明 NFC / BLE 识别、确认或真实传输性能；双真机验证待补。
+
+## V4：申请先于图片上传
+
+同设备、Android 16 / API 36。`qr-v4-before/after-{light,dark}.png` 为 V3/V4 的主页二维码；
+`qr-request-v4-before/after-{light,dark}.png` 为同版本的确认弹窗，启动参数改为 `--es screen request`。
+弹窗内容和布局未调整。静态测试场景只能验证显示，申请先于图片的时序仍需双真机日志核验。
