@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 固定品牌色，不随应用的浅色 / 深色模式变化。 -->
+    <color name="ic_launcher_background">#A9364C</color>
+</resources>
