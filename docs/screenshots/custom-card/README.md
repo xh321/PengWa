@@ -104,3 +104,5 @@ bash gradlew testDebugUnitTest assembleDebug lintDebug --console=plain
 内容区瀑布流与屏幕适配的前后对比见 [瀑布流截图](../card-masonry/README.md)。
 
 六个平台、内置图标和账号操作见 [社交账号截图](../social-platforms/README.md)。
+
+按内容密度设置默认占格的前后对比见 [默认占格截图](../block-density/README.md)。

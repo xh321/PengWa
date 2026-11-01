@@ -11,6 +11,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.stateDescription
 import app.pengwa.R
 import app.pengwa.identity.CardBlock
 import app.pengwa.identity.SocialPlatform
@@ -38,20 +42,35 @@ internal fun SocialAccountBlock(block: CardBlock, onOpen: (String) -> Unit) {
     val context = LocalContext.current
     var copied by remember(block.text, block.title) { mutableStateOf(false) }
     val profile = block.socialProfileUrl()
-    Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Surface(
+        onClick = {
+            context.getSystemService(ClipboardManager::class.java)
+                .setPrimaryClip(ClipData.newPlainText(label, block.text))
+            copied = true
+        },
+        enabled = block.text.isNotBlank(),
+        modifier = Modifier.semantics {
+            contentDescription = "$label，${block.text}，点击复制账号"
+            stateDescription = if (copied) "已复制" else ""
+        },
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+    ) {
+        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SocialIcon(platform)
                 Text(label, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
             }
-            Text(block.text, style = MaterialTheme.typography.bodyMedium)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                TextButton(enabled = block.text.isNotBlank(), onClick = {
-                    context.getSystemService(ClipboardManager::class.java)
-                        .setPrimaryClip(ClipData.newPlainText(label, block.text))
-                    copied = true
-                }) { Text(if (copied) "已复制" else "复制账号") }
-                if (profile != null) TextButton(onClick = { onOpen(profile) }) { Text("打开主页") }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(block.text, style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(if (copied) "已复制" else "点击复制", style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (profile != null) IconButton(onClick = { onOpen(profile) }) {
+                    Icon(painterResource(R.drawable.ph_arrow_right), contentDescription = "打开${label}主页")
+                }
             }
         }
     }

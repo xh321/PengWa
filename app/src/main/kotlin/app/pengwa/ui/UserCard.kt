@@ -46,7 +46,7 @@ internal fun UserCardContent(identity: Identity) {
             CardAvatar(identity)
             Text(identity.displayName, style = MaterialTheme.typography.titleLarge)
         }
-        CardMasonry {
+        CardMasonry(identity.card.blocks.map { it.type }) {
             identity.card.blocks.forEach { block ->
                 if (block.type == BlockType.Image) {
                     CardImage(block.image, block.title.ifBlank { "卡片图片" })

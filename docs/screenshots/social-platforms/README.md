@@ -1,6 +1,6 @@
 # 六个社交平台与内置图标
 
-支持 QQ、微信、bilibili、小红书、X、Telegram；编辑时直接选择平台，卡片展示图标、平台名与账号，提供复制账号按钮。
+支持 QQ、微信、bilibili、小红书、X、Telegram；编辑时直接选择平台，卡片展示图标、平台名与账号，点击紧凑的一格卡片复制账号，主页入口使用独立箭头按钮。
 
 图标使用随应用打包的 Simple Icons 矢量资源，离线显示，颜色跟随应用主题。来源和许可见 [third_party](../../../third_party/README.md)。
 
@@ -36,7 +36,7 @@ adb shell cmd uimode night yes  # no 恢复浅色
 
 - `testDebugUnitTest assembleDebug lintDebug` 成功：183 项测试通过，Lint 无 error。
 - 新测试覆盖旧平台名识别、链接生成与显式分享链接优先、不安全用户名不拼入链接，以及六个平台沿原格式编码往返。
-- 模拟器检查六个平台图标、平台选择、复制按钮及深浅主题卡片展示。点击 QQ 的“复制账号”后显示“已复制”；编辑页从 QQ 切换 Telegram 后，账号字段标签同步变为“Telegram 用户名”。
+- 模拟器检查六个平台图标、平台选择、点击复制及深浅主题卡片展示。点击 QQ 卡片后显示“已复制”；编辑页从 QQ 切换 Telegram 后，账号字段标签同步变为“Telegram 用户名”。
 
 复制反馈：[截图](account-copied.png)；切换平台：[截图](platform-selected.png)。
 - 账号存在性、外部应用的登录／好友权限及真实平台跳转结果未验证；双真机交换仍按原 PR 未验证项保留。
