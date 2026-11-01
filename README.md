@@ -144,19 +144,19 @@ docs/                           protocol.md（协议规格）、release.md（发
 
 ## 5. 已经测过的内容
 
-### 5.1 单元测试：164 项，全部通过
+### 5.1 单元测试：171 项，全部通过
 
 | 测试类 | 项数 | 覆盖 |
 |---|---:|---|
 | `nfc.ApduProtocolTest` | 23 | 私有协议；**两端直接对接的整次碰触**；模式开关 |
 | `nfc.T4tEmulatorTest` | 18 | 按 NFC Forum 规范的"标准读卡器"读标签；AID 路由 |
 | `ble.GattExchangeSessionsTest` | 17 | 申请—同意状态机、超时、断开、容量 |
-| `ble.NearbyListTest` | 17 | 列表排序、预览重试、等待中、过期移除 |
+| `ble.NearbyListTest` | 22 | 列表排序、预览重试、身份去重、跨地址等待和重试、过期移除 |
 | `ble.IncomingRequestsTest` | 13 | 申请队列、防骚扰、冷却、过期 |
 | `qr.QrTest` | 12 | 内容格式；**生成二维码 → 当成相机帧识别 → 解出同一张名片**（含带行填充的帧） |
 | `identity.DisplayNameRulesTest` | 11 | 字节限长、控制/零宽/方向覆盖字符、规范化 |
 | `ble.BleProtocolTest` | 10 | 名片编码、对方数据不可信 |
-| `ble.BlePreviewTest` | 9 | 预览编码 |
+| `ble.BlePreviewTest` | 11 | 新旧预览编码、稳定身份摘要、非法数据校验 |
 | `ble.BleRunPolicyTest` | 7 | 什么时候广播、什么时候扫描 |
 | `identity.IdentityTest` | 5 | GUID ⇄ 16 字节 |
 | `meeting.MeetingDebouncerTest` | 5 | 同一个人 10 秒内只算一次 |
@@ -215,7 +215,8 @@ docs/                           protocol.md（协议规格）、release.md（发
 
 - **ID 是明文**，任何见过你名片的人都可以复制它冒充；目前没有签名或挑战应答，需要时再加。
 - **显示名会被附近的人看到**：停在蓝牙页，或开了"后台蓝牙广播"时，附近的碰碰娃用户能读到你的显示名（ID 仍受申请—同意保护）。
-  这一点在设置的开关说明里写明了。
+  新版预览还提供由用户 UUID 派生的稳定摘要，用于跨蓝牙地址去重；摘要可被主动连接的设备用来关联同一身份，已知 UUID 时可计算匹配，不构成身份认证。
+  显示名可见性在设置的开关说明里写明了。
 - 停在碰一碰 / 扫码页并选择“出示”时，别人的手机能把你当一张标签读到名片（没有"对方先出示名片"的保护）；二维码谁看到谁就能复制。
 - NFC 私有协议和蓝牙都要求对方**先出示合法名片**才给名片，但协议是公开的，这只是防"随手抄走"，不是安全措施。
 
@@ -263,7 +264,7 @@ docs/                           protocol.md（协议规格）、release.md（发
 
 ```bash
 # 构建与测试
-./gradlew testDebugUnitTest        # 162 项单元测试
+./gradlew testDebugUnitTest        # 171 项单元测试
 ./gradlew assembleDebug            # 调试版
 ./gradlew assembleRelease          # 发布版；有 secrets/keystore.properties 时自动签名
 # 校验签名

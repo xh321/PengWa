@@ -138,7 +138,7 @@ internal fun BluetoothPageContent(
                 Text(stringResource(R.string.bt_search_count, nearby.size), style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(bottom = 12.dp))
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 20.dp)) {
-                    items(nearby, key = { it.address }) { peer -> PeerRow(peer) { onExchange(peer.address) } }
+                    items(nearby, key = { it.identityKey?.toString() ?: it.address }) { peer -> PeerRow(peer) { onExchange(peer.address) } }
                 }
             }
         }

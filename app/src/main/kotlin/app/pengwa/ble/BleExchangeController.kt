@@ -75,8 +75,8 @@ class BleExchangeController(
                 schedulePublish()
             }
 
-            override fun onPreview(address: String, name: String?) {
-                list.onPreview(address, name)
+            override fun onPreview(address: String, preview: PeerPreview?) {
+                list.onPreview(address, preview?.name, preview?.identityKey)
                 schedulePublish()
             }
 
@@ -86,7 +86,7 @@ class BleExchangeController(
             }
 
             override fun onExchanged(address: String, peer: Identity?, error: String?) {
-                list.onExchanged(address, peer?.displayName, error)
+                list.onExchanged(address, peer?.displayName, error, peer?.id?.let(::identityKey))
                 mainHandler.post {
                     if (peer != null) handlePeer(peer, "对方同意了我的申请") else log("交换失败：$error")
                 }
