@@ -29,7 +29,8 @@ class PengWaApplication : Application() {
     val identityRepository: IdentityRepository by lazy { IdentityRepository(this) }
     val contactStore: ContactStore by lazy { ContactStore(this) }
     val meetings: MeetingRecorder by lazy {
-        MeetingRecorder(contactStore, selfId = { identityRepository.id }, scope = applicationScope)
+        MeetingRecorder(contactStore, selfId = { identityRepository.id }, scope = applicationScope,
+            onStored = { bleExchange.onCardStored(it) })
     }
 
     /**

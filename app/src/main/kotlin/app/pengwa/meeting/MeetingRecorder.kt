@@ -39,6 +39,7 @@ class MeetingRecorder(
     private val selfId: () -> UUID,
     private val scope: CoroutineScope,
     private val debouncer: MeetingDebouncer = MeetingDebouncer(),
+    private val onStored: (UUID) -> Unit = {},
 ) {
     private val _events = MutableSharedFlow<MeetingEvent>(
         extraBufferCapacity = 8,
@@ -52,6 +53,7 @@ class MeetingRecorder(
         if (!debouncer.shouldRecord(peer.id, SystemClock.elapsedRealtime())) return false
         scope.launch {
             store.recordMeeting(peer.id, peer.displayName, System.currentTimeMillis(), peer.card.takeIf { peer.cardComplete })
+            onStored(peer.id)
             _events.emit(MeetingEvent(peer.displayName, via))
         }
         return true

@@ -6,6 +6,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.util.Log
+import app.pengwa.exchange.ExchangeTiming
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -47,6 +49,7 @@ class BleExchangeController(
     private val mainHandler = Handler(Looper.getMainLooper())
     private val list = NearbyList()
     private val requests = IncomingRequests()
+    private val timings = LinkedHashMap<UUID, ExchangeTiming>()
     private var discoveryPeer: UUID? = null
     private val receivingCards = mutableSetOf<String>()
     private var discoveryInitiator = false
@@ -231,6 +234,8 @@ class BleExchangeController(
     fun discover(peer: Identity, initiate: Boolean, source: String = "NFC") {
         if (peer.id == identityProvider()?.id) { _discoveryStatus.value = "这是自己的卡片"; return }
         if (discoveryPeer == peer.id && SystemClock.elapsedRealtime() < discoveryUntil) return
+        timings[peer.id] = ExchangeTiming(source, SystemClock::elapsedRealtime) { Log.d("PengWaExchange", it) }.also { it.mark("identified") }
+        while (timings.size > 32) timings.remove(timings.keys.first())
         discoveryAutoAccept = source == "NFC" && !initiate
         if (initiate) lastDiscovery = peer to source
         discoveryPeer = peer.id
@@ -270,6 +275,7 @@ class BleExchangeController(
         val peer = list.snapshot().firstOrNull { it.identityKey == identityKey(id) } ?: return
         if (!list.beginExchange(peer.address)) return
         discoveryInitiator = false
+        timings[id]?.mark("target_matched")
         _discoveryStatus.value = "正在通过蓝牙交换完整卡片…"
         publish()
         // Connection/consent/transfer has its own deadline in the BLE manager.
@@ -363,7 +369,12 @@ class BleExchangeController(
 
     // ------------------------------------------------------------------ 其它
 
+    fun onCardStored(id: UUID) {
+        mainHandler.post { timings.remove(id)?.mark("stored") }
+    }
+
     private fun handlePeer(peer: Identity, how: String) {
+        timings[peer.id]?.mark("card_received")
         val recorded = onPeer(peer, how)
         log(
             if (recorded) {
