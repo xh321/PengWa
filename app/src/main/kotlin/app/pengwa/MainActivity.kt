@@ -71,12 +71,16 @@ class MainActivity : ComponentActivity() {
                 pengWa.exchangeMode.mode.collect { mode -> nfcMode.apply(mode) }
             }
         }
-        setContent {
-            PengWaTheme {
-                PengWaRoot(
-                    requestedTab = requestedTab,
-                    onTabRequestHandled = { requestedTab = null },
-                )
+        lifecycleScope.launch {
+            pengWa.storageReady.await()
+            if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) BleBroadcastService.ensureRunning(this@MainActivity)
+            setContent {
+                PengWaTheme {
+                    PengWaRoot(
+                        requestedTab = requestedTab,
+                        onTabRequestHandled = { requestedTab = null },
+                    )
+                }
             }
         }
     }

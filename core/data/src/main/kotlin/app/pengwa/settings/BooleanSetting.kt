@@ -1,26 +1,23 @@
 package app.pengwa.settings
 
 import android.content.Context
-import android.content.SharedPreferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.*
 
-/** Boolean preference with a shared storage and listener lifecycle. */
-class BooleanSetting(private val key: String, private val defaultValue: Boolean = false) {
-    private fun prefs(context: Context): SharedPreferences =
-        context.applicationContext.getSharedPreferences("settings", Context.MODE_PRIVATE)
+/** Settings are persisted before observers and hardware side effects see the new value. */
+class BooleanSetting(key: String, private val defaultValue: Boolean = false) {
+    private val preference = booleanPreferencesKey(key)
 
-    fun get(context: Context): Boolean = prefs(context).getBoolean(key, defaultValue)
+    fun get(context: Context): Boolean = SettingsStorage.snapshot.value[preference] ?: defaultValue
 
-    fun set(context: Context, value: Boolean) {
-        prefs(context).edit().putBoolean(key, value).apply()
-    }
+    suspend fun set(context: Context, value: Boolean) = SettingsStorage.set(context, preference, value)
 
-    /** Retain the returned function: it keeps the weakly registered listener alive. */
     fun observe(context: Context, onChange: (Boolean) -> Unit): () -> Unit {
-        val prefs = prefs(context)
-        val listener = SharedPreferences.OnSharedPreferenceChangeListener { shared, changedKey ->
-            if (changedKey == key) onChange(shared.getBoolean(key, defaultValue))
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+        scope.launch {
+            SettingsStorage.snapshot.map { it[preference] ?: defaultValue }.distinctUntilChanged().collect(onChange)
         }
-        prefs.registerOnSharedPreferenceChangeListener(listener)
-        return { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+        return { scope.cancel() }
     }
 }

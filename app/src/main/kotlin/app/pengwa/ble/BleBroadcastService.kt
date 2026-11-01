@@ -22,6 +22,14 @@ class BleBroadcastService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        startup = pengWa.persistSetting { startAfterStorageReady() }.also { job ->
+            job.invokeOnCompletion { if (!isRunning) stopSelf() }
+        }
+    }
+
+    private var startup: kotlinx.coroutines.Job? = null
+
+    private suspend fun startAfterStorageReady() {
         val notification = PengWaNotification.build(this)
         if (notification == null) {
             // 还没设置显示名，没有名片可以广播
@@ -50,6 +58,7 @@ class BleBroadcastService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
 
     override fun onDestroy() {
+        startup?.cancel()
         isRunning = false
         pengWa.bleExchange.refresh()
         PengWaNotification.refresh(this)

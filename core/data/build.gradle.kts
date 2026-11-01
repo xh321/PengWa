@@ -11,6 +11,7 @@ ksp { arg("room.schemaLocation", "$projectDir/schemas") }
 
 
 dependencies {
+    implementation(libs.androidx.datastore.preferences)
     implementation(libs.room.runtime)
     ksp(libs.room.compiler)
     androidTestImplementation(libs.androidx.test.runner)
