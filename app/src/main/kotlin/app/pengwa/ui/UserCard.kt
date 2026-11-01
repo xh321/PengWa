@@ -41,6 +41,30 @@ internal fun CardAvatar(identity: Identity, modifier: Modifier = Modifier, image
     }
 }
 
+/** A shared page shell keeps navigation reachable while long cards scroll. */
+@Composable
+internal fun CardDetailsPage(
+    title: String,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    onEdit: (() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    BackHandler(onBack = onBack)
+    Column(modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = onBack) { Text("返回") }
+            Text(title, Modifier.weight(1f).padding(horizontal = 8.dp), style = MaterialTheme.typography.titleLarge)
+            if (onEdit != null) TextButton(onClick = onEdit) { Text("编辑") }
+        }
+        Column(
+            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(app.pengwa.ui.theme.PageGutter),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            content = content,
+        )
+    }
+}
+
 @Composable
 internal fun UserCardContent(identity: Identity) {
     val uriHandler = LocalUriHandler.current

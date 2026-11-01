@@ -44,6 +44,7 @@ fun PengWaRoot(
         scope.launch { snackbarHostState.showSnackbar(message) }
     }
     var selectedTab by rememberSaveable { mutableIntStateOf(MainActivity.TAB_ME) }
+    var showingDetail by remember { mutableStateOf(false) }
     var nfcRole by rememberSaveable { mutableStateOf(ExchangeMode.NfcDisplay) }
 
     // 通知栏按钮要求切换到某一页
@@ -83,7 +84,7 @@ fun PengWaRoot(
 
     PengWaScaffold(
         selectedTab = selectedTab,
-        showNavigation = readyForExchange,
+        showNavigation = readyForExchange && !showingDetail,
         onSelect = { selectedTab = it },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { contentModifier ->
@@ -95,6 +96,7 @@ fun PengWaRoot(
             )
             selectedTab == MainActivity.TAB_ME -> HomeScreen(
                 viewModel = identityViewModel,
+                onDetailVisibilityChanged = { showingDetail = it },
                 role = nfcRole,
                 onRoleChange = { nfcRole = it },
                 onMessage = showMessage,
@@ -105,6 +107,7 @@ fun PengWaRoot(
             selectedTab == MainActivity.TAB_NEARBY -> NearbyScreen(modifier = contentModifier)
             selectedTab == MainActivity.TAB_CONTACTS -> ContactsScreen(
                 onMessage = showMessage, modifier = contentModifier,
+                onDetailVisibilityChanged = { showingDetail = it },
                 onExchange = { selectedTab = MainActivity.TAB_ME },
             )
             selectedTab == MainActivity.TAB_LAB && BuildConfig.DEBUG -> LabScreen(
