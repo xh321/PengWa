@@ -195,7 +195,7 @@ internal fun PreviewDestination(tab: Int, content: @Composable () -> Unit) {
 internal fun PreviewHome(content: @Composable () -> Unit) {
     PreviewDestination(MainActivity.TAB_ME) {
         Column(Modifier.fillMaxSize()) {
-            HomeHeader(Identity(UUID(0L, 1L), "小棉花"), onEdit = {}, onSettings = {})
+            HomeHeader(Identity(UUID(0L, 1L), "小棉花"), onView = {}, onEdit = {}, onSettings = {})
             Box(Modifier.weight(1f)) { content() }
         }
     }
