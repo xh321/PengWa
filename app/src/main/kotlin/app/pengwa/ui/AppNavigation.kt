@@ -11,6 +11,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.semantics.Role
@@ -80,12 +83,11 @@ internal fun PengWaScaffold(
 internal fun PengWaNavigation(selectedTab: Int, onSelect: (Int) -> Unit) {
     val barColor = MaterialTheme.colorScheme.surface
     val accentColor = MaterialTheme.colorScheme.primary
-    val bottomInset = NavigationBarDefaults.windowInsets.getBottom(LocalDensity.current)
     // Draw one continuous bar silhouette: the central crest belongs to the bar itself.
     Box(Modifier.drawBehind {
-        val top = 16.dp.toPx()
+        val top = 12.dp.toPx()
         val center = size.width / 2f
-        val shoulder = 64.dp.toPx()
+        val shoulder = 56.dp.toPx()
         val path = Path().apply {
             moveTo(0f, top)
             lineTo(center - shoulder, top)
@@ -97,24 +99,21 @@ internal fun PengWaNavigation(selectedTab: Int, onSelect: (Int) -> Unit) {
             close()
         }
         drawPath(path, barColor)
-        val accent = Path().apply {
-            moveTo(center - shoulder, top)
-            cubicTo(center - shoulder / 2f, top, center - shoulder / 2f, 0f, center, 0f)
-            cubicTo(center + shoulder / 2f, 0f, center + shoulder / 2f, top, center + shoulder, top)
-            lineTo(center + shoulder, size.height - bottomInset)
-            lineTo(center - shoulder, size.height - bottomInset)
-            close()
-        }
-        drawPath(accent, accentColor)
+        drawRoundRect(
+            color = accentColor,
+            topLeft = Offset(center - 36.dp.toPx(), 4.dp.toPx()),
+            size = Size(72.dp.toPx(), 48.dp.toPx()),
+            cornerRadius = CornerRadius(20.dp.toPx()),
+        )
     }) {
         NavigationBar(
-            modifier = Modifier.padding(top = 16.dp),
+            modifier = Modifier.padding(top = 12.dp),
             containerColor = Color.Transparent,
             tonalElevation = 0.dp,
         ) {
             destinations.forEach { item ->
                 if (item.tab == MainActivity.TAB_ME) {
-                    PrimaryDestination(selectedTab == item.tab, { onSelect(item.tab) }, Modifier.weight(1f).offset(y = (-12).dp))
+                    PrimaryDestination(selectedTab == item.tab, { onSelect(item.tab) }, Modifier.weight(1f).offset(y = (-8).dp))
                 } else NavigationBarItem(
                     selected = selectedTab == item.tab,
                     onClick = { onSelect(item.tab) },
@@ -140,22 +139,22 @@ private fun PrimaryDestination(selected: Boolean, onClick: () -> Unit, modifier:
     Column(
         modifier = modifier
             .heightIn(min = 80.dp)
-            .background(if (inRail) MaterialTheme.colorScheme.primary else Color.Transparent)
+            .background(if (inRail) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
             .selectable(selected = selected, onClick = onClick, role = Role.Tab)
             .padding(vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
     ) {
         Box(Modifier.size(width = 72.dp, height = 44.dp), contentAlignment = Alignment.Center) {
-            PengWaIcon(PengWaIcons.Tap, Modifier.size(32.dp), tint = MaterialTheme.colorScheme.onPrimary)
+            PengWaIcon(PengWaIcons.Tap, Modifier.size(28.dp), tint = if (inRail) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onPrimary)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (selected) Box(Modifier.size(4.dp).background(MaterialTheme.colorScheme.onPrimary, CircleShape))
+            if (selected) Box(Modifier.size(4.dp).background(MaterialTheme.colorScheme.primary, CircleShape))
             Text(
                 stringResource(R.string.tab_exchange),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimary,
+                color = MaterialTheme.colorScheme.primary,
             )
         }
     }
