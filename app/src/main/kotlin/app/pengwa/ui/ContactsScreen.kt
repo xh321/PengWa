@@ -4,11 +4,13 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
@@ -37,9 +39,10 @@ fun ContactsScreen(
     modifier: Modifier = Modifier,
     onExchange: () -> Unit = {},
     viewModel: ContactsViewModel = viewModel(),
+    onDetailVisibilityChanged: (Boolean) -> Unit = {},
 ) {
     val contacts by viewModel.contacts.collectAsStateWithLifecycle()
-    ContactsScreenContent(contacts = contacts, modifier = modifier, onExchange = onExchange) { buttonModifier ->
+    ContactsScreenContent(contacts = contacts, modifier = modifier, onExchange = onExchange, onDetailVisibilityChanged = onDetailVisibilityChanged) { buttonModifier ->
         CameraButton(onMessage = onMessage, modifier = buttonModifier)
     }
 }
@@ -50,9 +53,18 @@ internal fun ContactsScreenContent(
     modifier: Modifier = Modifier,
     onExchange: () -> Unit = {},
     now: Long = System.currentTimeMillis(),
+    onDetailVisibilityChanged: (Boolean) -> Unit = {},
     cameraButton: @Composable (Modifier) -> Unit,
 ) {
-    var selected by remember { mutableStateOf<Contact?>(null) }
+    var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
+    val listState = rememberLazyListState()
+    val selectedContact = contacts.firstOrNull { it.id.toString() == selectedId }
+    SideEffect { onDetailVisibilityChanged(selectedContact != null) }
+    DisposableEffect(Unit) { onDispose { onDetailVisibilityChanged(false) } }
+    if (selectedContact != null) {
+        ContactDetails(selectedContact, modifier) { selectedId = null }
+        return
+    }
     var fabHeight by remember { mutableIntStateOf(56) }
     val fabClearance = with(LocalDensity.current) { fabHeight.toDp() } + 40.dp
     Box(modifier = modifier.fillMaxSize()) {
@@ -77,16 +89,15 @@ internal fun ContactsScreenContent(
                     }
                 }
             } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = fabClearance)) {
+                LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = fabClearance)) {
                     items(contacts, key = { it.id }) { contact ->
-                        ContactRow(contact, now, onClick = { selected = contact })
+                        ContactRow(contact, now, onClick = { selectedId = contact.id.toString() })
                     }
                 }
             }
         }
         cameraButton(Modifier.align(Alignment.BottomEnd).padding(20.dp).onSizeChanged { fabHeight = it.height })
     }
-    selected?.let { contact -> ContactDetails(contact) { selected = null } }
 }
 
 @Composable
@@ -110,25 +121,20 @@ private fun ContactRow(contact: Contact, now: Long, onClick: () -> Unit) {
 }
 
 @Composable
-internal fun ContactDetails(contact: Contact, onDismiss: () -> Unit) {
+internal fun ContactDetails(contact: Contact, modifier: Modifier = Modifier, onDismiss: () -> Unit) {
     val format = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = { PengWaIcon(PengWaIcons.Book, tint = MaterialTheme.colorScheme.primary) },
-        title = { Text(contact.displayName) },
-        text = {
-            SelectionContainer {
-                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text(stringResource(R.string.contact_times, contact.metCount), color = MaterialTheme.colorScheme.primary)
-                    UserCardContent(app.pengwa.identity.Identity(contact.id, contact.displayName, contact.card))
-                    DetailField(stringResource(R.string.contact_first), format.format(Date(contact.firstMetAt)))
-                    DetailField(stringResource(R.string.contact_last), format.format(Date(contact.lastMetAt)))
-                    DetailField(stringResource(R.string.contact_id), contact.id.toString())
-                }
+    CardDetailsPage("名片详情", onBack = onDismiss, modifier = modifier) {
+        SelectionContainer {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                UserCardContent(app.pengwa.identity.Identity(contact.id, contact.displayName, contact.card))
+                Text(stringResource(R.string.contact_times, contact.metCount), color = MaterialTheme.colorScheme.primary)
+                ContactPhotoSection(contact.id)
+                DetailField(stringResource(R.string.contact_first), format.format(Date(contact.firstMetAt)))
+                DetailField(stringResource(R.string.contact_last), format.format(Date(contact.lastMetAt)))
+                DetailField(stringResource(R.string.contact_id), contact.id.toString())
             }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) } },
-    )
+        }
+    }
 }
 
 @Composable

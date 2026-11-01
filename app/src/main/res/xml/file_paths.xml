@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 只共享缓存目录下的 camera/ 子目录，用于把相机的输出位置临时授权给系统相机 -->
+<!-- 仅共享缓存下的相机临时文件与经过校验的更新安装包。 -->
 <paths>
+    <cache-path name="updates" path="updates/" />
     <cache-path
         name="camera"
         path="camera/" />

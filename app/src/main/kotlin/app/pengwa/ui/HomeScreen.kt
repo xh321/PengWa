@@ -23,6 +23,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -59,12 +61,16 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     onOpenLab: (() -> Unit)? = null,
     onOpenNearby: () -> Unit = {},
+    onDetailVisibilityChanged: (Boolean) -> Unit = {},
 ) {
     val identity = viewModel.identity
     var editing by rememberSaveable { mutableStateOf(false) }
     var showingCard by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var showGuide by rememberSaveable { mutableStateOf(false) }
+
+    SideEffect { onDetailVisibilityChanged(identity != null && (editing || showingCard)) }
+    DisposableEffect(Unit) { onDispose { onDetailVisibilityChanged(false) } }
 
     if (showGuide) {
         ExchangeGuide(
@@ -94,6 +100,14 @@ fun HomeScreen(
         return
     }
 
+    if (showingCard) {
+        CardDetailsPage("我的卡片", onBack = { showingCard = false }, modifier = modifier,
+            onEdit = { viewModel.beginEdit(); editing = true }) {
+            UserCardContent(identity)
+        }
+        return
+    }
+
     Column(modifier = modifier.fillMaxSize()) {
         HomeHeader(identity, onView = { showingCard = true }, onEdit = { viewModel.beginEdit(); editing = true }, onSettings = { showSettings = true })
         HomeBluetoothStatus()
@@ -104,11 +118,6 @@ fun HomeScreen(
         )
     }
 
-    if (showingCard) androidx.compose.material3.AlertDialog(
-        onDismissRequest = { showingCard = false }, title = { Text("我的卡片") },
-        text = { Column(Modifier.verticalScroll(rememberScrollState())) { UserCardContent(identity) } },
-        confirmButton = { TextButton(onClick = { showingCard = false }) { Text("关闭") } },
-    )
     if (showSettings) SettingsSheet(onDismiss = { showSettings = false }, onShowGuide = { showSettings = false; showGuide = true })
 }
 
@@ -149,12 +158,12 @@ private fun SettingsSheet(onDismiss: () -> Unit, onShowGuide: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         val context = LocalContext.current
         LaunchedEffect(Unit) { context.pengWa.analytics.track(app.pengwa.analytics.AnalyticsEvent.SettingsViewed) }
-        SettingsContent(backgroundBroadcast = { BackgroundBroadcastToggle() }, notification = { NotificationToggle() }, onShowGuide = onShowGuide, analytics = { AnalyticsToggle() })
+        SettingsContent(backgroundBroadcast = { BackgroundBroadcastToggle() }, notification = { NotificationToggle() }, onShowGuide = onShowGuide, update = { AppUpdateSection() }, analytics = { AnalyticsToggle() })
     }
 }
 
 @Composable
-internal fun SettingsContent(backgroundBroadcast: @Composable () -> Unit, notification: @Composable () -> Unit, onShowGuide: (() -> Unit)? = null, analytics: @Composable () -> Unit = {}) {
+internal fun SettingsContent(backgroundBroadcast: @Composable () -> Unit, notification: @Composable () -> Unit, onShowGuide: (() -> Unit)? = null, update: @Composable () -> Unit = {}, analytics: @Composable () -> Unit = {}) {
     Column(
         modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = PageGutter, end = PageGutter, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -169,6 +178,9 @@ internal fun SettingsContent(backgroundBroadcast: @Composable () -> Unit, notifi
         }
         Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
             Column(Modifier.padding(16.dp)) { analytics() }
+        }
+        Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
+            Column(Modifier.padding(16.dp)) { update() }
         }
     }
 }

@@ -208,15 +208,20 @@ internal fun PreviewHome(content: @Composable () -> Unit) {
 
 @PengWaPreviews
 @Composable
-internal fun SettingsPreview(analyticsConfigured: Boolean = false, analyticsInitiallyEnabled: Boolean = false) {
+internal fun SettingsPreview(
+    updateState: app.pengwa.update.UpdateState = app.pengwa.update.UpdateState(),
+    analyticsConfigured: Boolean = false,
+    analyticsInitiallyEnabled: Boolean = false,
+) {
     var analyticsEnabled by remember(analyticsInitiallyEnabled) { mutableStateOf(analyticsInitiallyEnabled) }
     PreviewSurface {
         Box(Modifier.safeDrawingPadding()) {
-        SettingsContent(
-            backgroundBroadcast = { SettingsRow(stringResource(R.string.bg_setting_title), stringResource(R.string.bg_setting_desc), false) {} },
-            notification = { SettingsRow(stringResource(R.string.notif_setting_title), stringResource(R.string.notif_setting_desc), false) {} },
-            analytics = { AnalyticsSettingContent(analyticsEnabled, analyticsConfigured) { analyticsEnabled = it } },
-        )
+            SettingsContent(
+                backgroundBroadcast = { SettingsRow(stringResource(R.string.bg_setting_title), stringResource(R.string.bg_setting_desc), false) {} },
+                notification = { SettingsRow(stringResource(R.string.notif_setting_title), stringResource(R.string.notif_setting_desc), false) {} },
+                update = { AppUpdateContent(updateState, {}, {}, {}) },
+                analytics = { AnalyticsSettingContent(analyticsEnabled, analyticsConfigured) { analyticsEnabled = it } },
+            )
         }
     }
 }
@@ -257,6 +262,39 @@ internal fun HomeBluetoothNoticePreview() {
             HomeBluetoothNotice("请开启蓝牙以交换卡片") { TextButton(onClick = {}) { Text("开启蓝牙", maxLines = 1) } }
             HomeBluetoothNotice("连接已断开，请保持双方应用打开后重试") { TextButton(onClick = {}) { Text("重试连接", maxLines = 1) } }
             HomeBluetoothNotice("正在通过蓝牙交换卡片")
+        }
+    }
+}
+
+/** Fixed test data for running-emulator update screenshots; no network or installation actions. */
+internal fun updatePreviewState(index: Int): app.pengwa.update.UpdateState {
+    val release = app.pengwa.update.UpdateRelease("app.pengwa.debug", 200, "0.2.0-nightly.2", 29,
+        "https://github.com/xh321/PengWa/releases/download/nightly/pengwa.apk", 17_000_000, "a".repeat(64),
+        "改进名片交换体验，修复已知问题。")
+    return when (index) {
+        1 -> app.pengwa.update.UpdateState(app.pengwa.update.UpdateStage.Checking)
+        2 -> app.pengwa.update.UpdateState(app.pengwa.update.UpdateStage.Available, release)
+        3 -> app.pengwa.update.UpdateState(app.pengwa.update.UpdateStage.Downloading, release, progress = 0.46f, activeSource = "国内加速 · gh-proxy.com", downloadedBytes = 7_820_000, bytesPerSecond = 430_000)
+        4 -> app.pengwa.update.UpdateState(app.pengwa.update.UpdateStage.Ready, release)
+        5 -> app.pengwa.update.UpdateState(app.pengwa.update.UpdateStage.Failed, error = "安装包签名与当前应用不同，无法保留数据覆盖更新。请联系发布者使用固定签名")
+        6 -> app.pengwa.update.UpdateState(app.pengwa.update.UpdateStage.Current)
+        7 -> app.pengwa.update.UpdateState(app.pengwa.update.UpdateStage.Downloading, release, progress = 0.46f, activeSource = "GitHub 直连", downloadedBytes = 7_820_000, bytesPerSecond = 420_000)
+        8 -> app.pengwa.update.UpdateState(app.pengwa.update.UpdateStage.Failed, release, error = "下载中断，已保留进度。请重试下载或切换线路", activeSource = "GitHub 直连")
+        9 -> app.pengwa.update.UpdateState(app.pengwa.update.UpdateStage.Available, release, source = app.pengwa.update.UpdateSource.GitHub)
+        else -> app.pengwa.update.UpdateState()
+    }
+}
+
+/** Exercises the actual updater and saved line choice without onboarding or exchange hardware. */
+@Composable
+internal fun UpdateLivePreview() {
+    PreviewSurface {
+        Box(Modifier.safeDrawingPadding()) {
+            SettingsContent(
+                backgroundBroadcast = { SettingsRow(stringResource(R.string.bg_setting_title), stringResource(R.string.bg_setting_desc), false) {} },
+                notification = { SettingsRow(stringResource(R.string.notif_setting_title), stringResource(R.string.notif_setting_desc), false) {} },
+                update = { AppUpdateSection() },
+            )
         }
     }
 }

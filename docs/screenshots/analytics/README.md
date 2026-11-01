@@ -6,8 +6,8 @@
 - Android 16 / API 36，标准分辨率 1080 × 2400，420 dpi，字体 1.0 倍；浅色及深色主题。
 - 窄屏：720 × 1280、360 dpi（320dp 宽），字体 1.5 倍。
 - 图片由运行中的 Debug 应用通过 `adb exec-out screencap -p` 获取，不是 Layoutlib 图片。
-- 变更前使用主分支 a9ac122 构建的 APK；变更后使用当前 APK。设置内容均来自 `SettingsContent`。
-- 测试入口使用合成状态，未读取真实联系人，没有真实姓名、ID 或照片；这些截图使用未配置 App Key 的 APK，不发送统计；另行执行的带配置 Debug 验证见下文。
+- 变更前使用主分支 79eb9c5 构建的 APK；变更后使用当前 APK。设置内容均来自 `SettingsContent`。
+- 测试入口使用合成状态，未读取真实联系人，没有真实姓名、ID 或照片；设置页截图中的真实统计开关关闭，预览只注入内存状态，不触发上报；单独的带配置 Debug 验证见下文。
 
 ## 前后截图（可复制到 PR 描述）
 
@@ -46,7 +46,7 @@ adb -s emulator-5564 exec-out screencap -p > screenshot.png
 
 `sample=0` 未配置；`sample=1` 已配置关闭；`sample=2` 已配置开启。
 后两者仅注入 UI 状态，点击开关只更新预览内存，不操作实际统计服务。
-深色用 `cmd uimode night yes`。变更前弹层使用 a9ac122 的实际 MainActivity，变更后使用 PR 分支的实际 MainActivity。
+深色用 `cmd uimode night yes`。变更前弹层使用 79eb9c5 的实际 MainActivity，变更后使用 PR 分支的实际 MainActivity。
 
 窄屏操作：
 
@@ -96,3 +96,15 @@ adb -s emulator-5564 shell settings put system font_scale 1.0
 | 引导选择 | 说明弹窗 |
 |---|---|
 | ![窄屏引导选择](onboarding/after-narrow-large-font.png) | ![窄屏说明弹窗](onboarding/after-explanation-narrow-large-font.png) |
+
+
+## 同步应用更新功能后的设置页
+
+冲突解决后，以 main `79eb9c5` 为设置页对照，重新构建并截图。统计开关与应用更新卡片均保留；向上滚动到下方可查看更新来源和按钮。
+
+| 设置页下方 | 合并前 main | 合并后 |
+|---|---|---|
+| 浅色 | ![主分支更新设置](before-modal-footer-light.png) | ![统计与更新设置共存](after-modal-footer-light.png) |
+| 深色 | ![主分支更新设置](before-modal-footer-dark.png) | ![统计与更新设置共存](after-modal-footer-dark.png) |
+
+合并后 36 项 app 单元测试、Debug 构建、Debug lint、Release 构建及 2 项更新元数据脚本测试通过。
