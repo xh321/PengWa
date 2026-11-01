@@ -136,7 +136,26 @@ class BleRunPolicyTest {
         all: Boolean = true,
         advertise: Boolean = true,
         on: Boolean = true,
-    ) = BleRunPolicy.plan(page, background, all, advertise, on)
+        discovery: Boolean = false,
+    ) = BleRunPolicy.plan(page, background, all, advertise, on, discovery)
+
+    @Test
+    fun `NFC 拉起尚未进入交换页面时也广播并扫描`() {
+        assertEquals(BlePlan(advertise = true, scan = true), plan(discovery = true))
+        assertEquals(BlePlan(advertise = true, scan = true), plan(background = true, discovery = true))
+    }
+
+    @Test
+    fun `NFC 发现不能绕过蓝牙权限和系统开关`() {
+        assertEquals(BlePlan.Off, plan(discovery = true, all = false))
+        assertEquals(BlePlan.Off, plan(discovery = true, on = false))
+    }
+
+    @Test
+    fun `NFC 发现结束后恢复原有运行策略`() {
+        assertEquals(BlePlan.Off, plan(discovery = false))
+        assertEquals(BlePlan(advertise = true, scan = false), plan(background = true, discovery = false))
+    }
 
     @Test
     fun `停在蓝牙页 广播并扫描`() {

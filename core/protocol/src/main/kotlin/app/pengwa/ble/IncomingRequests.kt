@@ -96,7 +96,7 @@ data class BlePlan(val advertise: Boolean, val scan: Boolean) {
 
 /**
  * 蓝牙交换什么时候该运行：
- *  - 停在主页或附近娃娃，并且三项蓝牙权限齐全：广播 + 扫描（前台，低延迟）；
+ *  - 停在主页或附近娃娃，或有前台 NFC/扫码发现会话，并且三项蓝牙权限齐全：广播 + 扫描（前台，低延迟）；
  *  - 否则，用户在设置里打开了"后台广播"，并且有广播权限：只广播（后台，被动等别人来申请，不扫描）；
  *  - 系统蓝牙没开，或者以上都不满足：全部关闭。
  */
@@ -107,9 +107,10 @@ object BleRunPolicy {
         allPermitted: Boolean,
         advertisePermitted: Boolean,
         bluetoothOn: Boolean,
+        discoveryActive: Boolean = false,
     ): BlePlan = when {
         !bluetoothOn -> BlePlan.Off
-        pageActive && allPermitted -> BlePlan(advertise = true, scan = true)
+        (pageActive || discoveryActive) && allPermitted -> BlePlan(advertise = true, scan = true)
         backgroundBroadcast && advertisePermitted -> BlePlan(advertise = true, scan = false)
         else -> BlePlan.Off
     }
