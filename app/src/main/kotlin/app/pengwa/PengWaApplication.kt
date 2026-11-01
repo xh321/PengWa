@@ -24,7 +24,9 @@ import kotlinx.coroutines.launch
  * 全应用共享的单例都挂在这里。身份、集邮册、相遇记录器各只有一份，
  * 避免多个入口（界面、蓝牙、NFC 服务、通知）各建一份造成首次启动时 GUID 生成竞争。
  */
-class PengWaApplication : Application() {
+class PengWaApplication : Application(), coil3.SingletonImageLoader.Factory {
+    override fun newImageLoader(context: Context): coil3.ImageLoader = app.pengwa.identity.cardImageLoader(context)
+
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
