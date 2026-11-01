@@ -75,13 +75,14 @@ apksigner verify --verbose --print-certs app-release.apk
 
 - 正式版仅检查 `https://github.com/xh321/PengWa/releases/latest/download/update.json`。
 - Debug/Nightly 仅检查 `https://github.com/xh321/PengWa/releases/download/nightly/update.json`。
-- 不在启动或后台自动联网；只有手动检查、下载时连接 GitHub，不发送名片或联系人数据。
+- 不在启动或后台自动联网；只有手动检查、下载时连接更新线路，不发送名片或联系人数据。
+- 更新线路首次默认“自动”，优先使用第三方 `gh-proxy.com` 加速；失败时回退 GitHub 直连。可手动选择“国内加速”或“GitHub 直连”，选择会保存。
 - 只接受更大的 `versionCode`，并检查设备 Android API 是否满足 `minSdk`。
-- 仅通过 HTTPS 下载本仓库 Release APK，限制重定向来源和文件大小；下载到应用私有缓存，
+- 仅通过 HTTPS 从选定线路下载本仓库 Release APK，限制重定向来源和文件大小；下载到应用私有缓存，
   先核对大小与 SHA-256，再检查 APK 包名、版本、最低系统版本及当前签名完全一致。
   系统安装器仍负责最终验证。当前实现保守拒绝证书轮换，轮换需单独设计兼容流程。
 - 下载由 Activity 的 ViewModel 管理，关闭设置或旋转不丢失状态；进程结束后需重新检查下载，
-  没有后台下载服务或断点续传。网络错误、缺少元数据或签名不符均提供明确提示，可重试。
+  没有后台下载服务。部分下载按 APK 的 SHA-256 隔离保存在私有缓存；网络中断或进程重启后重新检查相同版本，可续传已保存的部分。若服务器不支持续传，则从头下载。网络错误、缺少元数据或签名不符均提供明确提示，可切换线路重试。
 - 用户取消系统安装后，已下载文件仍可再次点安装；不要把打开安装器视为安装成功。
 
 ### 固定 Nightly 签名（启用覆盖更新的前提）
@@ -136,3 +137,19 @@ Nightly CI 会自动生成并上传同样的清单。先上传新 APK，再替�
 
 UI 截图、复现步骤及端到端验证限制见 [自更新验证记录](screenshots/self-update/README.md)。
 Android 安装授权接口依据：[PackageManager 官方文档](https://developer.android.com/reference/android/content/pm/PackageManager#canRequestPackageInstalls())。
+
+
+### 国内下载线路与断点续传
+
+- 默认 `自动`：检查更新及 APK 下载均先尝试 `https://gh-proxy.com/<完整 GitHub Release URL>`，失败后回退 GitHub；手动选直连时不访问加速服务。加速线路只转发本仓库的公开更新文件 URL，不传输本地身份、联系人或登录令牌。
+- 加速源返回“不比已安装版本新”时，自动模式会向 GitHub 确认，避免把滞后的缓存当成最新；原站也不可用时给出错误。加速源存在缓存延迟，用户也可直接选择 GitHub 重新检查。
+- 每条线路最多尝试两次；自动模式中，加速源首次失败且未取得更多数据时立即回退，不先空等第二次。连接超时为 5 秒、读取停滞超时为 15 秒；这些是每次连接/读取的限制，并非整项操作的总时限（DNS、多地址尝试、重定向可能增加等待）。
+- 部分安装包以预期摘要作为缓存键，使用 `Range: bytes=<已下载大小>-` 续传；核验 `Content-Range` 的起点、终点和总大小。返回完整 `200` 响应时清空旧部分再写入，`416` 时重新下载，错误范围或摘要不符时丢弃不可信部分。
+- 自动切线、手动切线和重新启动进程可复用相同摘要的部分文件；不同更新的旧部分会清理。最终文件仍须通过完整 SHA-256 及当前应用签名等检查，才会打开系统安装器。
+- 界面显示当前线路、已下载大小和速度。失败后保留版本信息，支持直接重试下载；重新检查后如版本未变也可续传。用户清理缓存或系统回收缓存后则需要重新下载。
+- 维护者可在构建时用 `-PupdateProxyBaseUrl=https://your-proxy.example/` 替换为自有 GitHub 反向代理。只支持无路径、端口、认证信息、查询参数的 HTTPS origin；需兼容完整 URL 转发及 Range，重定向仅允许配置的代理主机和 GitHub 资产主机。不是任意 CDN/对象存储直链配置。
+
+公开服务可用性、限流和各运营商下的速度会变化。本次未测量中国各运营商线路的实际吞吐量，不保证该加速源在所有网络下更快。后续可替换为维护者自有的反向代理。
+
+依据：[GH-Proxy 服务说明](https://gh-proxy.com/)、[HTTP Range 规范（RFC 9110）](https://www.rfc-editor.org/rfc/rfc9110.html#name-range-requests)。
+界面前后截图及线路、续传验证见 [国内下载体验验证](screenshots/update-download/README.md)。

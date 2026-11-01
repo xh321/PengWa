@@ -268,10 +268,27 @@ internal fun updatePreviewState(index: Int): app.pengwa.update.UpdateState {
     return when (index) {
         1 -> app.pengwa.update.UpdateState(app.pengwa.update.UpdateStage.Checking)
         2 -> app.pengwa.update.UpdateState(app.pengwa.update.UpdateStage.Available, release)
-        3 -> app.pengwa.update.UpdateState(app.pengwa.update.UpdateStage.Downloading, release, progress = 0.46f)
+        3 -> app.pengwa.update.UpdateState(app.pengwa.update.UpdateStage.Downloading, release, progress = 0.46f, activeSource = "国内加速 · gh-proxy.com", downloadedBytes = 7_820_000, bytesPerSecond = 430_000)
         4 -> app.pengwa.update.UpdateState(app.pengwa.update.UpdateStage.Ready, release)
         5 -> app.pengwa.update.UpdateState(app.pengwa.update.UpdateStage.Failed, error = "安装包签名与当前应用不同，无法保留数据覆盖更新。请联系发布者使用固定签名")
         6 -> app.pengwa.update.UpdateState(app.pengwa.update.UpdateStage.Current)
+        7 -> app.pengwa.update.UpdateState(app.pengwa.update.UpdateStage.Downloading, release, progress = 0.46f, activeSource = "GitHub 直连", downloadedBytes = 7_820_000, bytesPerSecond = 420_000)
+        8 -> app.pengwa.update.UpdateState(app.pengwa.update.UpdateStage.Failed, release, error = "下载中断，已保留进度。请重试下载或切换线路", activeSource = "GitHub 直连")
+        9 -> app.pengwa.update.UpdateState(app.pengwa.update.UpdateStage.Available, release, source = app.pengwa.update.UpdateSource.GitHub)
         else -> app.pengwa.update.UpdateState()
+    }
+}
+
+/** Exercises the actual updater and saved line choice without onboarding or exchange hardware. */
+@Composable
+internal fun UpdateLivePreview() {
+    PreviewSurface {
+        Box(Modifier.safeDrawingPadding()) {
+            SettingsContent(
+                backgroundBroadcast = { SettingsRow(stringResource(R.string.bg_setting_title), stringResource(R.string.bg_setting_desc), false) {} },
+                notification = { SettingsRow(stringResource(R.string.notif_setting_title), stringResource(R.string.notif_setting_desc), false) {} },
+                update = { AppUpdateSection() },
+            )
+        }
     }
 }

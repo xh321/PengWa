@@ -18,7 +18,7 @@ data class UpdateRelease(
         require(versionName.isNotBlank() && versionName.length <= 100 && minSdk > 0)
         require(size in 1..MAX_APK_BYTES && sha256.matches(Regex("[a-fA-F0-9]{64}")))
         val uri = URI(apkUrl)
-        require(uri.scheme == "https" && uri.host == "github.com" && uri.port == -1 && uri.userInfo == null)
+        require(uri.scheme == "https" && uri.host == "github.com" && uri.port == -1 && uri.userInfo == null && uri.query == null && uri.fragment == null)
         require(uri.path.startsWith("/xh321/PengWa/releases/download/") && uri.path.endsWith(".apk"))
     }
 

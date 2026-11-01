@@ -1,4 +1,5 @@
 import java.util.Properties
+import java.net.URI
 
 plugins {
     alias(libs.plugins.android.application)
@@ -33,6 +34,13 @@ android {
         val revision = providers.environmentVariable("GITHUB_SHA").orNull
             ?.takeIf { it.matches(Regex("[0-9a-fA-F]{40,64}")) } ?: "local"
         buildConfigField("String", "BUILD_REVISION", "\"$revision\"")
+        val updateProxy = providers.gradleProperty("updateProxyBaseUrl").orNull ?: "https://gh-proxy.com/"
+        val proxyUri = URI(updateProxy)
+        require(proxyUri.scheme == "https" && proxyUri.host != null && proxyUri.userInfo == null &&
+            proxyUri.port == -1 && proxyUri.query == null && proxyUri.fragment == null && proxyUri.path in listOf("", "/")) {
+            "updateProxyBaseUrl must be an HTTPS origin without credentials, port, query or path"
+        }
+        buildConfigField("String", "UPDATE_PROXY_BASE_URL", "\"${updateProxy.trimEnd('/')}/\"")
     }
 
     signingConfigs {
