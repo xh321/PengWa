@@ -9,6 +9,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
@@ -52,7 +53,7 @@ internal fun ContactsScreenContent(
     now: Long = System.currentTimeMillis(),
     cameraButton: @Composable (Modifier) -> Unit,
 ) {
-    var selected by remember { mutableStateOf<Contact?>(null) }
+    var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     var fabHeight by remember { mutableIntStateOf(56) }
     val fabClearance = with(LocalDensity.current) { fabHeight.toDp() } + 40.dp
     Box(modifier = modifier.fillMaxSize()) {
@@ -79,14 +80,16 @@ internal fun ContactsScreenContent(
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = fabClearance)) {
                     items(contacts, key = { it.id }) { contact ->
-                        ContactRow(contact, now, onClick = { selected = contact })
+                        ContactRow(contact, now, onClick = { selectedId = contact.id.toString() })
                     }
                 }
             }
         }
         cameraButton(Modifier.align(Alignment.BottomEnd).padding(20.dp).onSizeChanged { fabHeight = it.height })
     }
-    selected?.let { contact -> ContactDetails(contact) { selected = null } }
+    contacts.firstOrNull { it.id.toString() == selectedId }?.let { contact ->
+        ContactDetails(contact) { selectedId = null }
+    }
 }
 
 @Composable
@@ -121,6 +124,7 @@ internal fun ContactDetails(contact: Contact, onDismiss: () -> Unit) {
                 Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text(stringResource(R.string.contact_times, contact.metCount), color = MaterialTheme.colorScheme.primary)
                     UserCardContent(app.pengwa.identity.Identity(contact.id, contact.displayName, contact.card))
+                    ContactPhotoSection(contact.id)
                     DetailField(stringResource(R.string.contact_first), format.format(Date(contact.firstMetAt)))
                     DetailField(stringResource(R.string.contact_last), format.format(Date(contact.lastMetAt)))
                     DetailField(stringResource(R.string.contact_id), contact.id.toString())
