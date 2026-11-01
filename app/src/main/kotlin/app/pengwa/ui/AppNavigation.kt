@@ -23,14 +23,12 @@ private val destinations = listOf(
     Destination(MainActivity.TAB_ME, PengWaIcons.Identity, PengWaIcons.IdentityFill, R.string.tab_me),
     Destination(MainActivity.TAB_NEARBY, PengWaIcons.Nearby, PengWaIcons.NearbyFill, R.string.tab_nearby),
     Destination(MainActivity.TAB_CONTACTS, PengWaIcons.Book, PengWaIcons.BookFill, R.string.tab_contacts),
-    Destination(MainActivity.TAB_LAB, PengWaIcons.Lab, PengWaIcons.LabFill, R.string.tab_lab),
 )
 
 /** Bottom tabs on phones; a scrollable rail leaves enough height for an intact QR code in short landscape windows. */
 @Composable
 internal fun PengWaScaffold(
     selectedTab: Int,
-    debuggable: Boolean,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
     showNavigation: Boolean = true,
@@ -42,7 +40,7 @@ internal fun PengWaScaffold(
     Scaffold(
         modifier = modifier.fillMaxSize(),
         snackbarHost = snackbarHost,
-        bottomBar = { if (showNavigation && !useRail) PengWaNavigation(selectedTab, debuggable, onSelect) },
+        bottomBar = { if (showNavigation && !useRail) PengWaNavigation(selectedTab, onSelect) },
     ) { padding ->
         Row(Modifier.fillMaxSize().padding(padding)) {
             if (showNavigation && useRail) {
@@ -51,7 +49,7 @@ internal fun PengWaScaffold(
                     containerColor = MaterialTheme.colorScheme.surface,
                     windowInsets = WindowInsets(0, 0, 0, 0),
                 ) {
-                    destinations.take(if (debuggable) 4 else 3).forEach { item ->
+                    destinations.forEach { item ->
                         NavigationRailItem(
                             selected = selectedTab == item.tab,
                             onClick = { onSelect(item.tab) },
@@ -69,9 +67,9 @@ internal fun PengWaScaffold(
 }
 
 @Composable
-internal fun PengWaNavigation(selectedTab: Int, debuggable: Boolean, onSelect: (Int) -> Unit) {
+internal fun PengWaNavigation(selectedTab: Int, onSelect: (Int) -> Unit) {
     NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
-        destinations.take(if (debuggable) 4 else 3).forEach { item ->
+        destinations.forEach { item ->
             NavigationBarItem(
                 selected = selectedTab == item.tab,
                 onClick = { onSelect(item.tab) },

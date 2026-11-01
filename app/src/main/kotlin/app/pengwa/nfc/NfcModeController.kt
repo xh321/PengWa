@@ -8,6 +8,8 @@ import android.nfc.cardemulation.CardEmulation
 import android.os.Build
 import android.util.Log
 import app.pengwa.exchange.ExchangeMode
+import app.pengwa.BuildConfig
+import app.pengwa.pengWa
 
 /** 前台 NFC 的唯一配置入口。切换角色先释放旧配置，避免 Reader Mode 与 discovery 覆盖同时生效。 */
 class NfcModeController(
@@ -19,6 +21,7 @@ class NfcModeController(
     private var discoveryRequested = false
     private var preferredRequested = false
     private var current = ExchangeMode.None
+    private val diagnostics get() = activity.pengWa.nfcDiagnostics
 
     /** 由主线程调用；进入角色时 Activity 必须已 resumed，暂停时在 super.onPause 之前释放。 */
     fun apply(mode: ExchangeMode) {
@@ -28,20 +31,28 @@ class NfcModeController(
         }
         if (next == current && !readerRequested && !discoveryRequested && !preferredRequested) return
         if (next == current && next != ExchangeMode.None) return
+        diagnostics.record("Apply role=$next previous=$current reader=$readerRequested discovery=$discoveryRequested preferred=$preferredRequested")
         release()
-        if (readerRequested || discoveryRequested || preferredRequested) return
-        val nfc = adapter ?: return
-        if (next == ExchangeMode.None || !nfc.isEnabled) return
+        if (readerRequested || discoveryRequested || preferredRequested) {
+            diagnostics.record("Role blocked: previous configuration not released reader=$readerRequested discovery=$discoveryRequested preferred=$preferredRequested")
+            return
+        }
+        val nfc = adapter ?: run { diagnostics.record("NFC adapter unavailable"); return }
+        if (next == ExchangeMode.None) return
+        if (!nfc.isEnabled) { diagnostics.record("NFC disabled"); return }
+        diagnostics.record("NFC enabled HCE=${activity.packageManager.hasSystemFeature(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION)}")
         if (next == ExchangeMode.NfcDisplay &&
             !activity.packageManager.hasSystemFeature(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION)
         ) {
             Log.w(TAG, "HCE unavailable; use reader role or QR")
+            diagnostics.record("HCE unavailable; display role not started")
             return
         }
         current = next
         Log.d(TAG, "NFC role=$next sdk=${Build.VERSION.SDK_INT}")
         when (next) {
             ExchangeMode.NfcRead -> {
+                diagnostics.record("Reader flags=NFC_A|SKIP_NDEF_CHECK platformSounds=enabled")
                 readerRequested = true
                 attempt("enableReaderMode") {
                     nfc.enableReaderMode(
@@ -54,11 +65,20 @@ class NfcModeController(
             ExchangeMode.NfcDisplay -> {
                 attempt("setPreferredService") {
                     val emulation = CardEmulation.getInstance(nfc)
+                    if (BuildConfig.DEBUG) {
+                        runCatching {
+                            diagnostics.record("HCE registeredAids=${emulation.getAidsForService(ComponentName(activity, PengWaHostApduService::class.java), CardEmulation.CATEGORY_OTHER)} foregroundAllowed=${emulation.categoryAllowsForegroundPreference(CardEmulation.CATEGORY_OTHER)}")
+                            if (Build.VERSION.SDK_INT >= 35) {
+                                diagnostics.record("Observe mode supported=${nfc.isObserveModeSupported} enabled=${nfc.isObserveModeEnabled}")
+                            }
+                        }.onFailure { diagnostics.record("HCE inspection failed=${it.javaClass.simpleName}") }
+                    }
                     preferredRequested = true
                     val accepted = emulation.setPreferredService(
                         activity, ComponentName(activity, PengWaHostApduService::class.java),
                     )
                     preferredRequested = accepted
+                    diagnostics.record("setPreferredService accepted=$accepted")
                     if (accepted) Log.d(TAG, "setPreferredService=true")
                     else Log.w(TAG, "setPreferredService=false; system routing may take priority")
                 }
@@ -67,6 +87,8 @@ class NfcModeController(
                     attempt("disable polling, keep listening") {
                         nfc.setDiscoveryTechnology(activity, NfcAdapter.FLAG_READER_DISABLE, NfcAdapter.FLAG_LISTEN_KEEP)
                     }
+                } else {
+                    diagnostics.record("SDK<35: display polling unchanged")
                 }
             }
             else -> Unit
@@ -87,14 +109,21 @@ class NfcModeController(
         if (preferredRequested) attempt("unsetPreferredService") {
             val removed = CardEmulation.getInstance(nfc).unsetPreferredService(activity)
             Log.d(TAG, "unsetPreferredService=$removed")
+            diagnostics.record("unsetPreferredService accepted=$removed")
             preferredRequested = !removed
         }
     }
 
     private inline fun attempt(operation: String, block: () -> Unit) {
         runCatching(block)
-            .onSuccess { Log.d(TAG, operation) }
-            .onFailure { Log.w(TAG, "$operation failed", it) }
+            .onSuccess {
+                Log.d(TAG, operation)
+                diagnostics.record("$operation returned normally")
+            }
+            .onFailure {
+                Log.w(TAG, "$operation failed", it)
+                diagnostics.record("$operation failed=${it.javaClass.simpleName}")
+            }
     }
 
     private companion object {

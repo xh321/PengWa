@@ -36,7 +36,7 @@
 
 ### 主页的交互（后期的明确要求）
 
-底部导航为 **主页 / 附近娃娃 / 集邮册**，调试版额外显示实验室。主页同时提供 NFC、我的二维码和「扫一扫」，不用切换方式：
+底部导航为 **主页 / 附近娃娃 / 集邮册**。调试版在主页连点 NFC 状态图标 5 次进入隐藏的实验室。主页同时提供 NFC、我的二维码和「扫一扫」，不用切换方式：
 
 | 入口 | 要求 |
 |---|---|
@@ -112,7 +112,7 @@
 - **拍照**：调用系统原生相机，原图原样保存到相册 `Pictures/PengWa`，不经过任何压缩。
 - **常驻通知栏控件**：自定义 `RemoteViews`（折叠 / 展开两套布局），用户可开关；划掉即视为关闭。
 - **防骚扰**（蓝牙申请）：同时最多 3 条待处理；拒绝过的人 10 分钟内再申请自动拒绝；60 秒无人处理自动过期。
-- **仅调试版**的"实验室"页：蓝牙运行状态与日志、假数据、模拟收到申请。
+- **仅调试版**的隐藏"实验室"页：NFC 诊断日志（复制、清空）、蓝牙运行状态与日志、假数据、模拟收到申请。主页连点“碰一碰可用”旁的图标 5 次打开；NFC 关闭或不支持时也能进入。
 
 ---
 
@@ -143,7 +143,7 @@ docs/                           protocol.md（协议规格）、release.md（发
 
 ## 5. 已经测过的内容
 
-### 5.1 单元测试：155 项，全部通过
+### 5.1 单元测试：162 项，全部通过
 
 | 测试类 | 项数 | 覆盖 |
 |---|---:|---|
@@ -161,6 +161,8 @@ docs/                           protocol.md（协议规格）、release.md（发
 | `meeting.MeetingDebouncerTest` | 5 | 同一个人 10 秒内只算一次 |
 | `exchange.ExchangeModeStateTest` | 4 | NFC 出示／读取与蓝牙互斥，退出前台交换会话后关闭 |
 | `ui.ContactDateTest` | 4 | 紧凑日期、时区、跨午夜与跨年显示 |
+| `nfc.NfcDiagnosticLogTest` | 4 | 关闭诊断、日志容量与清空、并发记录、APDU 摘要不暴露名片 |
+| `ui.DebugTapCounterTest` | 3 | 第五次触发、超时重计、时钟回退 |
 
 ### 5.2 真机验证（一部 Samsung Galaxy S23 Ultra，Android 16，必要时用电脑蓝牙当"另一台设备"）
 
@@ -255,11 +257,11 @@ docs/                           protocol.md（协议规格）、release.md（发
 - 版本：AGP 9.5.0、Kotlin 2.4.21、Compose BOM 2026.09.00、CameraX 1.6.2、ZXing 3.5.4、compileSdk 37、targetSdk 36。
 - 本机构建走了 HTTP 代理，代理和 `org.gradle.java.home` 写在用户级 `~/.gradle/gradle.properties`，
   **不在仓库里**，换机器需要自己配。
-- 调试版包名带 `.debug` 后缀，可以和发布版共存；"实验室"页只在调试版出现。
+- 调试版包名带 `.debug` 后缀，可以和发布版共存；"实验室"仅调试版可通过 NFC 状态图标连点 5 次打开，不在导航栏展示。
 
 ```bash
 # 构建与测试
-./gradlew testDebugUnitTest        # 155 项单元测试
+./gradlew testDebugUnitTest        # 162 项单元测试
 ./gradlew assembleDebug            # 调试版
 ./gradlew assembleRelease          # 发布版；有 secrets/keystore.properties 时自动签名
 # 校验签名

@@ -1,7 +1,12 @@
 package app.pengwa.ui
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement.spacedBy
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -10,6 +15,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -24,19 +30,21 @@ import app.pengwa.R
 import app.pengwa.pengWa
 
 /**
- * 仅调试版显示：蓝牙交换的运行状态与日志、假数据。正式版不会出现这个页面。
- * 蓝牙的开关在名片页，这里只是只读的观察窗口，方便和第二台手机联调时看发生了什么。
+ * 仅 Debug 版可通过 NFC 状态图标连点五次进入。日志在进程内保留，切换到本页不会清除。
  */
 @Composable
 fun LabScreen(
     modifier: Modifier = Modifier,
     contactsViewModel: ContactsViewModel = viewModel(),
+    onClose: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val controller = remember { context.pengWa.bleExchange }
     val running by controller.running.collectAsStateWithLifecycle()
     val bluetoothOn by controller.bluetoothOn.collectAsStateWithLifecycle()
     val log by controller.logLines.collectAsStateWithLifecycle()
+    val diagnostics = remember { context.pengWa.nfcDiagnostics }
+    val nfcLog by diagnostics.lines.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier
@@ -45,6 +53,25 @@ fun LabScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(stringResource(R.string.lab_title), style = MaterialTheme.typography.headlineSmall)
+        TextButton(onClick = onClose) { Text(stringResource(R.string.lab_back)) }
+
+        Text(stringResource(R.string.lab_nfc), style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.lab_nfc_help), style = MaterialTheme.typography.bodyMedium)
+        Row(horizontalArrangement = spacedBy(12.dp)) {
+            OutlinedButton(onClick = {
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("PengWa NFC diagnostics", diagnostics.report()))
+            }) { Text(stringResource(R.string.lab_nfc_copy)) }
+            TextButton(onClick = diagnostics::clear) { Text(stringResource(R.string.lab_nfc_clear)) }
+        }
+        Text(
+            text = nfcLog.takeLast(60).joinToString("\n").ifEmpty { stringResource(R.string.ble_log_empty) },
+            style = MaterialTheme.typography.bodySmall,
+            fontFamily = FontFamily.Monospace,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        HorizontalDivider()
 
         Text(stringResource(R.string.lab_ble), style = MaterialTheme.typography.titleMedium)
         Text(

@@ -53,6 +53,7 @@ fun HomeScreen(
     onRoleChange: (ExchangeMode) -> Unit,
     onMessage: (String) -> Unit,
     modifier: Modifier = Modifier,
+    onOpenLab: (() -> Unit)? = null,
 ) {
     val identity = viewModel.identity
     var editing by rememberSaveable { mutableStateOf(false) }
@@ -79,6 +80,7 @@ fun HomeScreen(
         FaceToFacePage(
             identity = identity, role = role, onRoleChange = onRoleChange,
             onMessage = onMessage, modifier = Modifier.weight(1f),
+            onOpenLab = onOpenLab,
         )
     }
 

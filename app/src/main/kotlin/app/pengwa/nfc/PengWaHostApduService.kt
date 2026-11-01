@@ -18,10 +18,14 @@ class PengWaHostApduService : HostApduService() {
     override fun onCreate() {
         super.onCreate()
         val app = pengWa
+        app.nfcDiagnostics.record("HCE service created role=${app.exchangeMode.current}")
         val displaying = { app.exchangeMode.nfcDisplaySession != null }
         val exchange = ApduHandler(
             identityProvider = { app.identityRepository.load() },
-            onPeer = { peer -> app.meetings.record(peer, "NFC（对方碰过来）") },
+            onPeer = { peer ->
+                val recorded = app.meetings.record(peer, "NFC（对方碰过来）")
+                app.nfcDiagnostics.record("HCE exchanged recorded=$recorded")
+            },
         )
         val tag = T4tEmulator(
             message = {
@@ -34,6 +38,7 @@ class PengWaHostApduService : HostApduService() {
 
     override fun processCommandApdu(commandApdu: ByteArray, extras: Bundle?): ByteArray {
         val response = router.process(commandApdu)
+        pengWa.nfcDiagnostics.record("HCE ${NfcDiagnosticLog.commandSummary(commandApdu)} ${NfcDiagnosticLog.responseSummary(response)} role=${pengWa.exchangeMode.current} session=${pengWa.exchangeMode.nfcDisplaySession}")
         if (ApduProtocol.isSelect(commandApdu) || ApduProtocol.isExchange(commandApdu)) {
             val aid = ApduProtocol.commandData(commandApdu)
             val stage = when {
@@ -48,6 +53,7 @@ class PengWaHostApduService : HostApduService() {
     }
 
     override fun onDeactivated(reason: Int) {
+        pengWa.nfcDiagnostics.record("HCE deactivated reason=$reason (0=link loss, 1=deselected)")
         router.reset()
     }
 }
