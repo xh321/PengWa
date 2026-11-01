@@ -15,7 +15,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
@@ -26,14 +25,19 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.pengwa.ui.components.NameStamp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import coil3.compose.AsyncImagePainter
+import coil3.compose.rememberAsyncImagePainter
+import coil3.request.ImageRequest
+import coil3.size.Size
 import kotlinx.coroutines.withContext
 
 @Composable
 internal fun CardAvatar(identity: Identity, modifier: Modifier = Modifier) {
-    val image = remember(identity.card.avatar) { CardImages.decode(identity.card.avatar) }
+    val painter = rememberCardImagePainter(identity.card.avatar)
+    val state by painter.state.collectAsState()
     Box(modifier) {
-        if (image == null) NameStamp(identity.displayName)
-        else Image(image.asImageBitmap(), "头像", Modifier.size(56.dp).clip(CircleShape), contentScale = ContentScale.Crop)
+        if (state !is AsyncImagePainter.State.Success) NameStamp(identity.displayName)
+        else Image(painter, "头像", Modifier.size(56.dp).clip(CircleShape), contentScale = ContentScale.Crop)
     }
 }
 
@@ -73,16 +77,27 @@ internal fun UserCardContent(identity: Identity) {
 /** Scale to the available space without cropping, shaping, or painting behind transparent pixels. */
 @Composable
 private fun CardImage(value: String, description: String) {
-    val image = remember(value) { CardImages.decode(value) }
+    val painter = rememberCardImagePainter(value)
+    val state by painter.state.collectAsState()
+    val image = (state as? AsyncImagePainter.State.Success)?.result?.image
     if (image == null) {
-        Text("图片无法显示", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (state is AsyncImagePainter.State.Error) Text("图片无法显示", color = MaterialTheme.colorScheme.onSurfaceVariant)
         return
     }
     BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         val ratio = image.width.toFloat() / image.height
         val width = minOf(maxWidth, image.width.dp, 240.dp * ratio)
-        Image(image.asImageBitmap(), description, Modifier.width(width).aspectRatio(ratio), contentScale = ContentScale.Fit)
+        Image(painter, description, Modifier.width(width).aspectRatio(ratio), contentScale = ContentScale.Fit)
     }
+}
+
+@Composable
+private fun rememberCardImagePainter(value: String): AsyncImagePainter {
+    val context = LocalContext.current
+    val request = remember(context, value) {
+        ImageRequest.Builder(context).data(CardImageSource(value)).size(Size.ORIGINAL).build()
+    }
+    return rememberAsyncImagePainter(request)
 }
 
 /** Draft stays in a ViewModel, including across rotation and the system image picker. */
