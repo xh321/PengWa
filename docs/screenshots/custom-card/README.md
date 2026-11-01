@@ -106,3 +106,5 @@ bash gradlew testDebugUnitTest assembleDebug lintDebug --console=plain
 六个平台、内置图标和账号操作见 [社交账号截图](../social-platforms/README.md)。
 
 按内容密度设置默认占格的前后对比见 [默认占格截图](../block-density/README.md)。
+
+自我介绍扩宽与空位回填的运行对比见 [排布修正截图](../card-packing/README.md)。
