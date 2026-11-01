@@ -79,6 +79,7 @@
 | --- | --- |
 | [协议规格](docs/protocol.md) | NFC、蓝牙与二维码的识别和名片交换规则 |
 | [发布与签名](docs/release.md) | 发布版构建、签名配置与密钥管理 |
+| [APK 体积验证](docs/apk-size.md) | DEX 与原生库压缩的实测收益、验证和取舍 |
 | [设计系统](docs/design-system.md) | 主题、组件与界面规范 |
 | [首次使用引导](docs/screenshots/onboarding-white-figures/README.md) | 创建卡片与纯白小人扩列图解、运行截图和验证步骤 |
 | [应用图标](docs/app-icon.md) | 图标设计与 Android 资源说明 |
