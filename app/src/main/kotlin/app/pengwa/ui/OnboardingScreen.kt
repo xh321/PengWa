@@ -102,7 +102,7 @@ private data class IllustratedLesson(
 private fun ExchangeLesson.illustration(): IllustratedLesson = when (this) {
     ExchangeLesson.Qr -> IllustratedLesson(
         R.drawable.onboarding_qr,
-        "戴小熊头套的娃友出示手机二维码，戴兔子头套的娃友举起手机扫码；出示方确认后，两张卡片互换。",
+        "左侧小人出示手机二维码，右侧小人举起手机扫码；出示方确认后，两张卡片互换。",
         listOf("一人出示二维码，另一人扫一扫", "出示方核对名字，点“同意”", "等“交换完成”，到集邮册查看"),
     )
     ExchangeLesson.Nearby -> IllustratedLesson(
