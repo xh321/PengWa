@@ -22,3 +22,9 @@ For protocol upgrades test new/new, new/old and old/new in both initiator roles.
 Verify cards and images survive process restart. Never call transfer success a durable two-device transaction.
 
 UI screenshots: not applicable to V1; logs and internal callbacks only.
+
+## V2: high priority during active data transfer
+
+Request `CONNECTION_PRIORITY_HIGH` for exchange setup, upload and download; return to balanced while waiting for consent and after ACK / cleanup.
+Requests are best effort and never bypass consent or affect preview-only connections. Request acceptance is not proof that the controller changed its connection interval.
+Validate on battery-powered physical phones; compare V1/V2 with the same MTU and cards. UI screenshots: not applicable; transport parameters only.
