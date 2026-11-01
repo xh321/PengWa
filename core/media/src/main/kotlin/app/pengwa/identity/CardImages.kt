@@ -43,11 +43,14 @@ object CardImages {
         }
     }
 
-    fun decode(value: String): Bitmap? = runCatching {
+    /** Validate external bytes before Coil allocates pixels. Called by its background fetcher. */
+    internal fun validatedBytes(value: String): ByteArray {
+        require(value.isNotEmpty() && value.length <= CardCodec.MAX_IMAGE_BYTES * 4 / 3 + 4)
         val bytes = Base64.getDecoder().decode(value)
+        require(bytes.size in 4..CardCodec.MAX_IMAGE_BYTES)
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
         require(bounds.outWidth in 1..1024 && bounds.outHeight in 1..1024)
-        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-    }.getOrNull()
+        return bytes
+    }
 }
