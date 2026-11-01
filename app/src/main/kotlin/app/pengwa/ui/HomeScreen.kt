@@ -154,7 +154,7 @@ internal fun SettingsContent(backgroundBroadcast: @Composable () -> Unit, notifi
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text(stringResource(R.string.settings_title), style = MaterialTheme.typography.titleLarge)
-        if (onShowGuide != null) TextButton(onClick = onShowGuide) { Text("如何交换卡片") }
+        if (onShowGuide != null) TextButton(onClick = onShowGuide) { Text("扩列图解") }
         Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
             Column(Modifier.padding(16.dp)) { backgroundBroadcast() }
         }

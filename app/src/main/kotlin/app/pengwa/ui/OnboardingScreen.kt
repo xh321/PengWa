@@ -1,6 +1,7 @@
 package app.pengwa.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -9,11 +10,14 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.pengwa.identity.OnboardingStep
 import app.pengwa.MainActivity
+import app.pengwa.R
 import app.pengwa.ui.components.PengWaIcon
 import app.pengwa.ui.components.PengWaIcons
 
@@ -60,7 +64,7 @@ internal fun OnboardingScreen(
                         }
                     }
                 }
-                Button(onClick = { moveTo(OnboardingStep.LearnExchange) }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("卡片准备好了，学习交换") }
+                Button(onClick = { moveTo(OnboardingStep.LearnExchange) }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("卡片准备好了，去扩列") }
                 TextButton(onClick = { moveTo(OnboardingStep.CreateCard) }, modifier = Modifier.fillMaxWidth()) { Text("返回修改") }
             }
             OnboardingStep.LearnExchange -> ExchangeGuide(
@@ -80,7 +84,7 @@ internal fun OnboardingScreen(
 private fun OnboardingProgress(current: OnboardingStep) {
     val step = current.storedValue.coerceIn(0, 2)
     Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("第 ${step + 1} / 3 步 · ${listOf("创建卡片", "预览确认", "学会交换")[step.coerceIn(0, 2)]}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        Text("第 ${step + 1} / 3 步 · ${listOf("创建卡片", "预览确认", "扩列")[step.coerceIn(0, 2)]}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         LinearProgressIndicator(progress = { (step + 1) / 3f }, modifier = Modifier.fillMaxWidth())
     }
 }
@@ -89,17 +93,42 @@ private enum class ExchangeLesson(val label: String, val icon: Int) {
     Qr("扫码", PengWaIcons.Qr), Nearby("附近", PengWaIcons.Nearby), Nfc("碰一碰", PengWaIcons.Tap),
 }
 
-/** Read-only lessons: hardware permissions are requested by the actual exchange destination. */
+private data class IllustratedLesson(
+    val image: Int,
+    val imageDescription: String,
+    val steps: List<String>,
+)
+
+private fun ExchangeLesson.illustration(): IllustratedLesson = when (this) {
+    ExchangeLesson.Qr -> IllustratedLesson(
+        R.drawable.onboarding_qr,
+        "戴小熊头套的娃友出示手机二维码，戴兔子头套的娃友举起手机扫码；出示方确认后，两张卡片互换。",
+        listOf("一人出示二维码，另一人扫一扫", "出示方核对名字，点“同意”", "等“交换完成”，到集邮册查看"),
+    )
+    ExchangeLesson.Nearby -> IllustratedLesson(
+        R.drawable.onboarding_nearby,
+        "两位娃友通过蓝牙发现彼此，在附近列表选中对方发起申请，收到申请的人确认后互换卡片。",
+        listOf("两人打开“附近娃娃”", "找到对方，点“申请交换”", "对方点“同意”，完成后入册"),
+    )
+    ExchangeLesson.Nfc -> IllustratedLesson(
+        R.drawable.onboarding_nfc,
+        "两位娃友将手机背面的 NFC 感应区域贴近，出现确认标记后互换卡片。",
+        listOf("主页一人选“出示”，一人选“读取”", "开启 NFC，手机背面贴近", "等“交换完成”，到集邮册查看"),
+    )
+}
+
+/** Illustrations lead the lesson; short native captions stay scalable and accessible. */
 @Composable
 internal fun ExchangeGuide(onBack: () -> Unit, onFinish: (Int) -> Unit, modifier: Modifier = Modifier) {
     var lesson by rememberSaveable { mutableStateOf(ExchangeLesson.Qr) }
+    val illustration = lesson.illustration()
     BackHandler(onBack = onBack)
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text("见面了，交换一张卡片", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
-        Text("双方都需要安装碰碰娃、开启蓝牙，并按提示授权（旧版 Android 可能提示定位权限）。第一次见面，推荐扫码。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("一起扩列吧", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
+        Text("两人打开碰碰娃，开启蓝牙并按提示授权。第一次扩列，推荐扫码。", color = MaterialTheme.colorScheme.onSurfaceVariant)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ExchangeLesson.entries.forEach { item ->
                 FilterChip(
@@ -110,48 +139,38 @@ internal fun ExchangeGuide(onBack: () -> Unit, onFinish: (Int) -> Unit, modifier
                 )
             }
         }
-        Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = MaterialTheme.shapes.large) {
-            Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                when (lesson) {
-                    ExchangeLesson.Qr -> {
-                        LessonStep(1, "一个出示，一个扫码", "两人打开主页。一人出示自己的二维码，另一人点“扫一扫”对准它。")
-                        LessonStep(2, "出示方确认申请", "扫码会发起蓝牙交换申请。出示二维码的人收到申请后，核对名字并点“同意”。")
-                        LessonStep(3, "完成后去集邮册", "等卡片交换完成，对方就会出现在“集邮册”中，可打开查看完整卡片。")
-                    }
-                    ExchangeLesson.Nearby -> {
-                        LessonStep(1, "两人进入附近娃娃", "打开底部“附近娃娃”，允许附近设备权限，等待列表里出现对方。")
-                        LessonStep(2, "核对名字，申请交换", "找到对方后点“申请交换”，请对方在收到的申请中点“同意”。")
-                        LessonStep(3, "等待卡片交换完成", "交换完成后去“集邮册”查看；如果没有找到对方，可以改用扫码。")
-                    }
-                    ExchangeLesson.Nfc -> {
-                        LessonStep(1, "一个出示，一个读取", "两人打开主页，在碰一碰区域，一人选“出示”，另一人选“读取”。")
-                        LessonStep(2, "手机 NFC 区域贴近", "双方开启 NFC 和蓝牙，解锁手机并停留在主页。将两部手机的 NFC 区域靠在一起。")
-                        LessonStep(3, "等待交换完成", "双向识别成功后会通过蓝牙交换卡片。没有反应、手机不支持 NFC 或钱包拦截时，改用扫码。")
-                    }
-                }
+        Surface(shape = MaterialTheme.shapes.large) {
+            Image(
+                painter = painterResource(illustration.image),
+                contentDescription = illustration.imageDescription,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxWidth().aspectRatio(4f / 3f),
+            )
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            illustration.steps.forEachIndexed { index, caption ->
+                LessonCaption(index + 1, caption)
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Top) {
-            PengWaIcon(PengWaIcons.Book, tint = MaterialTheme.colorScheme.primary)
-            Text("认准“交换完成”再离开。只扫描或识别成功，还不算收到完整卡片；收到的卡片保存在本机集邮册。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+        if (lesson == ExchangeLesson.Nfc) Text(
+            "碰一碰没反应，或手机不支持 NFC？换扫码试试。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Button(onClick = { onFinish(if (lesson == ExchangeLesson.Nearby) MainActivity.TAB_NEARBY else MainActivity.TAB_ME) }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
             Text(when (lesson) { ExchangeLesson.Qr -> "去主页，试试扫码"; ExchangeLesson.Nearby -> "去附近，找娃友"; ExchangeLesson.Nfc -> "去主页，试试碰一碰" })
         }
-        Text("以后可在主页设置里重看“如何交换卡片”。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("在主页设置里，随时重看“扩列图解”。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         TextButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("返回") }
     }
 }
 
 @Composable
-private fun LessonStep(number: Int, title: String, description: String) {
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+private fun LessonCaption(number: Int, caption: String) {
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
         Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = MaterialTheme.shapes.small) {
             Text(number.toString(), Modifier.padding(horizontal = 10.dp, vertical = 5.dp), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
         }
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            Text(description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+        Text(caption, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
     }
 }
