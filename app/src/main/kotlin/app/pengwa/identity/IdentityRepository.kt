@@ -4,7 +4,7 @@ import android.content.Context
 import java.util.UUID
 
 /**
- * 身份的本地存储。数据量只有两个字符串，用 SharedPreferences 即可，不额外引入依赖。
+ * 身份和有界用户卡片的本地存储，使用 SharedPreferences，不额外引入依赖。
  * 清除应用数据或卸载重装后会生成新的 GUID（清单里已关闭 allowBackup）。
  */
 class IdentityRepository(context: Context) {
@@ -21,11 +21,19 @@ class IdentityRepository(context: Context) {
     /** 还没设置过显示名时返回 null，界面据此进入首次设置。 */
     fun load(): Identity? {
         val name = prefs.getString(KEY_NAME, null) ?: return null
-        return Identity(id, name)
+        val card = prefs.getString("card", null)?.let {
+            runCatching { CardCodec.decode(java.util.Base64.getDecoder().decode(it))?.card }.getOrNull()
+        } ?: CardContent()
+        return Identity(id, name, card, cardComplete = true)
     }
 
     fun saveDisplayName(name: String) {
         prefs.edit().putString(KEY_NAME, name).apply()
+    }
+
+    fun saveCard(identity: Identity) {
+        val encoded = java.util.Base64.getEncoder().encodeToString(CardCodec.encode(identity))
+        check(prefs.edit().putString(KEY_NAME, identity.displayName).putString("card", encoded).commit())
     }
 
     private companion object {

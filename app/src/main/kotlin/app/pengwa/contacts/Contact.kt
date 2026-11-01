@@ -9,4 +9,5 @@ data class Contact(
     val firstMetAt: Long,
     val lastMetAt: Long,
     val metCount: Int,
+    val card: app.pengwa.identity.CardContent = app.pengwa.identity.CardContent(),
 )

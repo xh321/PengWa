@@ -94,7 +94,7 @@ private fun ContactRow(contact: Contact, now: Long, onClick: () -> Unit) {
     Surface(onClick = onClick, shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            NameStamp(contact.displayName)
+            CardAvatar(app.pengwa.identity.Identity(contact.id, contact.displayName, contact.card))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(contact.displayName, style = MaterialTheme.typography.titleSmall)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -120,6 +120,7 @@ internal fun ContactDetails(contact: Contact, onDismiss: () -> Unit) {
             SelectionContainer {
                 Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text(stringResource(R.string.contact_times, contact.metCount), color = MaterialTheme.colorScheme.primary)
+                    UserCardContent(app.pengwa.identity.Identity(contact.id, contact.displayName, contact.card))
                     DetailField(stringResource(R.string.contact_first), format.format(Date(contact.firstMetAt)))
                     DetailField(stringResource(R.string.contact_last), format.format(Date(contact.lastMetAt)))
                     DetailField(stringResource(R.string.contact_id), contact.id.toString())

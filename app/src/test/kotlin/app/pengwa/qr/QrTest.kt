@@ -1,6 +1,7 @@
 package app.pengwa.qr
 
 import app.pengwa.ble.encodeIdentity
+import app.pengwa.exchange.PeerDiscovery
 import app.pengwa.identity.Identity
 import java.util.Base64
 import java.util.UUID
@@ -16,28 +17,46 @@ class QrTest {
     // ---- 内容格式 ----
 
     @Test
-    fun `二维码内容是固定前缀加名片字节的 base64url`() {
+    fun `二维码只编码识别信息`() {
         val text = QrPayload.encode(alice)
-        assertTrue(text.startsWith("pengwa://c/"))
-        val body = text.removePrefix("pengwa://c/")
+        assertTrue(text.startsWith("pengwa://p/"))
+        val body = text.removePrefix("pengwa://p/")
         assertTrue('=' !in body && '+' !in body && '/' !in body, "应为无填充的 URL 安全 base64")
-        assertEquals(encodeIdentity(alice).toList(), Base64.getUrlDecoder().decode(body).toList())
+        assertEquals(PeerDiscovery.encode(alice).toList(), Base64.getUrlDecoder().decode(body).toList())
     }
 
     @Test
-    fun `编码再解码得到同一个名片`() {
-        assertEquals(alice, QrPayload.decode(QrPayload.encode(alice)))
+    fun `编码再解码只得到对方标识`() {
+        assertEquals(PeerDiscovery.decode(PeerDiscovery.encode(alice)), QrPayload.decode(QrPayload.encode(alice)))
     }
 
     @Test
     fun `首尾的空白和换行不影响解码`() {
-        assertEquals(alice, QrPayload.decode("  \n" + QrPayload.encode(alice) + "\r\n"))
+        assertEquals(PeerDiscovery.decode(PeerDiscovery.encode(alice)), QrPayload.decode("  \n" + QrPayload.encode(alice) + "\r\n"))
     }
 
     @Test
     fun `最长的名片生成的二维码内容在 80 个字符以内`() {
         val longest = Identity(UUID.randomUUID(), "一".repeat(10) + "ab")
         assertTrue(QrPayload.encode(longest).length <= 80)
+    }
+
+    @Test
+    fun `旧二维码仅用于识别且忽略显示名`() {
+        val old = "pengwa://c/" + Base64.getUrlEncoder().withoutPadding().encodeToString(encodeIdentity(alice))
+        val peer = assertNotNull(QrPayload.decode(old))
+        assertEquals(alice.id, peer.id)
+        assertTrue(peer.card.blocks.isEmpty())
+        assertTrue(!peer.cardComplete)
+        assertTrue(peer.displayName != alice.displayName)
+    }
+
+    @Test
+    fun `二维码与名字头像内容块无关`() {
+        val rich = alice.copy(displayName = "Another name", card = app.pengwa.identity.CardContent(
+            avatar = "private image", blocks = listOf(app.pengwa.identity.CardBlock(app.pengwa.identity.BlockType.Text, text = "private content")),
+        ))
+        assertEquals(QrPayload.encode(alice), QrPayload.encode(rich))
     }
 
     // ---- 外部内容不可信 ----
@@ -85,10 +104,10 @@ class QrTest {
     }
 
     @Test
-    fun `生成的二维码能被识别出来 且解出同一张名片`() {
+    fun `生成的二维码能被识别出来 且解出同一对方标识`() {
         val (luma, w, h) = render(QrPayload.encode(alice))
         val decoded = assertNotNull(QrFrameDecoder.decode(luma, w, h))
-        assertEquals(alice, QrPayload.decode(decoded))
+        assertEquals(PeerDiscovery.decode(PeerDiscovery.encode(alice)), QrPayload.decode(decoded))
     }
 
     @Test
@@ -98,7 +117,7 @@ class QrTest {
         val padded = ByteArray(stride * h) { 127 }
         for (row in 0 until h) System.arraycopy(luma, row * w, padded, row * stride, w)
         val decoded = assertNotNull(QrFrameDecoder.decode(padded, w, h, rowStride = stride))
-        assertEquals(alice, QrPayload.decode(decoded))
+        assertEquals(PeerDiscovery.decode(PeerDiscovery.encode(alice)), QrPayload.decode(decoded))
     }
 
     @Test

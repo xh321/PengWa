@@ -97,7 +97,7 @@ fun FaceToFacePage(
         defaultWallet = wallet.isDefault()
     }
     var walletPromptDismissed by rememberSaveable { mutableStateOf(false) }
-    ExchangeSession(if (!scanning && nfcState == NfcState.Ready) role else ExchangeMode.None)
+    ExchangeSession(if (!scanning) role else ExchangeMode.None)
 
     BrightnessLock(enabled = (mode == ExchangeMode.NfcDisplay || mode == ExchangeMode.NfcRead) && !scanning)
 
@@ -108,8 +108,8 @@ fun FaceToFacePage(
                 val peer = QrPayload.decode(text)
                 when {
                     peer == null -> onMessage(resources.getString(R.string.qr_invalid))
-                    // 成功时由相遇记录器统一弹"碰到了 xxx"；返回 false 说明是自己的码或刚刚扫过
-                    !context.pengWa.meetings.record(peer, "二维码") -> onMessage(resources.getString(R.string.qr_self_or_duplicate))
+                    peer.id == identity.id -> onMessage("这是自己的二维码")
+                    else -> context.pengWa.bleExchange.discover(peer, initiate = true, source = "二维码")
                 }
             },
             onClose = { scanning = false },

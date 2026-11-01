@@ -14,6 +14,7 @@ class UiPreviewActivity : ComponentActivity() {
         val index = intent.getIntExtra("sample", 0)
         setContent {
             when (screen) {
+                "card", "card-editor", "card-received" -> CustomCardPreview(screen)
                 "nearby-dedup" -> NearbyDedupPreview(index)
                 "bluetooth" -> BluetoothPagePreview(BluetoothPreviewProvider().values.toList().let { it[index.coerceIn(it.indices)] })
                 "contacts" -> ContactsScreenPreview(ContactsPreviewProvider().values.toList().let { it[index.coerceIn(it.indices)] })

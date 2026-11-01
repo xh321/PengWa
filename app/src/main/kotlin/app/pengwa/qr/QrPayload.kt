@@ -1,32 +1,31 @@
 package app.pengwa.qr
 
 import app.pengwa.ble.decodeIdentity
-import app.pengwa.ble.encodeIdentity
+import app.pengwa.exchange.PeerDiscovery
 import app.pengwa.identity.Identity
 import java.util.Base64
 
-/**
- * 二维码里放的内容：`pengwa://c/` + 名片字节的 base64url（无填充）。
- * 名片字节与 NFC、蓝牙用的是同一套编码，所以三种方式交换的信息完全一致。
- * 扫到的内容来自外部，解码时重新校验，不合法一律返回 null。纯 Kotlin。
- */
+/** A QR identifies a BLE peer; it never carries or imports the user's card. */
 object QrPayload {
-    const val PREFIX = "pengwa://c/"
-
-    // 名片最长 49 字节 -> base64 约 66 字符；放宽一些但拒绝明显过长的输入
+    const val PREFIX = "pengwa://p/"
+    private const val LEGACY_PREFIX = "pengwa://c/"
     private const val MAX_LENGTH = 200
 
     fun encode(identity: Identity): String =
-        PREFIX + Base64.getUrlEncoder().withoutPadding().encodeToString(encodeIdentity(identity))
+        PREFIX + Base64.getUrlEncoder().withoutPadding().encodeToString(PeerDiscovery.encode(identity))
 
     fun decode(text: String): Identity? {
         val trimmed = text.trim()
-        if (trimmed.length > MAX_LENGTH || !trimmed.startsWith(PREFIX)) return null
-        val bytes = try {
-            Base64.getUrlDecoder().decode(trimmed.removePrefix(PREFIX))
-        } catch (_: IllegalArgumentException) {
-            return null
+        if (trimmed.length > MAX_LENGTH) return null
+        val prefix = when {
+            trimmed.startsWith(PREFIX) -> PREFIX
+            trimmed.startsWith(LEGACY_PREFIX) -> LEGACY_PREFIX
+            else -> return null
         }
-        return decodeIdentity(bytes)
+        val bytes = runCatching { Base64.getUrlDecoder().decode(trimmed.removePrefix(prefix)) }.getOrNull() ?: return null
+        return if (prefix == PREFIX) PeerDiscovery.decode(bytes) else {
+            // Old codes can identify a peer, but none of their card fields are saved.
+            decodeIdentity(bytes)?.let { PeerDiscovery.decode(PeerDiscovery.encode(it)) }
+        }
     }
 }

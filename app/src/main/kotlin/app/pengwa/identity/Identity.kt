@@ -4,7 +4,7 @@ import java.nio.ByteBuffer
 import java.util.UUID
 
 /** 本机身份：[id] 是永久标识（GUID），[displayName] 是用户自定义的外显名，可随时修改。 */
-data class Identity(val id: UUID, val displayName: String)
+data class Identity(val id: UUID, val displayName: String, val card: CardContent = CardContent(), val cardComplete: Boolean = false)
 
 /** 线上传输用的 16 字节大端编码（NFC / 蓝牙都用它，比 36 字符文本省空间）。 */
 fun UUID.toBytes(): ByteArray =
