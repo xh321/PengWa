@@ -64,7 +64,7 @@ adb shell settings put system font_scale 1.0
 
 ## 已验证
 
-- `testDebugUnitTest`：180 项通过，0 失败。覆盖原有逻辑及完整卡片编解码、96 KiB 总限额、
+- `testDebugUnitTest`：183 项通过，0 失败。覆盖原有逻辑及完整卡片编解码、96 KiB 总限额、
   12 KiB 图片参与的多包传输、MTU 23/64/247/517、重复／跳包／总长变更／超限拒绝、
   不安全链接、NFC 仅含标识、旧 NFC 不兼容、新二维码不包含卡片字段、旧二维码仅提取标识。
 - `assembleDebug`、`lintDebug` 成功；Lint 没有 error，仍有 SDK／资源／依赖等 warning。
@@ -102,3 +102,5 @@ bash gradlew testDebugUnitTest assembleDebug lintDebug --console=plain
 小图纯图片展示、透明 PNG 导入和自由比例的补充验证见 [小图截图](../image-only/README.md)。
 
 内容区瀑布流与屏幕适配的前后对比见 [瀑布流截图](../card-masonry/README.md)。
+
+六个平台、内置图标和账号操作见 [社交账号截图](../social-platforms/README.md)。

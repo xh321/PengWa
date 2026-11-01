@@ -58,15 +58,24 @@ private fun masonryCard() = Identity(UUID(0L, 1L), "小棉花", CardContent(samp
     CardBlock(BlockType.Text, "一起出发", "周末见！"),
 )), cardComplete = true)
 
+private fun socialCard() = Identity(UUID(0L, 1L), "小棉花", CardContent(sampleImage(), listOf(
+    CardBlock(BlockType.Social, "QQ", "100000001"),
+    CardBlock(BlockType.Social, "微信", "cotton_demo"),
+    CardBlock(BlockType.Social, "bilibili", "123456"),
+    CardBlock(BlockType.Social, "小红书", "cotton_demo", url = "https://www.xiaohongshu.com/user/profile/demo"),
+    CardBlock(BlockType.Social, "X", "cotton_demo"),
+    CardBlock(BlockType.Social, "Telegram", "cotton_demo"),
+)), cardComplete = true)
+
 @Composable
 internal fun CustomCardPreview(screen: String) {
-    var identity by remember { mutableStateOf(when { screen.startsWith("card-masonry") -> masonryCard(); screen.startsWith("card-images") -> imageShapesCard(); else -> sampleCard() }) }
+    var identity by remember { mutableStateOf(when { screen.startsWith("card-social") -> socialCard(); screen.startsWith("card-masonry") -> masonryCard(); screen.startsWith("card-images") -> imageShapesCard(); else -> sampleCard() }) }
     PreviewSurface {
         when (screen) {
-            "card-editor", "card-images-editor", "card-masonry-editor" -> Box(Modifier.systemBarsPadding()) {
+            "card-editor", "card-images-editor", "card-masonry-editor", "card-social-editor" -> Box(Modifier.systemBarsPadding()) {
                 CardEditorContent(identity, { identity = it }, { CardCodec.validate(identity.card) }, {})
             }
-            "card-received", "card-images-received", "card-masonry-received" -> ContactDetails(Contact(identity.id, identity.displayName, 1761955200000L, 1761955200000L, 2, identity.card)) {}
+            "card-received", "card-images-received", "card-masonry-received", "card-social-received" -> ContactDetails(Contact(identity.id, identity.displayName, 1761955200000L, 1761955200000L, 2, identity.card)) {}
             else -> Column(Modifier.systemBarsPadding().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text("我的卡片", style = MaterialTheme.typography.headlineSmall)
                 UserCardContent(identity)

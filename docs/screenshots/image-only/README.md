@@ -33,7 +33,7 @@ adb shell am start -n app.pengwa.debug/app.pengwa.ui.UiPreviewActivity --es scre
 
 ## 验证
 
-- `testDebugUnitTest assembleDebug lintDebug`：180 项单元测试通过，构建与 Lint 无 error。
+- `testDebugUnitTest assembleDebug lintDebug`：183 项单元测试通过，构建与 Lint 无 error。
 - 新测试验证透明 PNG 内容经卡片编码完整保留，损坏的 PNG 首尾被拒绝。
 - 模拟器检查横图、竖图、方图与透明圆形的完整轮廓，深浅主题下不出现额外底框或标题。
 - 编辑页移除图片标题字段，图片预览与卡片展示使用同一组件。

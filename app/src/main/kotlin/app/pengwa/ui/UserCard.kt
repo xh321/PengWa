@@ -50,6 +50,10 @@ internal fun UserCardContent(identity: Identity) {
             identity.card.blocks.forEach { block ->
                 if (block.type == BlockType.Image) {
                     CardImage(block.image, block.title.ifBlank { "卡片图片" })
+                } else if (block.type == BlockType.Social) {
+                    SocialAccountBlock(block) { url ->
+                        runCatching { uriHandler.openUri(url) }.onFailure { error = "无法打开链接，请检查是否安装浏览器" }
+                    }
                 } else Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
                     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (block.title.isNotBlank()) Text(block.title, style = MaterialTheme.typography.titleSmall)
@@ -57,7 +61,7 @@ internal fun UserCardContent(identity: Identity) {
                         val url = if (block.type == BlockType.Link) block.text else block.url
                         if (CardCodec.validLink(url)) TextButton(onClick = {
                             runCatching { uriHandler.openUri(url) }.onFailure { error = "无法打开链接，请检查是否安装浏览器" }
-                        }) { Text(if (block.type == BlockType.Social) "打开主页" else url) }
+                        }) { Text(url) }
                     }
                 }
             }
@@ -145,9 +149,9 @@ internal fun CardEditorContent(
                 OutlinedCard(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("${index + 1} · ${block.type.label()}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                        if (block.type != BlockType.Image) OutlinedTextField(block.title, { changeBlock(index, block.copy(title = it)) }, label = { Text(if (block.type == BlockType.Social) "社媒平台" else "标题（可选）") }, modifier = Modifier.fillMaxWidth())
-                        if (block.type != BlockType.Image) OutlinedTextField(block.text, { changeBlock(index, block.copy(text = it)) }, label = { Text(when (block.type) { BlockType.Link -> "https://…"; BlockType.Social -> "账号"; else -> "文字内容" }) }, modifier = Modifier.fillMaxWidth())
-                        if (block.type == BlockType.Social) OutlinedTextField(block.url, { changeBlock(index, block.copy(url = it)) }, label = { Text("主页链接（可选）") }, modifier = Modifier.fillMaxWidth())
+                        if (block.type == BlockType.Social) SocialAccountFields(block) { changeBlock(index, it) }
+                        if (block.type != BlockType.Image && block.type != BlockType.Social) OutlinedTextField(block.title, { changeBlock(index, block.copy(title = it)) }, label = { Text("标题（可选）") }, modifier = Modifier.fillMaxWidth())
+                        if (block.type != BlockType.Image && block.type != BlockType.Social) OutlinedTextField(block.text, { changeBlock(index, block.copy(text = it)) }, label = { Text(when (block.type) { BlockType.Link -> "https://…"; else -> "文字内容" }) }, modifier = Modifier.fillMaxWidth())
                         if (block.type == BlockType.Image) {
                             if (block.image.isNotEmpty()) CardImage(block.image, "已选择的图片")
                             TextButton(onClick = { imageTarget = index; picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, enabled = !loading) { Text("选择图片") }
@@ -169,7 +173,7 @@ internal fun CardEditorContent(
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 BlockType.entries.forEach { type ->
                     OutlinedButton(enabled = draft.card.blocks.size < CardCodec.MAX_BLOCKS && !loading, onClick = {
-                        onChange(draft.copy(card = draft.card.copy(blocks = draft.card.blocks + CardBlock(type))))
+                        onChange(draft.copy(card = draft.card.copy(blocks = draft.card.blocks + CardBlock(type, title = if (type == BlockType.Social) SocialPlatform.QQ.label else ""))))
                     }) { Text("+ ${type.label()}") }
                 }
             }

@@ -50,7 +50,7 @@ adb shell settings put system font_scale 1.0
 
 ## 验证
 
-- `testDebugUnitTest assembleDebug lintDebug` 成功，180 项现有单元测试通过，Lint 无 error。
+- `testDebugUnitTest assembleDebug lintDebug` 成功，183 项现有单元测试通过，Lint 无 error。
 - 模拟器检查普通屏的两列错落布局、窄屏大字体的单列回退和宽屏三列布局。
 - 卡片页、详情弹窗、编辑页预览均运行正常，沿用外层滚动，不产生嵌套无限高度错误。
 - 图片维持原比例和透明轮廓，内容块排序与传输格式不变。

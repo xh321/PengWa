@@ -11,7 +11,7 @@
 
 ## 当前开发版本：可自定义用户卡片
 
-用户卡片新增头像，以及可添加、编辑、删除、排序的文字、链接、社媒和小图内容块，支持保存和预览。内容区采用自适应瀑布流，让文字、链接、社媒和小图按各自高度错落排布；小图保留原始比例和透明轮廓，不加标题或底框。
+用户卡片新增头像，以及可添加、编辑、删除、排序的文字、链接、社媒和小图内容块，支持保存和预览。社媒内置 QQ、微信、bilibili、小红书、X、Telegram 及平台图标，支持复制账号和打开主页。内容区采用自适应瀑布流，让文字、链接、社媒和小图按各自高度错落排布；小图保留原始比例和透明轮廓，不加标题或底框。
 **扫码、附近蓝牙列表和 NFC 碰一碰都只负责识别对方，完整卡片统一通过蓝牙 BLE 分块交换。**
 只有完整接收并确认后才入集邮册；二维码与 NFC 识别本身不再导入名片。扫码后需对方确认蓝牙申请；NFC 双向识别可短时自动确认对应设备。
 
@@ -153,7 +153,7 @@ docs/                           protocol.md（协议规格）、release.md（发
 
 ## 5. 已经测过的内容
 
-### 5.1 单元测试：171 项，全部通过
+### 5.1 单元测试：183 项，全部通过
 
 | 测试类 | 项数 | 覆盖 |
 |---|---:|---|
@@ -162,7 +162,9 @@ docs/                           protocol.md（协议规格）、release.md（发
 | `ble.GattExchangeSessionsTest` | 17 | 申请—同意状态机、超时、断开、容量 |
 | `ble.NearbyListTest` | 22 | 列表排序、预览重试、身份去重、跨地址等待和重试、过期移除 |
 | `ble.IncomingRequestsTest` | 13 | 申请队列、防骚扰、冷却、过期 |
-| `qr.QrTest` | 12 | 内容格式；**生成二维码 → 当成相机帧识别 → 解出同一张名片**（含带行填充的帧） |
+| `qr.QrTest` | 14 | 仅识别的二维码、新旧格式兼容；生成二维码并从相机亮度帧识别（含行填充） |
+| `identity.CardCodecTest` | 7 | 完整卡片、PNG、多包传输、体积限制、非法内容与 NFC 仅识别 |
+| `identity.SocialPlatformTest` | 3 | 平台别名、安全主页链接、六平台账号编解码兼容 |
 | `identity.DisplayNameRulesTest` | 11 | 字节限长、控制/零宽/方向覆盖字符、规范化 |
 | `ble.BleProtocolTest` | 10 | 名片编码、对方数据不可信 |
 | `ble.BlePreviewTest` | 11 | 新旧预览编码、稳定身份摘要、非法数据校验 |
@@ -273,7 +275,7 @@ docs/                           protocol.md（协议规格）、release.md（发
 
 ```bash
 # 构建与测试
-./gradlew testDebugUnitTest        # 171 项单元测试
+./gradlew testDebugUnitTest        # 183 项单元测试
 ./gradlew assembleDebug            # 调试版
 ./gradlew assembleRelease          # 发布版；有 secrets/keystore.properties 时自动签名
 # 校验签名
