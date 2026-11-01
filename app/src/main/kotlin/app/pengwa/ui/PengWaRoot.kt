@@ -79,6 +79,17 @@ fun PengWaRoot(
 
     // 首次创建和教学完成后才展示导航；已有用户直接进入主页。
     val readyForExchange = identityViewModel.identity != null && identityViewModel.onboardingStep == OnboardingStep.Complete
+    LaunchedEffect(selectedTab, readyForExchange) {
+        if (readyForExchange) {
+            val event = when (selectedTab) {
+                MainActivity.TAB_ME -> app.pengwa.analytics.AnalyticsEvent.HomeViewed
+                MainActivity.TAB_NEARBY -> app.pengwa.analytics.AnalyticsEvent.NearbyViewed
+                MainActivity.TAB_CONTACTS -> app.pengwa.analytics.AnalyticsEvent.ContactsViewed
+                else -> null
+            }
+            event?.let(context.pengWa.analytics::track)
+        }
+    }
     BackHandler(enabled = selectedTab == MainActivity.TAB_LAB) { selectedTab = MainActivity.TAB_ME }
 
     PengWaScaffold(

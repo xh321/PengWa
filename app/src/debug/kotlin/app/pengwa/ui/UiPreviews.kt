@@ -208,12 +208,16 @@ internal fun PreviewHome(content: @Composable () -> Unit) {
 
 @PengWaPreviews
 @Composable
-internal fun SettingsPreview() {
+internal fun SettingsPreview(analyticsConfigured: Boolean = false, analyticsInitiallyEnabled: Boolean = false) {
+    var analyticsEnabled by remember(analyticsInitiallyEnabled) { mutableStateOf(analyticsInitiallyEnabled) }
     PreviewSurface {
+        Box(Modifier.safeDrawingPadding()) {
         SettingsContent(
             backgroundBroadcast = { SettingsRow(stringResource(R.string.bg_setting_title), stringResource(R.string.bg_setting_desc), false) {} },
             notification = { SettingsRow(stringResource(R.string.notif_setting_title), stringResource(R.string.notif_setting_desc), false) {} },
+            analytics = { AnalyticsSettingContent(analyticsEnabled, analyticsConfigured) { analyticsEnabled = it } },
         )
+        }
     }
 }
 

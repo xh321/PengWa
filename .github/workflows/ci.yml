@@ -37,6 +37,9 @@ jobs:
         uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
 
       - name: Build debug APK and run unit tests
+        env:
+          APTABASE_APP_KEY: ${{ vars.APTABASE_APP_KEY }}
+          APTABASE_HOST: ${{ vars.APTABASE_HOST }}
         run: bash ./gradlew --no-daemon --stacktrace --continue :app:assembleDebug testDebugUnitTest :core:model:test :core:protocol:test
 
       - name: Upload unit test reports

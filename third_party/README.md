@@ -21,3 +21,10 @@ BLE GATT client transport uses https://github.com/nordicsemi/Android-BLE-Library
 # Coil
 
 Card images use Coil (`coil-core` / `coil-compose`), Apache-2.0: https://github.com/coil-kt/coil . Only embedded image loading is used; no network loader dependency is included.
+
+# Aptabase Kotlin SDK
+
+Version: `com.github.aptabase:aptabase-kotlin:0.1.0` (JitPack).
+Source: https://github.com/aptabase/aptabase-kotlin/tree/0.1.0
+MIT license: [aptabase-LICENSE.txt](aptabase-LICENSE.txt), also packaged at
+`assets/licenses/aptabase-LICENSE.txt`. Aptabase server licensing is separate from the SDK.

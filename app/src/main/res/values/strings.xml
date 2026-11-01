@@ -158,4 +158,7 @@
     <string name="request_source">来自附近的蓝牙</string>
     <string name="request_accept_in_app">同意交换</string>
     <string name="qr_code_label">我的名片二维码</string>
+    <string name="analytics_title">分享使用统计</string>
+    <string name="analytics_description">默认关闭。开启后通过 Aptabase 上报启动、页面访问、NFC／扫码识别及蓝牙交换结果，帮助社区改进功能。包含应用版本、系统版本、设备型号、语言和临时会话标识；不含名片身份、联系方式、照片或蓝牙地址。关闭后停止新增上报，已提交的请求可能完成。</string>
+    <string name="analytics_unconfigured">此构建未配置统计服务，不会上报。</string>
 </resources>
