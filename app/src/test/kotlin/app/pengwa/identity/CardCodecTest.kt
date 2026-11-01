@@ -77,6 +77,33 @@ class CardCodecTest {
                 image = Base64.getEncoder().encodeToString(invalid))))))
         }
     }
+    @Test fun `binary images reduce wire bytes and preserve legacy storage and contents`() {
+        val legacy = CardCodec.encode(card)
+        val binary = CardCodec.encodeBinary(card)
+        assertEquals(card, CardCodec.decodeBinary(binary))
+        assertNull(CardCodec.decodeBinary(legacy))
+        assertEquals(card, CardCodec.decode(legacy))
+        assertEquals(2 * (CardCodec.MAX_IMAGE_BYTES / 3) - 2 * (card.card.blocks.size + 1), legacy.size - binary.size)
+        assertContentEquals(legacy, CardCodec.encode(CardCodec.decode(binary)!!))
+        for (mtu in listOf(23, 64, 247, 517)) {
+            val assembler = CardAssembler()
+            while (!assembler.complete) assertTrue(assembler.append(CardTransfer.frame(binary, assembler.received, minOf(mtu - 3, 512))))
+            assertEquals(card, CardCodec.decode(assembler.result()!!))
+        }
+    }
+
+    @Test fun `binary image lengths are bounded before allocation`() {
+        val binary = CardCodec.encodeBinary(card)
+        val avatarOffset = 8 + encodeIdentity(card).size
+        for (length in listOf(-1, Int.MAX_VALUE, CardCodec.MAX_IMAGE_BYTES + 1)) {
+            assertNull(CardCodec.decode(binary.copyOf().also { ByteBuffer.wrap(it).putInt(avatarOffset, length) }))
+        }
+        assertNull(CardCodec.decode(binary.dropLast(1).toByteArray()))
+        assertNull(CardCodec.decode(binary + byteArrayOf(0)))
+        val empty = card.copy(card = CardContent())
+        assertEquals(empty, CardCodec.decode(CardCodec.encodeBinary(empty)))
+    }
+
     @Test fun `NFC discovery contains only identifier and never full card`() {
         val peer = card.copy(id = UUID.randomUUID(), displayName = "小蓝")
         var discovered: Identity? = null

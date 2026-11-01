@@ -49,41 +49,66 @@ object CardCodec {
         else -> null
     }
 
-    fun encode(identity: Identity): ByteArray {
+    fun encode(identity: Identity): ByteArray = encode(identity, binaryImages = false)
+
+    fun encodeBinary(identity: Identity): ByteArray = encode(identity, binaryImages = true)
+
+    private fun encode(identity: Identity, binaryImages: Boolean): ByteArray {
         require(validate(identity.card) == null) { validate(identity.card).orEmpty() }
         val output = ByteArrayOutputStream()
         DataOutputStream(output).use { data ->
-            data.writeInt(0x50574332) // PWC2
+            data.writeInt(if (binaryImages) 0x50574333 else 0x50574332) // PWC3 / PWC2
             val basic = encodeIdentity(identity)
             data.writeInt(basic.size)
             data.write(basic)
-            data.writeUTF(identity.card.avatar)
+            writeImage(data, identity.card.avatar, binaryImages)
             data.writeInt(identity.card.blocks.size)
             identity.card.blocks.forEach {
                 data.writeUTF(it.type.name)
                 data.writeUTF(it.title)
                 data.writeUTF(it.text)
-                data.writeUTF(it.image)
+                writeImage(data, it.image, binaryImages)
                 data.writeUTF(it.url)
             }
         }
         return output.toByteArray().also { require(it.size <= MAX_BYTES) { "卡片超过 96 KB，请减少图片" } }
     }
 
+    private fun writeImage(data: DataOutputStream, value: String, binary: Boolean) {
+        if (!binary) { data.writeUTF(value); return }
+        val bytes = Base64.getDecoder().decode(value)
+        data.writeInt(bytes.size)
+        data.write(bytes)
+    }
+
+    private fun readImage(data: DataInputStream, binary: Boolean): String {
+        if (!binary) return data.readUTF()
+        val length = data.readInt()
+        require(length in 0..MAX_IMAGE_BYTES && length <= data.available())
+        return Base64.getEncoder().encodeToString(ByteArray(length).also(data::readFully))
+    }
+
+    /** Network protocol accepts only PWC3. PWC2 is retained solely for local storage. */
+    fun decodeBinary(bytes: ByteArray): Identity? = bytes.takeIf {
+        it.size >= 4 && java.nio.ByteBuffer.wrap(it).int == 0x50574333
+    }?.let(::decode)
+
     fun decode(bytes: ByteArray): Identity? = runCatching {
         require(bytes.size in 12..MAX_BYTES)
         DataInputStream(ByteArrayInputStream(bytes)).use { data ->
-            require(data.readInt() == 0x50574332)
+            val magic = data.readInt()
+            require(magic == 0x50574332 || magic == 0x50574333)
+            val binaryImages = magic == 0x50574333
             val size = data.readInt()
             require(size in 18..49)
             val basic = decodeIdentity(ByteArray(size).also(data::readFully)) ?: error("identity")
-            val avatar = data.readUTF()
+            val avatar = readImage(data, binaryImages)
             val count = data.readInt()
             require(count in 0..MAX_BLOCKS)
-            val blocks = List(count) { CardBlock(BlockType.valueOf(data.readUTF()), data.readUTF(), data.readUTF(), data.readUTF(), data.readUTF()) }
+            val blocks = List(count) { CardBlock(BlockType.valueOf(data.readUTF()), data.readUTF(), data.readUTF(), readImage(data, binaryImages), data.readUTF()) }
             val card = CardContent(avatar, blocks)
             require(data.available() == 0 && validate(card) == null)
-            basic.copy(card = card, cardComplete = true)
+            basic.copy(card = card, cardComplete = true).also { if (binaryImages) encode(it) }
         }
     }.getOrNull()
 }

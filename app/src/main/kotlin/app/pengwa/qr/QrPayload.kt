@@ -1,6 +1,5 @@
 package app.pengwa.qr
 
-import app.pengwa.ble.decodeIdentity
 import app.pengwa.exchange.PeerDiscovery
 import app.pengwa.identity.Identity
 import java.util.Base64
@@ -8,7 +7,6 @@ import java.util.Base64
 /** A QR identifies a BLE peer; it never carries or imports the user's card. */
 object QrPayload {
     const val PREFIX = "pengwa://p/"
-    private const val LEGACY_PREFIX = "pengwa://c/"
     private const val MAX_LENGTH = 200
 
     fun encode(identity: Identity): String =
@@ -17,15 +15,8 @@ object QrPayload {
     fun decode(text: String): Identity? {
         val trimmed = text.trim()
         if (trimmed.length > MAX_LENGTH) return null
-        val prefix = when {
-            trimmed.startsWith(PREFIX) -> PREFIX
-            trimmed.startsWith(LEGACY_PREFIX) -> LEGACY_PREFIX
-            else -> return null
-        }
-        val bytes = runCatching { Base64.getUrlDecoder().decode(trimmed.removePrefix(prefix)) }.getOrNull() ?: return null
-        return if (prefix == PREFIX) PeerDiscovery.decode(bytes) else {
-            // Old codes can identify a peer, but none of their card fields are saved.
-            decodeIdentity(bytes)?.let { PeerDiscovery.decode(PeerDiscovery.encode(it)) }
-        }
+        if (!trimmed.startsWith(PREFIX)) return null
+        val bytes = runCatching { Base64.getUrlDecoder().decode(trimmed.removePrefix(PREFIX)) }.getOrNull() ?: return null
+        return PeerDiscovery.decode(bytes)
     }
 }
