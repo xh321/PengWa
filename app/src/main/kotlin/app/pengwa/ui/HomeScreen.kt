@@ -54,11 +54,22 @@ fun HomeScreen(
     onMessage: (String) -> Unit,
     modifier: Modifier = Modifier,
     onOpenLab: (() -> Unit)? = null,
+    onOpenNearby: () -> Unit = {},
 ) {
     val identity = viewModel.identity
     var editing by rememberSaveable { mutableStateOf(false) }
     var showingCard by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
+    var showGuide by rememberSaveable { mutableStateOf(false) }
+
+    if (showGuide) {
+        ExchangeGuide(
+            onBack = { showGuide = false },
+            onFinish = { tab -> showGuide = false; if (tab == app.pengwa.MainActivity.TAB_NEARBY) onOpenNearby() },
+            modifier = modifier,
+        )
+        return
+    }
 
     if (editing && identity != null) {
         CardEditor(viewModel, onClose = { editing = false }, modifier = modifier)
@@ -94,7 +105,7 @@ fun HomeScreen(
         text = { Column(Modifier.verticalScroll(rememberScrollState())) { UserCardContent(identity) } },
         confirmButton = { TextButton(onClick = { showingCard = false }) { Text("关闭") } },
     )
-    if (showSettings) SettingsSheet(onDismiss = { showSettings = false })
+    if (showSettings) SettingsSheet(onDismiss = { showSettings = false }, onShowGuide = { showSettings = false; showGuide = true })
 }
 
 @Composable
@@ -130,19 +141,20 @@ internal fun ExchangeSession(mode: ExchangeMode) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SettingsSheet(onDismiss: () -> Unit) {
+private fun SettingsSheet(onDismiss: () -> Unit, onShowGuide: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        SettingsContent(backgroundBroadcast = { BackgroundBroadcastToggle() }, notification = { NotificationToggle() })
+        SettingsContent(backgroundBroadcast = { BackgroundBroadcastToggle() }, notification = { NotificationToggle() }, onShowGuide = onShowGuide)
     }
 }
 
 @Composable
-internal fun SettingsContent(backgroundBroadcast: @Composable () -> Unit, notification: @Composable () -> Unit) {
+internal fun SettingsContent(backgroundBroadcast: @Composable () -> Unit, notification: @Composable () -> Unit, onShowGuide: (() -> Unit)? = null) {
     Column(
         modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = PageGutter, end = PageGutter, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text(stringResource(R.string.settings_title), style = MaterialTheme.typography.titleLarge)
+        if (onShowGuide != null) TextButton(onClick = onShowGuide) { Text("如何交换卡片") }
         Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
             Column(Modifier.padding(16.dp)) { backgroundBroadcast() }
         }

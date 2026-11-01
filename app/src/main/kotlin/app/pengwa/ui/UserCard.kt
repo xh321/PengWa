@@ -100,6 +100,7 @@ internal fun CardEditorContent(
     onSave: () -> String?,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
+    onboarding: Boolean = false,
 ) {
     var preview by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -110,7 +111,7 @@ internal fun CardEditorContent(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     fun close() { confirmDiscard = true }
-    BackHandler { if (preview) preview = false else close() }
+    BackHandler(enabled = !onboarding || preview) { if (preview) preview = false else close() }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         val target = imageTarget
         if (uri != null && target != null) scope.launch {
@@ -134,9 +135,10 @@ internal fun CardEditorContent(
     }
     Column(modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(if (preview) "卡片预览" else "编辑我的卡片", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
+            Text(if (preview) "卡片预览" else if (onboarding) "创建我的卡片" else "编辑我的卡片", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
             TextButton(onClick = { preview = !preview }, enabled = !loading) { Text(if (preview) "继续编辑" else "预览") }
         }
+        if (onboarding && !preview) Text("先填一个让娃友认出你的名字。头像、自我介绍和社媒都可选，以后也能随时修改。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (preview) UserCardContent(draft) else {
             OutlinedTextField(draft.displayName, { onChange(draft.copy(displayName = it)); error = null }, label = { Text("显示名") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -181,8 +183,8 @@ internal fun CardEditorContent(
         }
         if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        Button(enabled = !loading, onClick = { error = onSave(); if (error == null) onClose() }, modifier = Modifier.fillMaxWidth()) { Text("保存卡片") }
-        TextButton(onClick = ::close, modifier = Modifier.fillMaxWidth(), enabled = !loading) { Text("取消") }
+        Button(enabled = !loading, onClick = { error = onSave(); if (error == null) onClose() }, modifier = Modifier.fillMaxWidth()) { Text(if (onboarding) "保存并预览" else "保存卡片") }
+        if (!onboarding) TextButton(onClick = ::close, modifier = Modifier.fillMaxWidth(), enabled = !loading) { Text("取消") }
     }
     if (confirmDiscard) AlertDialog(onDismissRequest = { confirmDiscard = false }, title = { Text("放弃本次编辑？") }, text = { Text("尚未保存的修改将被丢弃。") }, confirmButton = { TextButton(onClick = onClose) { Text("放弃") } }, dismissButton = { TextButton(onClick = { confirmDiscard = false }) { Text("继续编辑") } })
 }

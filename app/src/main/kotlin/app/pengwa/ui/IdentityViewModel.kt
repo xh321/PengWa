@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
+import app.pengwa.identity.OnboardingStep
 import app.pengwa.identity.Identity
 import app.pengwa.identity.NameError
 import app.pengwa.identity.normalizeDisplayName
@@ -21,16 +22,34 @@ class IdentityViewModel(application: Application) : AndroidViewModel(application
     var draft: Identity? by mutableStateOf(null)
         private set
 
+    var onboardingStep by mutableStateOf(repository.onboardingStep())
+        private set
+
+    fun beginOnboardingEdit() {
+        if (draft == null) draft = identity ?: Identity(repository.id, "")
+    }
+
+    fun moveOnboardingTo(step: OnboardingStep): String? = runCatching {
+        repository.saveOnboardingStep(step)
+        onboardingStep = step
+        null
+    }.getOrElse { "进度保存失败，请重试" }
+
+    fun saveOnboardingDraft(): String? = saveDraft(onboarding = true)
+
     fun beginEdit() { draft = identity }
     fun updateDraft(value: Identity) { draft = value }
-    fun saveDraft(): String? {
+    fun saveDraft(): String? = saveDraft(onboarding = false)
+
+    private fun saveDraft(onboarding: Boolean): String? {
         val value = draft ?: return "卡片尚未准备好"
         validateDisplayName(value.displayName)?.let { return "显示名为空、过长或包含不可显示字符（最多 32 字节）" }
         val normalized = value.copy(displayName = normalizeDisplayName(value.displayName))
         app.pengwa.identity.CardCodec.validate(normalized.card)?.let { return it }
         return runCatching {
-            repository.saveCard(normalized)
+            repository.saveCard(normalized, onboardingStep = if (onboarding) OnboardingStep.PreviewCard else null)
             identity = repository.load()
+            if (onboarding) onboardingStep = OnboardingStep.PreviewCard
             PengWaNotification.refresh(getApplication())
             null
         }.getOrElse { it.message ?: "保存失败，请重试" }
