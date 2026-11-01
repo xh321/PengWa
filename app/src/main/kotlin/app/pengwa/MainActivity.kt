@@ -100,8 +100,8 @@ class MainActivity : ComponentActivity() {
             pengWa.nfcDiagnostics.record("NDEF launch received")
         }
         val peer = NdefLaunchParser.peerFrom(intent) ?: return
-        val recorded = pengWa.meetings.record(peer, "NFC 标签（系统拉起）")
-        pengWa.nfcDiagnostics.record("NDEF launch valid recorded=$recorded")
+        pengWa.bleExchange.discover(peer, initiate = true)
+        pengWa.nfcDiagnostics.record("NDEF launch identified; starting BLE")
     }
 
     private fun onTagDiscovered(tag: Tag) {

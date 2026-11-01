@@ -16,7 +16,7 @@ import kotlinx.coroutines.withContext
  * 所有写入都在 IO 线程完成，并刷新 [contacts]，界面只需订阅这个流。
  */
 class ContactStore(context: Context) :
-    SQLiteOpenHelper(context.applicationContext, "pengwa.db", null, 1) {
+    SQLiteOpenHelper(context.applicationContext, "pengwa.db", null, 2) {
 
     private val _contacts = MutableStateFlow<List<Contact>>(emptyList())
     val contacts: StateFlow<List<Contact>> = _contacts.asStateFlow()
@@ -29,30 +29,35 @@ class ContactStore(context: Context) :
                 display_name TEXT NOT NULL,
                 first_met_at INTEGER NOT NULL,
                 last_met_at INTEGER NOT NULL,
-                met_count INTEGER NOT NULL
+                met_count INTEGER NOT NULL,
+                card BLOB
             )
             """.trimIndent(),
         )
         db.execSQL("CREATE INDEX idx_contacts_last_met ON contacts(last_met_at DESC)")
     }
 
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        if (oldVersion < 2) db.execSQL("ALTER TABLE contacts ADD COLUMN card BLOB")
+    }
 
     suspend fun load() = withContext(Dispatchers.IO) {
         _contacts.value = queryAll()
     }
 
     /** 记录一次相遇：新朋友插入；老朋友更新名字、最近时间并把次数加一。 */
-    suspend fun recordMeeting(id: UUID, displayName: String, at: Long) = withContext(Dispatchers.IO) {
+    suspend fun recordMeeting(id: UUID, displayName: String, at: Long, card: app.pengwa.identity.CardContent? = null) = withContext(Dispatchers.IO) {
+        val encodedCard = card?.let { app.pengwa.identity.CardCodec.encode(app.pengwa.identity.Identity(id, displayName, it)) }
         val db = writableDatabase
         db.beginTransaction()
         try {
             val updated = db.compileStatement(
-                "UPDATE contacts SET display_name = ?, last_met_at = ?, met_count = met_count + 1 WHERE id = ?",
+                "UPDATE contacts SET display_name = ?, last_met_at = ?, met_count = met_count + 1, card = COALESCE(?, card) WHERE id = ?",
             ).use { statement ->
                 statement.bindString(1, displayName)
                 statement.bindLong(2, at)
-                statement.bindString(3, id.toString())
+                if (encodedCard == null) statement.bindNull(3) else statement.bindBlob(3, encodedCard)
+                statement.bindString(4, id.toString())
                 statement.executeUpdateDelete()
             }
             if (updated == 0) {
@@ -62,6 +67,7 @@ class ContactStore(context: Context) :
                     put("first_met_at", at)
                     put("last_met_at", at)
                     put("met_count", 1)
+                    put("card", encodedCard)
                 }
                 db.insertOrThrow("contacts", null, values)
             }
@@ -75,7 +81,7 @@ class ContactStore(context: Context) :
     private fun queryAll(): List<Contact> {
         val result = mutableListOf<Contact>()
         readableDatabase.rawQuery(
-            "SELECT id, display_name, first_met_at, last_met_at, met_count FROM contacts ORDER BY last_met_at DESC",
+            "SELECT id, display_name, first_met_at, last_met_at, met_count, card FROM contacts ORDER BY last_met_at DESC",
             null,
         ).use { cursor ->
             while (cursor.moveToNext()) {
@@ -85,6 +91,7 @@ class ContactStore(context: Context) :
                     firstMetAt = cursor.getLong(2),
                     lastMetAt = cursor.getLong(3),
                     metCount = cursor.getInt(4),
+                    card = if (cursor.isNull(5)) app.pengwa.identity.CardContent() else app.pengwa.identity.CardCodec.decode(cursor.getBlob(5))?.card ?: app.pengwa.identity.CardContent(),
                 )
             }
         }

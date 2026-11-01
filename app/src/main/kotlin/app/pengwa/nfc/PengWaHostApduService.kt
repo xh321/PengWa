@@ -1,14 +1,14 @@
 package app.pengwa.nfc
 
+import app.pengwa.exchange.PeerDiscovery
 import android.nfc.cardemulation.HostApduService
 import android.os.Bundle
 import android.util.Log
-import app.pengwa.ble.encodeIdentity
 import app.pengwa.pengWa
 
 /**
  * 被碰一方：系统在对方 SELECT 我们的某个 AID 时拉起本服务（屏幕需亮着）。
- *  - 私有 AID：两边都装了 App 时的双向交换，见 [ApduHandler]；
+ *  - 私有 AID：两边都装了 App 时的双向识别，见 [ApduHandler]；
  *  - 标准 NDEF AID：当作一张标签被任何手机读取，见 [T4tEmulator]。
  * 两者都只在 碰一碰 / 扫码页的“出示”角色响应；其余时候拒绝命令并清掉旧会话。
  */
@@ -21,15 +21,16 @@ class PengWaHostApduService : HostApduService() {
         app.nfcDiagnostics.record("HCE service created role=${app.exchangeMode.current}")
         val displaying = { app.exchangeMode.nfcDisplaySession != null }
         val exchange = ApduHandler(
+            discoveryOnly = true,
             identityProvider = { app.identityRepository.load() },
             onPeer = { peer ->
-                val recorded = app.meetings.record(peer, "NFC（对方碰过来）")
-                app.nfcDiagnostics.record("HCE exchanged recorded=$recorded")
+                android.os.Handler(android.os.Looper.getMainLooper()).post { app.bleExchange.discover(peer, initiate = false) }
+                app.nfcDiagnostics.record("HCE identified; waiting for BLE")
             },
         )
         val tag = T4tEmulator(
             message = {
-                app.identityRepository.load()?.let { NdefMessages.mimeMessage(encodeIdentity(it)) }
+                app.identityRepository.load()?.let { NdefMessages.mimeMessage(PeerDiscovery.encode(it)) }
             },
             armed = displaying,
         )

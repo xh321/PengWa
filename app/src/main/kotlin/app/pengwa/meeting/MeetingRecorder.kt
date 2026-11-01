@@ -51,7 +51,7 @@ class MeetingRecorder(
         if (peer.id == selfId()) return false
         if (!debouncer.shouldRecord(peer.id, SystemClock.elapsedRealtime())) return false
         scope.launch {
-            store.recordMeeting(peer.id, peer.displayName, System.currentTimeMillis())
+            store.recordMeeting(peer.id, peer.displayName, System.currentTimeMillis(), peer.card.takeIf { peer.cardComplete })
             _events.emit(MeetingEvent(peer.displayName, via))
         }
         return true

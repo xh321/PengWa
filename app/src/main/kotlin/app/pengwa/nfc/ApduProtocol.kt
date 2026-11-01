@@ -1,5 +1,6 @@
 package app.pengwa.nfc
 
+import app.pengwa.exchange.PeerDiscovery
 import app.pengwa.ble.decodeIdentity
 import app.pengwa.ble.encodeIdentity
 import app.pengwa.identity.Identity
@@ -7,8 +8,8 @@ import app.pengwa.identity.Identity
 /**
  * NFC（ISO-DEP / HCE）上的 APDU 协议，纯 Kotlin，完整说明见 docs/protocol.md。
  *
- * 流程：发起方 SELECT 我们的 AID → 发 EXCHANGE 命令（数据域是发起方的名片）
- *      → 对方在响应里返回它的名片。一次碰触、一次往返即完成双向交换。
+ * 生产流程：发起方 SELECT 我们的 AID → 发 EXCHANGE 命令（数据域是发起方发现标识）
+ *      → 对方返回发现标识，随后转交蓝牙传输。保留旧模式用于历史协议测试。
  */
 object ApduProtocol {
     /** 私有 AID：F0 开头表示私有应用，后面是 "PENGWA" 的 ASCII。 */
@@ -66,6 +67,7 @@ class ApduHandler(
     private val onPeer: (Identity) -> Unit,
     /** 为 false 时不响应：主页没有停在碰一碰 / 扫码页的时候，别人碰不到我。 */
     private val armed: () -> Boolean = { true },
+    private val discoveryOnly: Boolean = false,
 ) {
     private var selected = false
 
@@ -96,10 +98,10 @@ class ApduHandler(
         if (!selected) return ApduProtocol.SW_CONDITIONS_NOT_SATISFIED
         // 对方必须出示合法名片才会拿到我的名片，避免被通用读卡器随手抄走
         val data = ApduProtocol.commandData(command) ?: return ApduProtocol.SW_WRONG_LENGTH
-        val peer = decodeIdentity(data) ?: return ApduProtocol.SW_WRONG_DATA
+        val peer = (if (discoveryOnly) PeerDiscovery.decode(data) else decodeIdentity(data)) ?: return ApduProtocol.SW_WRONG_DATA
         val me = identityProvider() ?: return ApduProtocol.SW_CONDITIONS_NOT_SATISFIED
         onPeer(peer)
-        return ApduProtocol.withStatus(encodeIdentity(me), ApduProtocol.SW_OK)
+        return ApduProtocol.withStatus(if (discoveryOnly) PeerDiscovery.encode(me) else encodeIdentity(me), ApduProtocol.SW_OK)
     }
 }
 
@@ -113,16 +115,20 @@ sealed interface ExchangeResult {
 }
 
 /** 碰别人的一方（读卡方）的流程。[transceive] 在真机上是 IsoDep.transceive，测试里直接接 [ApduHandler]。 */
-fun runInitiator(me: Identity, transceive: (ByteArray) -> ByteArray): ExchangeResult {
+fun runInitiator(me: Identity, discoveryOnly: Boolean, transceive: (ByteArray) -> ByteArray): ExchangeResult {
     val selectResponse = transceive(ApduProtocol.selectCommand())
     if (!ApduProtocol.isSuccess(selectResponse)) return ExchangeResult.NotCompatible
 
-    val response = transceive(ApduProtocol.exchangeCommand(encodeIdentity(me)))
+    val response = transceive(ApduProtocol.exchangeCommand(if (discoveryOnly) PeerDiscovery.encode(me) else encodeIdentity(me)))
     if (!ApduProtocol.isSuccess(response)) {
         val status = response.takeLast(2).joinToString("") { "%02X".format(it) }
         return ExchangeResult.Failed("对方拒绝了交换（状态 $status）")
     }
-    val peer = decodeIdentity(response.copyOfRange(0, response.size - 2))
+    val payload = response.copyOfRange(0, response.size - 2)
+    val peer = (if (discoveryOnly) PeerDiscovery.decode(payload) else decodeIdentity(payload))
         ?: return ExchangeResult.Failed("对方返回的名片不合法")
     return ExchangeResult.Peer(peer)
 }
+
+fun runInitiator(me: Identity, transceive: (ByteArray) -> ByteArray): ExchangeResult =
+    runInitiator(me, false, transceive)

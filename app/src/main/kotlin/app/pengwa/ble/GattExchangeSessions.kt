@@ -44,6 +44,11 @@ class GattExchangeSessions<K : Any>(private val capacity: Int = 16) {
     @Synchronized
     fun onRequest(key: K, data: ByteArray?): Identity? {
         val peer = decodeIdentity(data) ?: return null
+        return onRequest(key, peer)
+    }
+
+    @Synchronized
+    fun onRequest(key: K, peer: Identity): Identity {
         entries.remove(key)
         entries[key] = Entry(peer, ExchangeStatus.Pending)
         while (entries.size > capacity) entries.remove(entries.keys.first())
@@ -77,6 +82,9 @@ class GattExchangeSessions<K : Any>(private val capacity: Int = 16) {
     /** 只有同意了才允许读取我的名片。 */
     @Synchronized
     fun canRead(key: K): Boolean = entries[key]?.status == ExchangeStatus.Accepted
+
+    @Synchronized
+    fun clear() { entries.clear() }
 
     /** 连接断开：移除记录。返回断开时是否还有未决定的申请（界面据此撤掉提示）。 */
     @Synchronized

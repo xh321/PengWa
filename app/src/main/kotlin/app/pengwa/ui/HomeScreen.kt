@@ -57,12 +57,17 @@ fun HomeScreen(
 ) {
     val identity = viewModel.identity
     var editing by rememberSaveable { mutableStateOf(false) }
+    var showingCard by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
 
-    if (identity == null || editing) {
+    if (editing && identity != null) {
+        CardEditor(viewModel, onClose = { editing = false }, modifier = modifier)
+        return
+    }
+    if (identity == null) {
         NameForm(
-            initialName = identity?.displayName.orEmpty(),
-            canCancel = identity != null,
+            initialName = "",
+            canCancel = false,
             onSave = { name ->
                 val error = viewModel.saveDisplayName(name)
                 if (error == null) editing = false
@@ -75,7 +80,11 @@ fun HomeScreen(
     }
 
     Column(modifier = modifier.fillMaxSize()) {
-        HomeHeader(identity, onEdit = { editing = true }, onSettings = { showSettings = true })
+        HomeHeader(identity, onEdit = { viewModel.beginEdit(); editing = true }, onSettings = { showSettings = true })
+        Row(Modifier.fillMaxWidth().padding(horizontal = PageGutter), horizontalArrangement = Arrangement.End) {
+            TextButton(onClick = { showingCard = true }) { Text("查看我的卡片") }
+        }
+        HomeBluetoothStatus()
         FaceToFacePage(
             identity = identity, role = role, onRoleChange = onRoleChange,
             onMessage = onMessage, modifier = Modifier.weight(1f),
@@ -83,6 +92,11 @@ fun HomeScreen(
         )
     }
 
+    if (showingCard) androidx.compose.material3.AlertDialog(
+        onDismissRequest = { showingCard = false }, title = { Text("我的卡片") },
+        text = { Column(Modifier.verticalScroll(rememberScrollState())) { UserCardContent(identity) } },
+        confirmButton = { TextButton(onClick = { showingCard = false }) { Text("关闭") } },
+    )
     if (showSettings) SettingsSheet(onDismiss = { showSettings = false })
 }
 
@@ -93,6 +107,7 @@ internal fun HomeHeader(identity: Identity, onEdit: () -> Unit, onSettings: () -
         modifier = Modifier.fillMaxWidth().padding(horizontal = PageGutter, vertical = if (compact) 4.dp else 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        CardAvatar(identity, Modifier.padding(end = 12.dp))
         Column(Modifier.weight(1f)) {
             if (!compact) Text(stringResource(R.string.my_card), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             Text(identity.displayName, style = MaterialTheme.typography.headlineSmall, maxLines = if (compact) 1 else 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))

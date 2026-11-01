@@ -33,7 +33,7 @@ class NfcTagExchanger(private val context: Context) {
             isoDep.connect()
             isoDep.timeout = TIMEOUT_MS
             diagnostics.record("Reader #$attempt connected timeoutMs=$TIMEOUT_MS maxTransceive=${isoDep.maxTransceiveLength}")
-            runInitiator(me) { command ->
+            runInitiator(me, discoveryOnly = true) { command ->
                 val sent = SystemClock.elapsedRealtime()
                 diagnostics.record("Reader #$attempt TX ${NfcDiagnosticLog.commandSummary(command)}")
                 val stage = if (ApduProtocol.isSelect(command)) "SELECT private AID" else "EXCHANGE"
@@ -54,10 +54,15 @@ class NfcTagExchanger(private val context: Context) {
 
         when (result) {
             is ExchangeResult.Peer -> {
-                val recorded = app.meetings.record(result.identity, "NFC（我碰过去）")
-                diagnostics.record("Reader #$attempt exchanged recorded=$recorded elapsedMs=${SystemClock.elapsedRealtime() - started}")
+                android.os.Handler(android.os.Looper.getMainLooper()).post { app.bleExchange.discover(result.identity, initiate = true) }
+                diagnostics.record("Reader #$attempt identified; starting BLE elapsedMs=${SystemClock.elapsedRealtime() - started}")
             }
-            is ExchangeResult.Failed -> Log.w(TAG, "NFC 交换失败：${result.reason}")
+            is ExchangeResult.Failed -> {
+                Log.w(TAG, "NFC 发现失败：${result.reason}")
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    app.bleExchange.discoveryFailed("NFC 识别失败，请确认双方使用新版应用后重新碰一碰")
+                }
+            }
             ExchangeResult.NotCompatible -> Log.d(TAG, "不是碰碰娃，忽略")
         }
         if (result !is ExchangeResult.Peer) diagnostics.record("Reader #$attempt result=${result.javaClass.simpleName}")

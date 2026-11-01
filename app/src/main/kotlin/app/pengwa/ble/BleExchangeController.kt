@@ -28,18 +28,18 @@ import kotlinx.coroutines.flow.update
  * 蓝牙交换的总控：全应用只有这一个，持有唯一的 [BleExchangeManager]。
  *
  * 什么时候运行由 [BleRunPolicy.plan] 决定，有两种场景：
- *  - **蓝牙页**（前台）：广播 + 扫描，把扫到的人整理成 [nearby] 列表，用户点选某人就向他**申请**交换；
+ *  - **主页／附近娃娃**（前台）：广播 + 扫描，把扫到的人整理成 [nearby] 列表，用户点选某人就向他**申请**交换；
  *  - **后台广播**（用户在设置里打开，由前台服务保活）：只广播、不扫描，等别人来申请。
  *
  * **被申请的一方必须同意才会交换**：收到申请进入 [incoming]，应用在前台时界面弹对话框，
- * 在后台时发带"同意 / 拒绝"按钮的通知；调用 [respond] 做决定。NFC 和二维码不需要这一步。
+ * 在后台时发带"同意 / 拒绝"按钮的通知；调用 [respond] 做决定。NFC 双向识别可在短时窗口内自动同意已识别的对方；扫码和附近列表沿用申请确认。
  *
  * 所有状态变化入口都收敛到 [refresh]，可重复调用。[setPageActive] / [refresh] / [exchangeWith] / [respond]
  * 必须在主线程调用。
  */
 class BleExchangeController(
     context: Context,
-    identityProvider: () -> Identity?,
+    private val identityProvider: () -> Identity?,
     /** 对方名片到手时回调；返回 true 表示算一次有效相遇（自己的名片或刚碰过的返回 false）。 */
     private val onPeer: (peer: Identity, how: String) -> Boolean,
 ) {
@@ -47,6 +47,14 @@ class BleExchangeController(
     private val mainHandler = Handler(Looper.getMainLooper())
     private val list = NearbyList()
     private val requests = IncomingRequests()
+    private var discoveryPeer: UUID? = null
+    private val receivingCards = mutableSetOf<String>()
+    private var discoveryInitiator = false
+    private var discoveryUntil = 0L
+    private var discoveryAutoAccept = false
+    private var lastDiscovery: Pair<Identity, String>? = null
+    private val _discoveryStatus = MutableStateFlow<String?>(null)
+    val discoveryStatus: StateFlow<String?> = _discoveryStatus.asStateFlow()
     private val simulatedCounter = AtomicInteger()
 
     private val _nearby = MutableStateFlow<List<NearbyPeer>>(emptyList())
@@ -66,7 +74,7 @@ class BleExchangeController(
     private val _bluetoothOn = MutableStateFlow(isBluetoothOn())
     val bluetoothOn: StateFlow<Boolean> = _bluetoothOn.asStateFlow()
 
-    private val manager = BleExchangeManager(
+    private val manager: BleExchangeManager = BleExchangeManager(
         context = appContext,
         identityProvider = identityProvider,
         listener = object : BleExchangeListener {
@@ -77,6 +85,7 @@ class BleExchangeController(
 
             override fun onPreview(address: String, preview: PeerPreview?) {
                 list.onPreview(address, preview?.name, preview?.identityKey)
+                mainHandler.post { tryDiscovery() }
                 schedulePublish()
             }
 
@@ -88,17 +97,44 @@ class BleExchangeController(
             override fun onExchanged(address: String, peer: Identity?, error: String?) {
                 list.onExchanged(address, peer?.displayName, error, peer?.id?.let(::identityKey))
                 mainHandler.post {
-                    if (peer != null) handlePeer(peer, "对方同意了我的申请") else log("交换失败：$error")
+                    if (peer != null) {
+                        handlePeer(peer, "对方同意了我的申请")
+                        _discoveryStatus.value = "卡片交换完成"
+                    } else { _discoveryStatus.value = error; log("交换失败：$error") }
+                    discoveryPeer = null
                 }
                 schedulePublish()
             }
 
-            override fun onIncomingRequest(address: String, peer: Identity): RequestReply =
-                submitIncoming(IncomingRequest(address, peer, SystemClock.elapsedRealtime()))
+            override fun onIncomingRequest(address: String, peer: Identity): RequestReply {
+                mainHandler.post {
+                    if (peer.id == discoveryPeer && SystemClock.elapsedRealtime() < discoveryUntil && discoveryAutoAccept) {
+                        manager.decideRequest(address, true)
+                        receivingCards.add(address)
+                        discoveryAutoAccept = false
+                        discoveryUntil = SystemClock.elapsedRealtime() + 180_000L
+                        _discoveryStatus.value = "已识别对方，正在交换卡片…"
+                    } else if (submitIncoming(IncomingRequest(address, peer, SystemClock.elapsedRealtime())) == RequestReply.Decline) manager.decideRequest(address, false)
+                }
+                return RequestReply.Prompt
+            }
+
+            override fun onCardCompleted(address: String, peer: Identity) {
+                mainHandler.post {
+                    receivingCards.remove(address)
+                    handlePeer(peer, "完整卡片交换完成")
+                    if (discoveryPeer == peer.id) discoveryPeer = null
+                    _discoveryStatus.value = "卡片交换完成"
+                }
+            }
 
             override fun onIncomingRequestEnded(address: String) {
-                if (requests.cancel(address) != null) {
-                    mainHandler.post {
+                mainHandler.post {
+                    if (receivingCards.remove(address)) {
+                        discoveryPeer = null
+                        _discoveryStatus.value = "蓝牙连接中断，请重新识别对方后重试"
+                    }
+                    if (requests.cancel(address) != null) {
                         RequestNotifier.cancel(appContext, address)
                         publishIncoming()
                     }
@@ -135,7 +171,7 @@ class BleExchangeController(
 
     // ------------------------------------------------------------------ 启停
 
-    /** 主页是否停在蓝牙页。停在这一页时才广播 + 扫描，并列出附近的人。 */
+    /** 是否处于前台识别／交换页面；主页和附近娃娃均广播并扫描。 */
     fun setPageActive(value: Boolean) {
         if (value == pageActive) return
         pageActive = value
@@ -191,6 +227,56 @@ class BleExchangeController(
         _running.value = manager.isAdvertising || manager.isScanning
     }
 
+    /** NFC only identifies the peer. The reader initiates BLE; the display side accepts only that peer briefly. */
+    fun discover(peer: Identity, initiate: Boolean, source: String = "NFC") {
+        if (peer.id == identityProvider()?.id) { _discoveryStatus.value = "这是自己的卡片"; return }
+        if (discoveryPeer == peer.id && SystemClock.elapsedRealtime() < discoveryUntil) return
+        discoveryAutoAccept = source == "NFC" && !initiate
+        if (initiate) lastDiscovery = peer to source
+        discoveryPeer = peer.id
+        discoveryInitiator = initiate
+        discoveryUntil = SystemClock.elapsedRealtime() + 30_000L
+        _discoveryStatus.value = when {
+            !BlePermissions.granted(appContext) -> "已发现对方，请授权蓝牙后重新碰一碰"
+            !isBluetoothOn() -> "已发现对方，请开启蓝牙后重新碰一碰"
+            else -> "已通过 $source 识别对方，正在连接蓝牙…"
+        }
+        refresh()
+        tryDiscovery()
+        val deadline = discoveryUntil
+        mainHandler.postDelayed({
+            if (discoveryPeer != null && discoveryUntil == deadline) {
+                discoveryPeer = null
+                _discoveryStatus.value = "未能完成交换，请保持双方应用在前台并重新碰一碰"
+            }
+        }, 30_000L)
+    }
+
+    fun retryDiscovery() {
+        if (list.snapshot().any { it.state == PeerState.Exchanging || it.state == PeerState.Waiting }) return
+        val (peer, source) = lastDiscovery ?: run {
+            _discoveryStatus.value = "请重新碰一碰，或让对方重新扫描二维码"
+            return
+        }
+        discoveryPeer = null
+        discover(peer, true, source)
+    }
+
+    fun discoveryFailed(message: String) { _discoveryStatus.value = message }
+
+    private fun tryDiscovery() {
+        val id = discoveryPeer ?: return
+        if (!discoveryInitiator || SystemClock.elapsedRealtime() >= discoveryUntil) return
+        val peer = list.snapshot().firstOrNull { it.identityKey == identityKey(id) } ?: return
+        if (!list.beginExchange(peer.address)) return
+        discoveryInitiator = false
+        _discoveryStatus.value = "正在通过蓝牙交换完整卡片…"
+        publish()
+        // Connection/consent/transfer has its own deadline in the BLE manager.
+        discoveryUntil = SystemClock.elapsedRealtime() + 180_000L
+        manager.requestExchange(peer.address, expectedId = id)
+    }
+
     // ------------------------------------------------------------------ 我去申请别人
 
     /** 用户在列表里点选了某个人：向他申请交换，等他同意。 */
@@ -202,11 +288,11 @@ class BleExchangeController(
 
     // ------------------------------------------------------------------ 别人来申请我
 
-    /** 蓝牙线程调用：按防骚扰规则决定是提示用户还是直接拒绝。 */
+    /** Main-thread request processing keeps prompt/disconnect ordering consistent. */
     private fun submitIncoming(request: IncomingRequest): RequestReply =
         when (val result = requests.submit(request)) {
             Submission.Prompt -> {
-                mainHandler.post { onRequestAdded(request) }
+                onRequestAdded(request)
                 RequestReply.Prompt
             }
             is Submission.Decline -> {
@@ -226,13 +312,17 @@ class BleExchangeController(
         mainHandler.postDelayed(::expireOverdue, requests.expireAfterMillis + 500)
     }
 
-    /** 用户（或通知按钮）对一条申请做出决定。同意时才把对方记入集邮册。 */
+    /** 用户（或通知按钮）对申请做决定；完整卡片还要等待传输确认后才入册。 */
     fun respond(key: String, accept: Boolean) {
         val request = requests.decide(key, accept, SystemClock.elapsedRealtime()) ?: return
         RequestNotifier.cancel(appContext, key)
         val peer = if (request.simulated) request.peer else manager.decideRequest(key, accept)
         if (accept) {
-            if (peer != null) handlePeer(peer, "我同意了对方的申请") else log("对方已经离开，没能完成交换")
+            if (peer != null) handlePeer(peer, "我同意了对方的申请") else {
+                receivingCards.add(key)
+                _discoveryStatus.value = "正在交换完整卡片…"
+                log("已同意，等待完整卡片传输完成")
+            }
         } else {
             log("已拒绝 ${request.peer.displayName} 的申请")
         }

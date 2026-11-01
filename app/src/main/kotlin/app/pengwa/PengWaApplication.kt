@@ -53,7 +53,7 @@ class PengWaApplication : Application() {
     }
 
     /**
-     * 蓝牙交换总控：停在附近娃娃时广播并扫描；设置里打开"后台蓝牙广播"后，由前台服务在后台只广播、等别人来申请。
+     * 蓝牙交换总控：停在主页或附近娃娃时广播并扫描；设置里打开"后台蓝牙广播"后，由前台服务在后台只广播、等别人来申请。
      * 被申请的一方同意后才会交换。
      */
     val bleExchange: BleExchangeController by lazy {
@@ -68,9 +68,9 @@ class PengWaApplication : Application() {
         super.onCreate()
         // 进程被系统杀掉后重新启动时，恢复用户开启的常驻通知
         PengWaNotification.refresh(this)
-        // 模式切到蓝牙页才启动蓝牙，离开就停
+        // 主页与附近娃娃启用前台蓝牙；离开前台交换会话就停
         mainScope.launch {
-            exchangeMode.mode.collect { bleExchange.setPageActive(it == ExchangeMode.Bluetooth) }
+            exchangeMode.mode.collect { bleExchange.setPageActive(it == ExchangeMode.Bluetooth || it == ExchangeMode.NfcDisplay || it == ExchangeMode.NfcRead) }
         }
     }
 }

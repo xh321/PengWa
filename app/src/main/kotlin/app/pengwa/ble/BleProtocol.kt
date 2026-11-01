@@ -34,6 +34,8 @@ object BleProtocol {
     /** 带稳定身份摘要的预览；保留旧预览特征供旧版客户端读取。 */
     val PEER_PREVIEW_CHAR_UUID: UUID = UUID.fromString("21e42f2e-31a7-4ea4-a8bb-6e0306d532fa")
 
+    val CARD_CHAR_UUID: UUID = UUID.fromString("98af05e8-12f7-4d33-8850-69ddac40c2b2")
+
     const val VERSION: Byte = 1
     private const val ID_SIZE = 16
     private const val HEADER_SIZE = 1 + ID_SIZE

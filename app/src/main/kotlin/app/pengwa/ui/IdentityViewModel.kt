@@ -18,6 +18,24 @@ class IdentityViewModel(application: Application) : AndroidViewModel(application
     var identity: Identity? by mutableStateOf(repository.load())
         private set
 
+    var draft: Identity? by mutableStateOf(null)
+        private set
+
+    fun beginEdit() { draft = identity }
+    fun updateDraft(value: Identity) { draft = value }
+    fun saveDraft(): String? {
+        val value = draft ?: return "卡片尚未准备好"
+        validateDisplayName(value.displayName)?.let { return "显示名为空、过长或包含不可显示字符（最多 32 字节）" }
+        val normalized = value.copy(displayName = normalizeDisplayName(value.displayName))
+        app.pengwa.identity.CardCodec.validate(normalized.card)?.let { return it }
+        return runCatching {
+            repository.saveCard(normalized)
+            identity = repository.load()
+            PengWaNotification.refresh(getApplication())
+            null
+        }.getOrElse { it.message ?: "保存失败，请重试" }
+    }
+
     /** 保存显示名；通过校验返回 null，否则返回错误原因且不保存。存的是规范化后的名字。 */
     fun saveDisplayName(raw: String): NameError? {
         validateDisplayName(raw)?.let { return it }
