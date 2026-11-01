@@ -116,7 +116,7 @@ UTF-8 非法、名字不是规范形式、名字未通过校验。
 实现：`nfc/ApduProtocol.kt`（协议，纯 Kotlin）、`nfc/PengWaHostApduService.kt`（被碰一方）、
 `nfc/NfcTagExchanger.kt`（碰别人一方）。测试：`ApduProtocolTest`，其中有把两端直接对接的整次碰触测试。
 
-- **AID**：`F050454E475741`（`F0` 私有应用前缀 + "PENGWA" 的 ASCII），category `other`。
+- **AID**：`F050454E475741`（`F0` 私有应用前缀 + "PENGWA" 的 ASCII），category `payment`（获得默认钱包资格，仍只处理碰娃私有协议）。
 - **一次碰触、一次往返完成双向交换**：
 
 | 步骤 | 发起方 → 被碰方（命令） | 被碰方 → 发起方（响应） |
@@ -135,11 +135,14 @@ UTF-8 非法、名字不是规范形式、名字未通过校验。
 - **角色分工**：默认“出示”；双方打开 碰一碰 / 扫码页后，一方选择“读取”，另一方保持“出示”。两台都选同一种角色不会交换。
 - **读取**：`enableReaderMode` 使用 `FLAG_READER_NFC_A | FLAG_READER_SKIP_NDEF_CHECK`，
   通过 `IsoDep` 直接 SELECT 私有 AID，不先探测标准 NDEF 标签。Reader Mode 会关闭本机卡模拟。
-- **出示**：只设置本 App 的前台首选 HCE 服务，检查 `setPreferredService` 的返回值。
-  Android 15 / API 35 及以上额外使用 `setDiscoveryTechnology(FLAG_READER_DISABLE, FLAG_LISTEN_KEEP)`，停止主动轮询，保留监听。
-  较旧系统继续使用默认轮询配置，因此仍可能受厂商钱包行为影响。
-- **生命周期**：切换角色先释放旧角色；离开 碰一碰 / 扫码页或 `onPause` 时关闭 Reader Mode、撤销首选服务、恢复 discovery 配置。
-  Reader Mode 和 discovery 覆盖不会在同一台手机上同时启用。
+- **钱包兼容提示**：所有品牌在本应用尚非默认钱包时，NFC 出示页均提供“设为默认钱包”入口。Android 15+ 使用 `RoleManager.createRequestRoleIntent(ROLE_WALLET)` 请求本应用的钱包角色，旧系统使用指定本服务的 `CardEmulation.ACTION_CHANGE_DEFAULT`。
+  系统请求返回和页面恢复前台时都重新查询实际默认状态：成为默认钱包后隐藏提示，取消则继续显示，切回其他钱包再返回时重现。
+  系统确认入口不可用时回退到 `Settings.ACTION_NFC_PAYMENT_SETTINGS`、NFC 设置、默认应用设置和系统设置，全部失败则给出手动搜索提示。
+  钱包是否为本应用不影响出示会话启动；部分机型使用其他第三方钱包为默认时也能正常前台 HCE。
+  切换可能影响原钱包的银行卡、交通卡和门禁卡，使用原钱包前需手动切回；切换经系统界面确认，应用不自动恢复原钱包，也不请求系统设置写入权限。
+- **出示**：调用 `setPreferredService` 并检查返回值；移除需要特殊权限且未解决本次问题的 discovery 覆盖调用。
+  私有 AID 归 payment，使本应用可被用户选为默认钱包；仍只处理碰碰娃私有协议，不注册银行卡 AID。
+- **生命周期**：切换角色先释放旧配置；离开出示页、进入系统设置或 `onPause` 时关闭 Reader Mode／撤销前台首选服务，返回后恢复页面对应会话。
 - 双方需解锁并保持 App 前台；`requireDeviceUnlock=false` 只是服务声明，不表示本 App 会在后台开放名片。
 
 ## NFC 标签模拟（标准 AID，让对方系统直接拉起 App）
@@ -164,7 +167,7 @@ UTF-8 非法、名字不是规范形式、名字未通过校验。
 - **只在 碰一碰 / 扫码页的出示角色响应**：其他角色下 SELECT 标准 AID 返回 `6A82`，读卡方看到的就是
   "这不是一张 NDEF 标签"。滑走、退到后台、进程被杀都会关闭。
 - **AID 争用**：标准 AID 不是我们独占的，系统自带服务也可能登记它。“出示”角色通过
-  `CardEmulation.setPreferredService` 声明首选，离开自动撤销。前台优先权不能保证压制所有厂商的钱包弹窗。
+  `CardEmulation.setPreferredService` 声明首选，离开自动撤销。私有 AID 归 payment 类别、NDEF AID 归 other 类别；出示不强制要求持有默认钱包，厂商路由行为需按机型验证。
   `PengWaNfc` 日志记录角色、首选服务结果、SELECT 类型与结果、交换阶段，不输出名片内容。排障时可用
   `adb logcat -s PengWaNfc`，对照 `adb shell dumpsys nfc`；若仍触发钱包，可直接使用本页二维码交换。
   Debug / Nightly 版也可先在主页复现，再连点 NFC 状态图标 5 次进入隐藏的实验室，点“复制 NFC 日志”。

@@ -43,14 +43,16 @@ internal fun PreviewSurface(content: @Composable () -> Unit) {
     }
 }
 
-internal data class NfcPreviewState(val name: String, val role: ExchangeMode, val state: NfcState)
+internal data class NfcPreviewState(val name: String, val role: ExchangeMode, val state: NfcState, val defaultWallet: Boolean = false)
 
 internal class NfcPreviewProvider : PreviewParameterProvider<NfcPreviewState> {
     override val values = sequenceOf(
-        NfcPreviewState("出示", ExchangeMode.NfcDisplay, NfcState.Ready),
+        NfcPreviewState("出示 · 钱包提示", ExchangeMode.NfcDisplay, NfcState.Ready),
+        NfcPreviewState("出示 · 已是默认钱包", ExchangeMode.NfcDisplay, NfcState.Ready, defaultWallet = true),
         NfcPreviewState("读取", ExchangeMode.NfcRead, NfcState.Ready),
         NfcPreviewState("NFC 未开启", ExchangeMode.NfcDisplay, NfcState.Disabled),
         NfcPreviewState("不支持 NFC", ExchangeMode.NfcRead, NfcState.Unsupported),
+        NfcPreviewState("不支持出示", ExchangeMode.NfcDisplay, NfcState.DisplayUnsupported),
     )
 
     override fun getDisplayName(index: Int): String = values.elementAt(index).name
@@ -65,6 +67,7 @@ internal fun FaceToFacePagePreview(@PreviewParameter(NfcPreviewProvider::class) 
             identity = Identity(UUID(0L, 1L), "小棉花"),
             role = role,
             nfcState = sample.state,
+            defaultWallet = sample.defaultWallet,
             onRoleChange = { role = it },
             onScan = {},
             onOpenNfcSettings = {},

@@ -2,6 +2,7 @@ package app.pengwa.ui
 
 import android.content.Context
 import android.nfc.NfcAdapter
+import android.content.pm.PackageManager
 import android.os.SystemClock
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.unit.dp
@@ -24,20 +25,32 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import app.pengwa.R
 import app.pengwa.BuildConfig
+import app.pengwa.exchange.ExchangeMode
 
-internal enum class NfcState { Unsupported, Disabled, Ready }
+internal enum class NfcState { Unsupported, Disabled, DisplayUnsupported, Ready }
 
-private fun nfcState(context: Context): NfcState {
+/** 钱包选择是兼容性建议，不是进入 NFC 会话的前置条件。 */
+internal fun nfcStateFor(
+    role: ExchangeMode, available: Boolean, enabled: Boolean, hce: Boolean,
+): NfcState = when {
+    !available -> NfcState.Unsupported
+    !enabled -> NfcState.Disabled
+    role == ExchangeMode.NfcDisplay && !hce -> NfcState.DisplayUnsupported
+    else -> NfcState.Ready
+}
+
+internal fun nfcState(context: Context, role: ExchangeMode): NfcState {
     val adapter = NfcAdapter.getDefaultAdapter(context) ?: return NfcState.Unsupported
-    return if (adapter.isEnabled) NfcState.Ready else NfcState.Disabled
+    val hce = context.packageManager.hasSystemFeature(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION)
+    return nfcStateFor(role, available = true, enabled = adapter.isEnabled, hce = hce)
 }
 
 @Composable
-internal fun rememberNfcState(): NfcState {
+internal fun rememberNfcState(role: ExchangeMode): NfcState {
     val context = LocalContext.current
-    var state by remember { mutableStateOf(nfcState(context)) }
-    LifecycleResumeEffect(Unit) {
-        state = nfcState(context)
+    var state by remember(role) { mutableStateOf(nfcState(context, role)) }
+    LifecycleResumeEffect(role) {
+        state = nfcState(context, role)
         onPauseOrDispose { }
     }
 
@@ -56,7 +69,7 @@ internal fun NfcStatus(
     val color = when (state) {
         NfcState.Ready -> statusColors.success
         NfcState.Disabled -> statusColors.warning
-        NfcState.Unsupported -> MaterialTheme.colorScheme.onSurfaceVariant
+        NfcState.Unsupported, NfcState.DisplayUnsupported -> MaterialTheme.colorScheme.onSurfaceVariant
     }
     Row(
         modifier = modifier.widthIn(max = 340.dp).fillMaxWidth(),
@@ -75,6 +88,7 @@ internal fun NfcStatus(
                 NfcState.Ready -> R.string.nfc_ready
                 NfcState.Disabled -> R.string.nfc_disabled
                 NfcState.Unsupported -> R.string.nfc_unsupported
+                NfcState.DisplayUnsupported -> R.string.nfc_display_unsupported
             }),
             modifier = Modifier.padding(start = 8.dp).weight(1f, fill = false),
             style = MaterialTheme.typography.bodyMedium, color = color,

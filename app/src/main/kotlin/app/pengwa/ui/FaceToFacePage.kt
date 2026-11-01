@@ -3,6 +3,8 @@ package app.pengwa.ui
 import android.content.Intent
 import android.provider.Settings
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
@@ -51,10 +53,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import app.pengwa.R
 import app.pengwa.exchange.ExchangeMode
 import app.pengwa.identity.Identity
 import app.pengwa.pengWa
+import app.pengwa.nfc.NfcWallet
 import app.pengwa.qr.QrEncoder
 import app.pengwa.qr.QrPayload
 import app.pengwa.ui.components.PengWaIcon
@@ -81,6 +85,18 @@ fun FaceToFacePage(
     BackHandler(enabled = scanning) { scanning = false }
 
     val mode by context.pengWa.exchangeMode.mode.collectAsStateWithLifecycle()
+    val nfcState = rememberNfcState(role)
+    val wallet = remember(context) { NfcWallet(context) }
+    var defaultWallet by remember(wallet) { mutableStateOf(wallet.isDefault()) }
+    LifecycleResumeEffect(wallet) {
+        defaultWallet = wallet.isDefault()
+        onPauseOrDispose { }
+    }
+    val walletLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        defaultWallet = wallet.isDefault()
+    }
+    ExchangeSession(if (!scanning && nfcState == NfcState.Ready) role else ExchangeMode.None)
+
     BrightnessLock(enabled = (mode == ExchangeMode.NfcDisplay || mode == ExchangeMode.NfcRead) && !scanning)
 
     if (scanning) {
@@ -103,9 +119,16 @@ fun FaceToFacePage(
     FaceToFacePageContent(
         identity = identity,
         role = role,
-        nfcState = rememberNfcState(),
+        nfcState = nfcState,
         onRoleChange = onRoleChange,
         onOpenNfcSettings = { context.startActivity(Intent(Settings.ACTION_NFC_SETTINGS)) },
+        defaultWallet = defaultWallet,
+        onRequestWallet = {
+            runCatching { walletLauncher.launch(wallet.requestIntent()) }
+                .onFailure {
+                    if (!wallet.openSettings()) onMessage(resources.getString(R.string.nfc_wallet_open_failed))
+                }
+        },
         onScan = { scanning = true },
         onOpenLab = onOpenLab,
         modifier = modifier,
@@ -122,6 +145,8 @@ internal fun FaceToFacePageContent(
     onScan: () -> Unit,
     modifier: Modifier = Modifier,
     onOpenLab: (() -> Unit)? = null,
+    defaultWallet: Boolean = false,
+    onRequestWallet: () -> Unit = {},
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     BoxWithConstraints(modifier.fillMaxSize()) {
@@ -130,7 +155,7 @@ internal fun FaceToFacePageContent(
             Row(Modifier.fillMaxSize().padding(horizontal = PageGutter, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                     Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        NfcInstructions(role, nfcState, onRoleChange)
+                        NfcInstructions(role, nfcState, onRoleChange, defaultWallet, onRequestWallet)
                     }
                     ScanButton(onScan, Modifier.fillMaxWidth().padding(top = 8.dp))
                 }
@@ -147,7 +172,7 @@ internal fun FaceToFacePageContent(
             Column(Modifier.fillMaxSize().padding(horizontal = PageGutter, vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    NfcInstructions(role, nfcState, onRoleChange)
+                    NfcInstructions(role, nfcState, onRoleChange, defaultWallet, onRequestWallet)
                     ExchangeQrCard(identity, onExpand = { expanded = true })
                     NfcStatus(nfcState, onOpenNfcSettings, onOpenLab = onOpenLab)
                 }
@@ -159,7 +184,7 @@ internal fun FaceToFacePageContent(
 }
 
 @Composable
-private fun NfcInstructions(role: ExchangeMode, nfcState: NfcState, onRoleChange: (ExchangeMode) -> Unit) {
+private fun NfcInstructions(role: ExchangeMode, nfcState: NfcState, onRoleChange: (ExchangeMode) -> Unit, defaultWallet: Boolean, onRequestWallet: () -> Unit) {
     if (nfcState != NfcState.Unsupported) {
         Row(
             modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer, MaterialTheme.shapes.medium)
@@ -191,11 +216,33 @@ private fun NfcInstructions(role: ExchangeMode, nfcState: NfcState, onRoleChange
             }
         }
         Text(
-            text = stringResource(if (role == ExchangeMode.NfcDisplay) R.string.nfc_display_hint else R.string.nfc_read_hint),
+            text = stringResource(when {
+                nfcState == NfcState.DisplayUnsupported -> R.string.nfc_display_unsupported
+                role == ExchangeMode.NfcDisplay -> R.string.nfc_display_hint
+                else -> R.string.nfc_read_hint
+            }),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
+        if (role == ExchangeMode.NfcDisplay && nfcState == NfcState.Ready && !defaultWallet) {
+            WalletHelp(onRequestWallet)
+        }
+    }
+}
+
+/** 所有品牌均可使用；提示兼容问题，不依据品牌或默认钱包状态阻止出示。 */
+@Composable
+private fun WalletHelp(onRequestWallet: () -> Unit) {
+    Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.nfc_wallet_help_title), style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.nfc_wallet_help), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            TextButton(onClick = onRequestWallet, modifier = Modifier.align(Alignment.End)) {
+                Text(stringResource(R.string.nfc_wallet_set_default))
+            }
+        }
     }
 }
 
