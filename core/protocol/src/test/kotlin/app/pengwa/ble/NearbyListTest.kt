@@ -191,6 +191,120 @@ class NearbyListTest {
     private val user = UUID.fromString("00000000-0000-0000-0000-000000000001")
 
     @Test
+    fun `新地址身份未读完不显示副本 读完后合并原行`() {
+        val list = NearbyList()
+        list.onSeen("A", -50, 0)
+        assertTrue(list.snapshotForDisplay().isEmpty())
+        assertEquals(listOf("A"), list.takePreviewCandidates())
+        list.onPreview("A", "小熊", user)
+        assertEquals(1, list.snapshotForDisplay().size)
+        list.onSeen("B", -60, 1000)
+        list.onSeen("C", -65, 1000)
+        assertEquals(listOf("B", "C"), list.takePreviewCandidates())
+        assertEquals(1, list.snapshotForDisplay().size)
+        list.onPreview("B", null)
+        assertEquals(1, list.snapshotForDisplay().size)
+        list.onPreview("C", "小熊", user)
+        assertEquals(1, list.snapshotForDisplay().size)
+        assertEquals("C", list.snapshotForDisplay().single().address)
+    }
+
+    @Test
+    fun `可见列表信号变化和地址轮换不重新排序 新人追加到末尾`() {
+        val list = NearbyList()
+        list.onSeen("A", -50, 0)
+        list.onPreview("A", "小熊", user)
+        list.onSeen("B", -70, 0)
+        list.onPreview("B", "小兔", UUID(0, 2))
+        assertEquals(listOf("小熊", "小兔"), list.snapshotForDisplay().map { it.name })
+        list.onSeen("A", -90, 1000)
+        list.onSeen("B", -40, 1000)
+        assertEquals(listOf("小熊", "小兔"), list.snapshotForDisplay().map { it.name })
+        list.onSeen("C", -85, 2000)
+        list.onPreview("C", "小熊", user)
+        assertEquals(listOf("C", "B"), list.snapshotForDisplay().map { it.address })
+        assertEquals(-85, list.snapshotForDisplay().first().rssi)
+        list.onSeen("D", -30, 2000)
+        list.onPreview("D", "小鹿", UUID(0, 3))
+        assertEquals(listOf("小熊", "小兔", "小鹿"), list.snapshotForDisplay().map { it.name })
+    }
+
+    @Test
+    fun `预览排队期间不因过期删除 串行读取完成后可正常清理`() {
+        val list = NearbyList(ttlMillis = 100)
+        list.onSeen("A", -50, 0)
+        list.onSeen("B", -60, 0)
+        list.takePreviewCandidates()
+        assertFalse(list.prune(200))
+        list.onPreview("A", "小熊", user)
+        list.onPreview("B", null)
+        assertEquals(1, list.snapshotForDisplay().size)
+        assertTrue(list.prune(201))
+        assertTrue(list.snapshot().isEmpty())
+        assertTrue(list.snapshotForDisplay().isEmpty())
+    }
+
+    @Test
+    fun `容量满时不淘汰等待和预览中的设备`() {
+        val list = NearbyList(capacity = 2)
+        list.onSeen("A", -50, 0)
+        list.beginExchange("A")
+        list.onWaiting("A")
+        list.onSeen("B", -60, 0)
+        list.takePreviewCandidates()
+        list.onSeen("C", -40, 1000)
+        assertEquals(setOf("A", "B"), list.snapshot().map { it.address }.toSet())
+        list.onPreview("B", null)
+        list.onSeen("C", -40, 2000)
+        assertEquals(setOf("A", "C"), list.snapshot().map { it.address }.toSet())
+    }
+
+    @Test
+    fun `展示合并不丢失等待状态 同名旧设备不误合并`() {
+        val list = NearbyList()
+        list.onSeen("A", -50, 0)
+        list.onPreview("A", "小熊", user)
+        list.beginExchange("A")
+        list.onWaiting("A")
+        list.snapshotForDisplay()
+        list.onSeen("B", -40, 1000)
+        list.onPreview("B", "小熊", user)
+        list.onSeen("C", -30, 1000)
+        list.onPreview("C", "小熊", UUID(0, 2))
+        list.onSeen("D", -20, 1000)
+        list.onPreview("D", "小熊")
+        val visible = list.snapshotForDisplay()
+        assertEquals(3, visible.size)
+        assertEquals("A", visible.first().address)
+        assertEquals(PeerState.Waiting, visible.first().state)
+        assertFalse(list.beginExchange("B"))
+    }
+
+    @Test
+    fun `旧设备交换得到身份后保留位置 清空和过期后重新建立顺序`() {
+        val list = NearbyList(ttlMillis = 100)
+        list.onSeen("A", -50, 0)
+        list.onPreview("A", "小熊")
+        list.onSeen("B", -70, 0)
+        list.onPreview("B", "小兔", UUID(0, 2))
+        list.snapshotForDisplay()
+        list.onSeen("B", -30, 50)
+        list.onExchanged("A", "小熊", null, user)
+        assertEquals(listOf("A", "B"), list.snapshotForDisplay().map { it.address })
+        list.prune(101)
+        assertEquals(listOf("B"), list.snapshotForDisplay().map { it.address })
+        list.onSeen("A", -20, 102)
+        list.onPreview("A", "小熊", user)
+        assertEquals(listOf("B", "A"), list.snapshotForDisplay().map { it.address })
+        list.clear()
+        list.onSeen("A", -20, 200)
+        list.onPreview("A", "小熊", user)
+        list.onSeen("B", -30, 200)
+        list.onPreview("B", "小兔", UUID(0, 2))
+        assertEquals(listOf("A", "B"), list.snapshotForDisplay().map { it.address })
+    }
+
+    @Test
     fun `同一身份不同地址只显示一行 使用最近发现的地址`() {
         val list = NearbyList()
         list.onSeen("A", -50, 0)

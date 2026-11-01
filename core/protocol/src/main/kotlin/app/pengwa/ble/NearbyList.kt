@@ -26,7 +26,8 @@ data class NearbyPeer(
  * 蓝牙页"附近的人"列表的数据模型。纯 Kotlin，时间由调用方传入，线程安全（蓝牙回调来自多个线程）。
  *  - 每次扫描到广播就更新信号和最后看到的时间；
  *  - 新设备需要读一次预览拿到名字，最多尝试 [maxPreviewAttempts] 次，避免对读不出来的设备反复连接；
- *  - 超过 [ttlMillis] 没再看到就移出列表；列表满了就淘汰最久没看到的。
+ *  - 超过 [ttlMillis] 没再看到就移出列表；列表满了就淘汰最久没看到的空闲设备；
+ *  - 预览排队、连接及等待中的设备保留到操作结束，防止回调丢失和反复排队。
  */
 class NearbyList(
     private val ttlMillis: Long = 15_000L,
@@ -34,6 +35,8 @@ class NearbyList(
     private val maxPreviewAttempts: Int = 2,
 ) {
     private val peers = LinkedHashMap<String, NearbyPeer>()
+    private val displayOrder = mutableMapOf<String, Long>()
+    private var nextDisplayOrder = 0L
 
     @Synchronized
     fun onSeen(address: String, rssi: Int, now: Long, locator: Long? = null) {
@@ -43,7 +46,10 @@ class NearbyList(
             return
         }
         if (peers.size >= capacity) {
-            peers.values.minByOrNull { it.lastSeenMillis }?.let { peers.remove(it.address) }
+            val oldest = peers.values.filterNot { it.isBusy() || it.previewPending }
+                .minByOrNull { it.lastSeenMillis } ?: return
+            peers.remove(oldest.address)
+            displayOrder.remove(oldest.address)
         }
         peers[address] = NearbyPeer(address, name = null, rssi = rssi, lastSeenMillis = now, state = PeerState.Discovered, locator = locator)
     }
@@ -106,19 +112,24 @@ class NearbyList(
         }
     }
 
-    /** 移除太久没看到的设备（正在申请或等待的除外）。返回是否有变化。 */
+    /** 移除太久没看到的设备（预览排队、正在申请或等待的除外）。返回是否有变化。 */
     @Synchronized
     fun prune(now: Long): Boolean {
         val expired = peers.values.filter {
-            it.state != PeerState.Exchanging && it.state != PeerState.Waiting && now - it.lastSeenMillis > ttlMillis
+            !it.isBusy() && !it.previewPending && now - it.lastSeenMillis > ttlMillis
         }
-        expired.forEach { peers.remove(it.address) }
+        expired.forEach {
+            peers.remove(it.address)
+            displayOrder.remove(it.address)
+        }
         return expired.isNotEmpty()
     }
 
     @Synchronized
     fun clear() {
         peers.clear()
+        displayOrder.clear()
+        nextDisplayOrder = 0L
     }
 
     private fun NearbyPeer.isBusy() = state == PeerState.Exchanging || state == PeerState.Waiting
@@ -143,4 +154,19 @@ class NearbyList(
                 rssi = latest.rssi,
             )
         }.sortedWith(compareByDescending<NearbyPeer> { it.rssi }.thenBy { it.address })
+
+    /**
+     * 新地址读完预览才显示，避免身份尚未确认的临时行与同一个人的旧行同时出现。
+     * 首次展示按信号排序，此后保持位置；地址轮换和信号波动只更新原行。
+     * 原始 [snapshot] 仍供发现流程使用，不改变扫描、预览排队和身份匹配。
+     */
+    @Synchronized
+    fun snapshotForDisplay(): List<NearbyPeer> = snapshot()
+        .filter { it.name != null }
+        .onEach { peer ->
+            val addresses = peers.values.filter { sameIdentity(it, peer) }.map { it.address }
+            val order = addresses.mapNotNull { displayOrder[it] }.minOrNull() ?: nextDisplayOrder++
+            addresses.forEach { displayOrder[it] = order }
+        }
+        .sortedBy { displayOrder.getValue(it.address) }
 }

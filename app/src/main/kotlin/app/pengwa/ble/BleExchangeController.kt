@@ -406,7 +406,7 @@ class BleExchangeController(
     }
 
     private fun publish() {
-        _nearby.value = list.snapshot()
+        _nearby.value = list.snapshotForDisplay()
     }
 
     private fun publishIncoming() {
