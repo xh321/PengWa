@@ -31,6 +31,11 @@
 
     <!-- 实验室（仅调试版） -->
     <string name="lab_title">实验室（仅调试版）</string>
+    <string name="lab_back">返回碰一碰</string>
+    <string name="lab_nfc">NFC 诊断</string>
+    <string name="lab_nfc_help">先返回主页复现问题，再连点碰一碰图标 5 次进入这里复制日志。显示最近 60 条，复制最近 400 条和设备信息；退出进程后清空。日志不包含姓名、ID 或名片原文。</string>
+    <string name="lab_nfc_copy">复制 NFC 日志</string>
+    <string name="lab_nfc_clear">清空日志</string>
     <string name="lab_ble">蓝牙交换</string>
     <string name="lab_ble_status">状态：%1$s · 系统蓝牙%2$s</string>
     <string name="lab_running">运行中</string>
@@ -53,6 +58,7 @@
 
     <!-- NFC 与相遇 -->
     <string name="nfc_ready">碰一碰可用</string>
+    <string name="nfc_status_icon">碰一碰状态</string>
     <string name="nfc_role_display">出示我的名片</string>
     <string name="nfc_role_read">读取对方名片</string>
     <string name="nfc_display_hint">对方选择“读取”，手机背面靠近即可。</string>

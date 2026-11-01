@@ -72,6 +72,7 @@ fun FaceToFacePage(
     onRoleChange: (ExchangeMode) -> Unit,
     onMessage: (String) -> Unit,
     modifier: Modifier = Modifier,
+    onOpenLab: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val resources = LocalResources.current
@@ -106,6 +107,7 @@ fun FaceToFacePage(
         onRoleChange = onRoleChange,
         onOpenNfcSettings = { context.startActivity(Intent(Settings.ACTION_NFC_SETTINGS)) },
         onScan = { scanning = true },
+        onOpenLab = onOpenLab,
         modifier = modifier,
     )
 }
@@ -119,6 +121,7 @@ internal fun FaceToFacePageContent(
     onOpenNfcSettings: () -> Unit,
     onScan: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenLab: (() -> Unit)? = null,
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     BoxWithConstraints(modifier.fillMaxSize()) {
@@ -137,7 +140,7 @@ internal fun FaceToFacePageContent(
                         val edge = minOf(200.dp, maxWidth - 16.dp, maxHeight - 16.dp).coerceAtLeast(48.dp)
                         ExchangeQrCard(identity, onExpand = { expanded = true }, showHint = false, codeSize = edge)
                     }
-                    NfcStatus(nfcState, onOpenNfcSettings)
+                    NfcStatus(nfcState, onOpenNfcSettings, onOpenLab = onOpenLab)
                 }
             }
         } else {
@@ -146,7 +149,7 @@ internal fun FaceToFacePageContent(
                     verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     NfcInstructions(role, nfcState, onRoleChange)
                     ExchangeQrCard(identity, onExpand = { expanded = true })
-                    NfcStatus(nfcState, onOpenNfcSettings)
+                    NfcStatus(nfcState, onOpenNfcSettings, onOpenLab = onOpenLab)
                 }
                 ScanButton(onScan, Modifier.padding(top = 12.dp).fillMaxWidth())
             }

@@ -2,12 +2,14 @@ package app.pengwa.ui
 
 import android.content.Context
 import android.nfc.NfcAdapter
+import android.os.SystemClock
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.unit.dp
 import app.pengwa.ui.components.PengWaIcon
 import app.pengwa.ui.components.PengWaIcons
 import app.pengwa.ui.theme.LocalStatusColors
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -21,6 +23,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import app.pengwa.R
+import app.pengwa.BuildConfig
 
 internal enum class NfcState { Unsupported, Disabled, Ready }
 
@@ -46,7 +49,9 @@ internal fun NfcStatus(
     state: NfcState,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenLab: (() -> Unit)? = null,
 ) {
+    val taps = remember { DebugTapCounter() }
     val statusColors = LocalStatusColors.current
     val color = when (state) {
         NfcState.Ready -> statusColors.success
@@ -58,7 +63,13 @@ internal fun NfcStatus(
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        PengWaIcon(PengWaIcons.Tap, tint = color)
+        if (BuildConfig.DEBUG && onOpenLab != null) {
+            IconButton(onClick = { if (taps.tap(SystemClock.elapsedRealtime())) onOpenLab() }) {
+                PengWaIcon(PengWaIcons.Tap, tint = color, contentDescription = stringResource(R.string.nfc_status_icon))
+            }
+        } else {
+            PengWaIcon(PengWaIcons.Tap, tint = color)
+        }
         Text(
             text = stringResource(when (state) {
                 NfcState.Ready -> R.string.nfc_ready

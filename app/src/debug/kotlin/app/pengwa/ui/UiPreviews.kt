@@ -159,7 +159,7 @@ private val previewContacts = List(20) { index ->
 @Composable
 internal fun PreviewDestination(tab: Int, content: @Composable () -> Unit) {
     PreviewSurface {
-        PengWaScaffold(tab, debuggable = true, onSelect = {}) { modifier ->
+        PengWaScaffold(tab, onSelect = {}) { modifier ->
             Box(modifier) { content() }
         }
     }

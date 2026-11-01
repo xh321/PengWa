@@ -1,6 +1,6 @@
 package app.pengwa.ui
 
-import android.content.pm.ApplicationInfo
+import androidx.activity.compose.BackHandler
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
@@ -19,6 +19,7 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.pengwa.MainActivity
+import app.pengwa.BuildConfig
 import app.pengwa.R
 import app.pengwa.exchange.ExchangeMode
 import app.pengwa.pengWa
@@ -26,7 +27,7 @@ import app.pengwa.ui.components.ExchangeRequestDialog
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
-/** 底部导航：我的名片、附近娃娃、集邮册；实验室仅调试版显示。 */
+/** 底部导航只保留三个目的地；实验室仅 Debug 版通过主页状态图标连点打开。 */
 @Composable
 fun PengWaRoot(
     requestedTab: Int?,
@@ -41,16 +42,17 @@ fun PengWaRoot(
     val showMessage: (String) -> Unit = { message ->
         scope.launch { snackbarHostState.showSnackbar(message) }
     }
-    val debuggable = remember {
-        context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
-    }
     var selectedTab by rememberSaveable { mutableIntStateOf(MainActivity.TAB_ME) }
     var nfcRole by rememberSaveable { mutableStateOf(ExchangeMode.NfcDisplay) }
 
     // 通知栏按钮要求切换到某一页
     LaunchedEffect(requestedTab) {
         if (requestedTab != null) {
-            selectedTab = requestedTab
+            selectedTab = when (requestedTab) {
+                MainActivity.TAB_ME, MainActivity.TAB_NEARBY, MainActivity.TAB_CONTACTS -> requestedTab
+                MainActivity.TAB_LAB -> if (BuildConfig.DEBUG) MainActivity.TAB_LAB else MainActivity.TAB_ME
+                else -> MainActivity.TAB_ME
+            }
             onTabRequestHandled()
         }
     }
@@ -76,10 +78,10 @@ fun PengWaRoot(
 
     // 还没设置显示名时，只显示首次设置页，不展示底部导航
     val hasIdentity = identityViewModel.identity != null
+    BackHandler(enabled = selectedTab == MainActivity.TAB_LAB) { selectedTab = MainActivity.TAB_ME }
 
     PengWaScaffold(
         selectedTab = selectedTab,
-        debuggable = debuggable,
         showNavigation = hasIdentity,
         onSelect = { selectedTab = it },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -90,6 +92,7 @@ fun PengWaRoot(
                 role = nfcRole,
                 onRoleChange = { nfcRole = it },
                 onMessage = showMessage,
+                onOpenLab = if (BuildConfig.DEBUG) ({ selectedTab = MainActivity.TAB_LAB }) else null,
                 modifier = contentModifier,
             )
             selectedTab == MainActivity.TAB_NEARBY -> NearbyScreen(modifier = contentModifier)
@@ -97,7 +100,10 @@ fun PengWaRoot(
                 onMessage = showMessage, modifier = contentModifier,
                 onExchange = { selectedTab = MainActivity.TAB_ME },
             )
-            else -> LabScreen(modifier = contentModifier)
+            selectedTab == MainActivity.TAB_LAB && BuildConfig.DEBUG -> LabScreen(
+                modifier = contentModifier,
+                onClose = { selectedTab = MainActivity.TAB_ME },
+            )
         }
     }
 }

@@ -34,15 +34,17 @@ class MainActivity : ComponentActivity() {
     private val nfcMode by lazy {
         NfcModeController(this) { tag ->
             runOnUiThread {
-                if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) &&
+                val accepted = lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) &&
                     pengWa.exchangeMode.isActive(ExchangeMode.NfcRead)
-                ) onTagDiscovered(tag)
+                pengWa.nfcDiagnostics.record("Reader callback accepted=$accepted lifecycle=${lifecycle.currentState} role=${pengWa.exchangeMode.current} tech=${tag.techList.joinToString()}")
+                if (accepted) onTagDiscovered(tag)
             }
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        pengWa.nfcDiagnostics.record("Activity created restored=${savedInstanceState != null}")
         enableEdgeToEdge()
         if (savedInstanceState == null) {
             requestedTab = tabFrom(intent)
@@ -71,12 +73,18 @@ class MainActivity : ComponentActivity() {
         BleBroadcastService.ensureRunning(this)
     }
 
+    override fun onResume() {
+        super.onResume()
+        pengWa.nfcDiagnostics.record("Activity resumed NFC=${nfcAdapter?.isEnabled} role=${pengWa.exchangeMode.current}")
+    }
+
     override fun onStop() {
         super.onStop()
         pengWa.bleExchange.setAppForeground(false)
     }
 
     override fun onPause() {
+        pengWa.nfcDiagnostics.record("Activity paused; releasing NFC role=${pengWa.exchangeMode.current}")
         nfcMode.apply(ExchangeMode.None)
         super.onPause()
     }
@@ -88,8 +96,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleNdefLaunch(intent: Intent) {
+        if (intent.action == NfcAdapter.ACTION_NDEF_DISCOVERED) {
+            pengWa.nfcDiagnostics.record("NDEF launch received")
+        }
         val peer = NdefLaunchParser.peerFrom(intent) ?: return
-        pengWa.meetings.record(peer, "NFC 标签（系统拉起）")
+        val recorded = pengWa.meetings.record(peer, "NFC 标签（系统拉起）")
+        pengWa.nfcDiagnostics.record("NDEF launch valid recorded=$recorded")
     }
 
     private fun onTagDiscovered(tag: Tag) {
@@ -97,6 +109,8 @@ class MainActivity : ComponentActivity() {
             nfcExchanger.exchange(tag)
             // 两部手机贴着不动时别反复触发，让系统在短时间内忽略这张"卡"
             runCatching { nfcAdapter?.ignore(tag, IGNORE_TAG_MILLIS, null, null) }
+                .onSuccess { pengWa.nfcDiagnostics.record("Ignore tag debounceMs=$IGNORE_TAG_MILLIS accepted=$it") }
+                .onFailure { pengWa.nfcDiagnostics.record("Ignore tag failed=${it.javaClass.simpleName}") }
         }
     }
 

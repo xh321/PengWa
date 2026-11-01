@@ -27,6 +27,9 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
+        val revision = providers.environmentVariable("GITHUB_SHA").orNull
+            ?.takeIf { it.matches(Regex("[0-9a-fA-F]{40,64}")) } ?: "local"
+        buildConfigField("String", "BUILD_REVISION", "\"$revision\"")
     }
 
     signingConfigs {
@@ -65,6 +68,7 @@ android {
     }
 
     buildFeatures {
+        buildConfig = true
         compose = true
     }
 

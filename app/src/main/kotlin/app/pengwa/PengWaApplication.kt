@@ -2,12 +2,15 @@ package app.pengwa
 
 import android.app.Application
 import android.content.Context
+import android.os.Build
+import android.util.Log
 import app.pengwa.ble.BleExchangeController
 import app.pengwa.contacts.ContactStore
 import app.pengwa.exchange.ExchangeMode
 import app.pengwa.exchange.ExchangeModeState
 import app.pengwa.identity.IdentityRepository
 import app.pengwa.meeting.MeetingRecorder
+import app.pengwa.nfc.NfcDiagnosticLog
 import app.pengwa.notification.PengWaNotification
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -34,6 +37,20 @@ class PengWaApplication : Application() {
      * NFC 服务、蓝牙总控、NFC 前台调度都读它。
      */
     val exchangeMode = ExchangeModeState()
+
+    val nfcDiagnostics by lazy {
+        NfcDiagnosticLog(
+            enabled = BuildConfig.DEBUG,
+            header = "PengWa NFC diagnostics\n" +
+                "App: ${BuildConfig.APPLICATION_ID} ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})\n" +
+                "Build: ${BuildConfig.BUILD_REVISION}\n" +
+                "Device: ${Build.MANUFACTURER} ${Build.MODEL}\n" +
+                "Android: ${Build.VERSION.RELEASE} / SDK ${Build.VERSION.SDK_INT}\n" +
+                "System: ${Build.DISPLAY}\n" +
+                "Logs: oldest first; last ${NfcDiagnosticLog.MAX_LINES} events; cleared when process exits.",
+            output = { Log.d("PengWaNfc", it) },
+        )
+    }
 
     /**
      * 蓝牙交换总控：停在附近娃娃时广播并扫描；设置里打开"后台蓝牙广播"后，由前台服务在后台只广播、等别人来申请。
