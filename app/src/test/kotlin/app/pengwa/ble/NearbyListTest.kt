@@ -1,5 +1,6 @@
 package app.pengwa.ble
 
+import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -173,5 +174,80 @@ class NearbyListTest {
         list.onSeen("A", -60, 0)
         list.clear()
         assertTrue(list.snapshot().isEmpty())
+    }
+
+    private val user = UUID.fromString("00000000-0000-0000-0000-000000000001")
+
+    @Test
+    fun `同一身份不同地址只显示一行 使用最近发现的地址`() {
+        val list = NearbyList()
+        list.onSeen("A", -50, 0)
+        list.onPreview("A", "小熊", user)
+        list.onSeen("B", -70, 1000)
+        list.onPreview("B", "新名字", user)
+        assertEquals(1, list.snapshot().size)
+        assertEquals("B", list.snapshot().single().address)
+        assertEquals("新名字", list.snapshot().single().name)
+        // 旧地址再次收到广播也不会重新产生一行。
+        list.onSeen("A", -40, 2000)
+        assertEquals(1, list.snapshot().size)
+        assertEquals("A", list.snapshot().single().address)
+    }
+
+    @Test
+    fun `同名的不同身份和没有身份的旧设备不合并`() {
+        val list = NearbyList()
+        listOf("A", "B", "C", "D").forEach { list.onSeen(it, -60, 0) }
+        list.onPreview("A", "小熊", user)
+        list.onPreview("B", "小熊", UUID(0, 2))
+        list.onPreview("C", "小熊")
+        list.onPreview("D", "小熊")
+        assertEquals(4, list.snapshot().size)
+    }
+
+    @Test
+    fun `等待中的身份换地址后仍保留状态 不允许重复申请 回调能结束等待`() {
+        val list = NearbyList()
+        list.onSeen("A", -60, 0)
+        list.onPreview("A", "小熊", user)
+        list.beginExchange("A")
+        list.onWaiting("A")
+        list.onSeen("B", -50, 1000)
+        list.onPreview("B", "小熊", user)
+        assertEquals(PeerState.Waiting, list.snapshot().single().state)
+        assertEquals("A", list.snapshot().single().address)
+        assertFalse(list.beginExchange("B"))
+        list.onExchanged("A", "小熊", null, user)
+        assertEquals(PeerState.Done, list.snapshot().single().state)
+        assertEquals("B", list.snapshot().single().address)
+    }
+
+    @Test
+    fun `旧版设备交换后从完整身份合并 清理旧地址不影响新地址`() {
+        val list = NearbyList()
+        list.onSeen("A", -60, 0)
+        list.onExchanged("A", "小熊", null, user)
+        list.onSeen("B", -50, 14000)
+        list.onExchanged("B", "小熊", null, user)
+        assertEquals(1, list.snapshot().size)
+        assertTrue(list.prune(16000))
+        assertEquals("B", list.snapshot().single().address)
+        list.clear()
+        list.onSeen("C", -50, 17000)
+        assertNull(list.snapshot().single().identityKey)
+    }
+
+    @Test
+    fun `换地址重试失败不会被旧地址的成功状态覆盖`() {
+        val list = NearbyList()
+        list.onSeen("A", -60, 0)
+        list.onPreview("A", "小熊", user)
+        list.onExchanged("A", "小熊", null, user)
+        list.onSeen("B", -50, 1000)
+        list.onPreview("B", "小熊", user)
+        assertTrue(list.beginExchange("B"))
+        list.onExchanged("B", null, "对方拒绝了交换")
+        assertEquals(PeerState.Failed, list.snapshot().single().state)
+        assertEquals("对方拒绝了交换", list.snapshot().single().message)
     }
 }

@@ -33,8 +33,8 @@ interface BleExchangeListener {
     /** 扫描到一个碰碰娃的广播（同一个设备会反复回调）。 */
     fun onDeviceSeen(address: String, rssi: Int)
 
-    /** 读完某个设备的预览：[name] 是它的显示名，读取失败为 null。 */
-    fun onPreview(address: String, name: String?)
+    /** 读完某个设备的预览：[preview] 包含显示名及可选的身份摘要，读取失败为 null。 */
+    fun onPreview(address: String, preview: PeerPreview?)
 
     /** 我向某个设备发出的申请已经送达，接下来等对方同意。 */
     fun onExchangeWaiting(address: String)
@@ -56,8 +56,8 @@ enum class RequestReply { Prompt, Decline }
 
 /**
  * BLE 名片交换的 Android 实现。
- *  - 服务端（广播）：提供四个特征——
- *    预览（只读，只有显示名）、状态（只读，我对这次申请的决定）、
+ *  - 服务端（广播）：提供五个特征——
+ *    预览（只读，旧版只有显示名，新版附身份摘要）、状态（只读，我对这次申请的决定）、
  *    交换（只写，对方出示名片 = **向我申请交换**）、名片（只读，**我同意之后**对方才能读）；
  *  - 客户端（扫描）：扫描带该服务 UUID 的广播；读预览填列表；用户点选某人后，
  *    **先写入我的名片发出申请 → 轮询对方的决定 → 对方同意后读取它的名片**。
@@ -164,6 +164,7 @@ class BleExchangeManager(
             BluetoothGattService.SERVICE_TYPE_PRIMARY,
         )
         service.addCharacteristic(readOnly(BleProtocol.PREVIEW_CHAR_UUID))
+        service.addCharacteristic(readOnly(BleProtocol.PEER_PREVIEW_CHAR_UUID))
         service.addCharacteristic(readOnly(BleProtocol.STATUS_CHAR_UUID))
         service.addCharacteristic(readOnly(BleProtocol.IDENTITY_CHAR_UUID))
         service.addCharacteristic(
@@ -216,6 +217,7 @@ class BleExchangeManager(
             val value: ByteArray? = when (characteristic.uuid) {
                 // 预览只含显示名，供附近的人列表使用，不需要申请
                 BleProtocol.PREVIEW_CHAR_UUID -> identityProvider()?.let { encodePreview(it.displayName) }
+                BleProtocol.PEER_PREVIEW_CHAR_UUID -> identityProvider()?.let(::encodePeerPreview)
                 // 状态只说明我对这个连接的申请做了什么决定
                 BleProtocol.STATUS_CHAR_UUID -> byteArrayOf(sessions.status(device.address).code)
                 BleProtocol.IDENTITY_CHAR_UUID -> {
@@ -360,9 +362,9 @@ class BleExchangeManager(
     }
 
     /** 把结果交给监听方：预览回调名字，交换回调名片或错误。 */
-    private fun report(op: Op, name: String?, peer: Identity?, error: String?) {
+    private fun report(op: Op, preview: PeerPreview?, peer: Identity?, error: String?) {
         when (op.kind) {
-            Kind.Preview -> listener.onPreview(op.address, name)
+            Kind.Preview -> listener.onPreview(op.address, preview)
             Kind.Exchange -> listener.onExchanged(op.address, peer, if (peer == null) error ?: "交换失败" else null)
         }
     }
@@ -407,7 +409,8 @@ class BleExchangeManager(
             }
             when (op.kind) {
                 Kind.Preview -> {
-                    val preview = service.getCharacteristic(BleProtocol.PREVIEW_CHAR_UUID)
+                    val preview = service.getCharacteristic(BleProtocol.PEER_PREVIEW_CHAR_UUID)
+                        ?: service.getCharacteristic(BleProtocol.PREVIEW_CHAR_UUID)
                     if (preview == null || !gatt.readCharacteristic(preview)) gatt.disconnect()
                 }
                 Kind.Exchange -> {
@@ -483,10 +486,14 @@ class BleExchangeManager(
         private fun handleRead(gatt: BluetoothGatt, uuid: UUID, value: ByteArray?, status: Int) {
             val ok = status == BluetoothGatt.GATT_SUCCESS
             when (uuid) {
-                BleProtocol.PREVIEW_CHAR_UUID -> {
-                    val name = if (ok) decodePreview(value) else null
+                BleProtocol.PREVIEW_CHAR_UUID, BleProtocol.PEER_PREVIEW_CHAR_UUID -> {
+                    val preview = if (!ok) null else if (uuid == BleProtocol.PEER_PREVIEW_CHAR_UUID) {
+                        decodePeerPreview(value)
+                    } else {
+                        decodePreview(value)?.let { PeerPreview(it) }
+                    }
                     reported = true
-                    report(op, name, null, null)
+                    report(op, preview, null, null)
                     gatt.disconnect()
                 }
                 BleProtocol.STATUS_CHAR_UUID -> handleDecision(gatt, if (ok) value?.firstOrNull() else null)

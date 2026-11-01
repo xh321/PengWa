@@ -1,5 +1,7 @@
 package app.pengwa.ble
 
+import java.util.UUID
+
 /**
  * [Exchanging]：正在连接并送出我的申请；[Waiting]：申请已送达，等对方同意；
  * [Done]：对方同意，名片已互换；[Failed]：被拒绝、没回应或出错。
@@ -16,6 +18,7 @@ data class NearbyPeer(
     val message: String? = null,
     val previewAttempts: Int = 0,
     val previewPending: Boolean = false,
+    val identityKey: UUID? = null,
 )
 
 /**
@@ -56,11 +59,12 @@ class NearbyList(
 
     /** 预览读取结束：[name] 为 null 表示失败（次数没用完时之后还会再试）。 */
     @Synchronized
-    fun onPreview(address: String, name: String?) {
+    fun onPreview(address: String, name: String?, identityKey: UUID? = null) {
         val old = peers[address] ?: return
         peers[address] = if (name != null) {
             old.copy(
                 name = name,
+                identityKey = identityKey ?: old.identityKey,
                 previewPending = false,
                 state = if (old.state == PeerState.Discovered) PeerState.Ready else old.state,
             )
@@ -73,7 +77,7 @@ class NearbyList(
     @Synchronized
     fun beginExchange(address: String): Boolean {
         val old = peers[address] ?: return false
-        if (old.state == PeerState.Exchanging || old.state == PeerState.Waiting) return false
+        if (peers.values.any { sameIdentity(it, old) && it.isBusy() }) return false
         peers[address] = old.copy(state = PeerState.Exchanging, message = null)
         return true
     }
@@ -87,12 +91,17 @@ class NearbyList(
 
     /** 交换结束：[error] 为 null 表示成功，[peerName] 是从对方名片里读到的名字。 */
     @Synchronized
-    fun onExchanged(address: String, peerName: String?, error: String?) {
+    fun onExchanged(address: String, peerName: String?, error: String?, identityKey: UUID? = null) {
         val old = peers[address] ?: return
-        peers[address] = if (error == null) {
-            old.copy(state = PeerState.Done, name = peerName ?: old.name, message = null)
+        val result = if (error == null) {
+            old.copy(state = PeerState.Done, name = peerName ?: old.name, message = null, identityKey = identityKey ?: old.identityKey)
         } else {
             old.copy(state = PeerState.Failed, message = error)
+        }
+        peers[address] = result
+        // 同步同一身份的所有已知地址，避免旧地址的成功状态遮住本次重试失败。
+        peers.replaceAll { _, peer ->
+            if (sameIdentity(peer, result)) peer.copy(state = result.state, message = result.message) else peer
         }
     }
 
@@ -111,7 +120,26 @@ class NearbyList(
         peers.clear()
     }
 
-    /** 按信号从强到弱排列，信号相同时按地址排，保证列表不会无故跳动。 */
+    private fun NearbyPeer.isBusy() = state == PeerState.Exchanging || state == PeerState.Waiting
+
+    private fun sameIdentity(a: NearbyPeer, b: NearbyPeer): Boolean =
+        a.address == b.address || (a.identityKey != null && a.identityKey == b.identityKey)
+
+    /** 保留每个地址以处理异步回调；展示时按身份合并，未识别和旧版设备仍按地址分开。 */
     @Synchronized
-    fun snapshot(): List<NearbyPeer> = peers.values.sortedWith(compareByDescending<NearbyPeer> { it.rssi }.thenBy { it.address })
+    fun snapshot(): List<NearbyPeer> = peers.values
+        .groupBy { it.identityKey?.toString() ?: it.address }
+        .values.map { group ->
+            // 等待中的连接继续用原地址；空闲时选择最近扫描到的地址用于下次连接。
+            val latest = group.maxWith(compareBy<NearbyPeer> { it.lastSeenMillis }.thenBy { it.rssi }.thenBy { it.address })
+            val busy = group.firstOrNull { it.isBusy() }
+            val state = busy ?: group.firstOrNull { it.state == PeerState.Done } ?: latest
+            (busy ?: latest).copy(
+                state = state.state,
+                message = state.message,
+                name = latest.name ?: state.name,
+                lastSeenMillis = latest.lastSeenMillis,
+                rssi = latest.rssi,
+            )
+        }.sortedWith(compareByDescending<NearbyPeer> { it.rssi }.thenBy { it.address })
 }

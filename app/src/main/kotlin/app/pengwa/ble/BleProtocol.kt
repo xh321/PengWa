@@ -10,6 +10,7 @@ import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
 import java.nio.charset.CodingErrorAction
 import java.util.UUID
+import java.security.MessageDigest
 
 /**
  * 碰碰娃的蓝牙数据协议（完整说明见 docs/protocol.md）。纯 Kotlin，不依赖 Android，方便单元测试，
@@ -29,6 +30,9 @@ object BleProtocol {
 
     /** 只读：只返回显示名，用于"附近的人"列表。不需要先出示名片，不含 ID。 */
     val PREVIEW_CHAR_UUID: UUID = UUID.fromString("8ce4c75f-2186-46c3-8cbb-0878f1776ab4")
+
+    /** 带稳定身份摘要的预览；保留旧预览特征供旧版客户端读取。 */
+    val PEER_PREVIEW_CHAR_UUID: UUID = UUID.fromString("21e42f2e-31a7-4ea4-a8bb-6e0306d532fa")
 
     const val VERSION: Byte = 1
     private const val ID_SIZE = 16
@@ -93,4 +97,23 @@ private fun decodeValidName(bytes: ByteArray, offset: Int, length: Int): String?
     if (name != normalizeDisplayName(name)) return null
     if (validateDisplayName(name) != null) return null
     return name
+}
+
+/** 身份摘要用于跨蓝牙地址去重，不传输完整 UUID；不是身份认证凭据。 */
+data class PeerPreview(val name: String, val identityKey: UUID? = null)
+
+fun identityKey(id: UUID): UUID {
+    val digest = MessageDigest.getInstance("SHA-256")
+        .digest("pengwa:nearby:v1:".toByteArray(Charsets.UTF_8) + id.toBytes())
+    return uuidFromBytes(digest.copyOfRange(0, 16))
+}
+
+/** 新特征编码：[版本 1 字节][身份摘要 16 字节][UTF-8 显示名]。 */
+fun encodePeerPreview(identity: Identity): ByteArray =
+    byteArrayOf(BleProtocol.VERSION) + identityKey(identity.id).toBytes() + encodePreview(identity.displayName).drop(1).toByteArray()
+
+fun decodePeerPreview(bytes: ByteArray?): PeerPreview? {
+    if (bytes == null || bytes.size <= 17 || bytes.size > 49 || bytes[0] != BleProtocol.VERSION) return null
+    val name = decodeValidName(bytes, 17, bytes.size - 17) ?: return null
+    return PeerPreview(name, uuidFromBytes(bytes.copyOfRange(1, 17)))
 }
