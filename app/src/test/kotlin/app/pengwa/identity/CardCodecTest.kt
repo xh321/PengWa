@@ -71,6 +71,7 @@ class CardCodecTest {
         val png = "iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAD0lEQVR4nGP4z8DQwAAEAAqBAYANgP7nAAAAAElFTkSuQmCC"
         val identity = card.copy(card = CardContent(blocks = listOf(CardBlock(BlockType.Image, image = png))))
         assertEquals(identity, CardCodec.decode(CardCodec.encode(identity)))
+        assertEquals(identity, CardCodec.decodeBinary(CardCodec.encodeBinary(identity)))
         val bytes = Base64.getDecoder().decode(png)
         for (invalid in listOf(bytes.dropLast(1).toByteArray(), bytes.copyOf().also { it[0] = 0 })) {
             assertNotNull(CardCodec.validate(CardContent(blocks = listOf(CardBlock(BlockType.Image,

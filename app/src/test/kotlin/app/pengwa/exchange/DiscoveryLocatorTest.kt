@@ -16,7 +16,7 @@ class DiscoveryLocatorTest {
             assertEquals(locator, peer.discoveryLocator)
             assertFalse(peer.cardComplete)
             assertEquals(locator, DiscoveryLocator.decode(DiscoveryLocator.encode(locator)))
-            assertNull(PeerDiscovery.decode(bytes.copyOf().also { it[0] = 0xd4.toByte() }))
+            for (old in 0xd2..0xd5) assertNull(PeerDiscovery.decode(bytes.copyOf().also { it[0] = old.toByte() }))
             assertNull(PeerDiscovery.decode(bytes.dropLast(1).toByteArray()))
             assertNull(PeerDiscovery.decode(bytes + byteArrayOf(0)))
         }

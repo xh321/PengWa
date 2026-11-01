@@ -56,3 +56,15 @@ Controller matches locator as soon as a scan callback arrives, bypassing the UI'
 Exchange requests interrupt unrelated active previews. If matching follows a preview read, a single main-loop turn allows upgrading that same GATT connection into an exchange, preserving MTU/services.
 Every targeted connection verifies the identity preview before sending its request; the completed card is still checked against the expected UUID.
 The locator rotates on process restart; QR must be rescanned after a peer process restart. No old-version fallback.
+
+## V6: windowed notification download
+
+Breaking D6 / service suffix `bac6`; STREAM notify characteristic and CCCD are mandatory. No read/cursor fallback.
+After an accepted full upload, client subscribes, then writes `[offset=0,total=-2]` to start download.
+Server sends at most eight `[offset,total,payload]` frames, never larger than `min(MTU-3,512)`, waiting for `onNotificationSent` before each next frame.
+Client grants each next window with `[next-offset,-2]`. Server rejects unexpected/duplicate credits and never advances an outstanding Android send on a credit alone.
+Client serializes control writes even when notifications arrive before the GATT write callback.
+All bytes must assemble in order with constant length, decode as PWC3 and match expected UUID before final `[-1,0]` ACK.
+Server requires a validated accepted incoming card and every outgoing byte offered before accepting final ACK; failed sends / disconnects do not save an incomplete card.
+At large MTU, this replaces two read/write operations per download frame with one credit write per eight notifications. Notification send pacing still depends on Android and hardware.
+No retransmission/resume is attempted after corruption or disconnect: abort and retry the complete exchange, never declare success with missing images.

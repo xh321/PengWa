@@ -17,30 +17,22 @@ import java.security.MessageDigest
  * 以后做 iOS 版时照着这份规格重新实现即可。
  */
 object BleProtocol {
-    val SERVICE_UUID: UUID = UUID.fromString("da9c7844-c076-4b1e-9a5f-b9433bc5bac5")
-
-    /** 只读：对方读取我的名片。要求对方先发出申请，并且我**同意**了。 */
-    val IDENTITY_CHAR_UUID: UUID = UUID.fromString("f5181d1f-bfb7-44d6-bc07-6e14fa5eb21a")
-
-    /** 只写：对方把它的名片写给我，等于向我**申请交换**。 */
-    val EXCHANGE_CHAR_UUID: UUID = UUID.fromString("9826f54e-83fb-4b2c-8fad-a9714333290e")
+    val SERVICE_UUID: UUID = UUID.fromString("da9c7844-c076-4b1e-9a5f-b9433bc5bac6")
 
     /** 只读：一个字节，我对这个连接发来的申请做了什么决定，见 [ExchangeStatus]。申请方轮询它。 */
     val STATUS_CHAR_UUID: UUID = UUID.fromString("a27c16b7-0d98-4c22-b9bc-02ae6ed62b39")
 
-    /** 只读：只返回显示名，用于"附近的人"列表。不需要先出示名片，不含 ID。 */
-    val PREVIEW_CHAR_UUID: UUID = UUID.fromString("8ce4c75f-2186-46c3-8cbb-0878f1776ab4")
-
-    /** 带稳定身份摘要的预览；保留旧预览特征供旧版客户端读取。 */
+    /** 当前协议的显示名和身份摘要预览，不要求交换授权。 */
     val PEER_PREVIEW_CHAR_UUID: UUID = UUID.fromString("21e42f2e-31a7-4ea4-a8bb-6e0306d532fa")
 
     val CARD_CHAR_UUID: UUID = UUID.fromString("98af05e8-12f7-4d33-8850-69ddac40c2b2")
 
     val REQUEST_CHAR_UUID: UUID = UUID.fromString("b41fc11d-33e5-4689-a447-585b13f0f902")
 
+    val STREAM_CHAR_UUID: UUID = UUID.fromString("b41fc11d-33e5-4689-a447-585b13f0f903")
+    val CCCD_UUID: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
+
     const val VERSION: Byte = 1
-    private const val ID_SIZE = 16
-    private const val HEADER_SIZE = 1 + ID_SIZE
 }
 
 /** 名片编码：`[版本 1 字节][GUID 16 字节][UTF-8 显示名]`，最长 17 + 32 = 49 字节。 */
