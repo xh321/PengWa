@@ -37,6 +37,16 @@ class IdentityViewModel(application: Application) : AndroidViewModel(application
         null
     }.getOrElse { "进度保存失败，请重试" } }.await()
 
+    /** Persist the final choice before publishing completion, so a failed write keeps the guide open. */
+    suspend fun finishOnboarding(shareUsage: Boolean): String? = viewModelScope.async {
+        runCatching {
+            getApplication<Application>().pengWa.analytics.saveEnabled(shareUsage)
+            repository.saveOnboardingStep(OnboardingStep.Complete)
+            onboardingStep = OnboardingStep.Complete
+            null
+        }.getOrElse { "选择保存失败，请重试" }
+    }.await()
+
     suspend fun saveOnboardingDraft(): String? = saveDraft(onboarding = true)
 
     fun beginEdit() { draft = identity }

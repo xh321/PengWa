@@ -7,7 +7,7 @@
 - 窄屏：720 × 1280、360 dpi（320dp 宽），字体 1.5 倍。
 - 图片由运行中的 Debug 应用通过 `adb exec-out screencap -p` 获取，不是 Layoutlib 图片。
 - 变更前使用主分支 a9ac122 构建的 APK；变更后使用当前 APK。设置内容均来自 `SettingsContent`。
-- 测试入口使用合成状态，未读取真实联系人，没有真实姓名、ID 或照片；没有配置真实 App Key，截图流程不发送统计。
+- 测试入口使用合成状态，未读取真实联系人，没有真实姓名、ID 或照片；这些截图使用未配置 App Key 的 APK，不发送统计；另行执行的带配置 Debug 验证见下文。
 
 ## 前后截图（可复制到 PR 描述）
 
@@ -22,7 +22,7 @@
 
 | 关键状态 | 浅色 | 深色 |
 |---|---|---|
-| 已配置，默认关闭 | ![统计关闭](after-off-light.png) | ![统计关闭](after-off-dark.png) |
+| 已配置，关闭 | ![统计关闭](after-off-light.png) | ![统计关闭](after-off-dark.png) |
 | 已配置，用户开启 | ![统计开启](after-on-light.png) | ![统计开启](after-on-dark.png) |
 
 320dp 窄屏 / 1.5 倍字体：
@@ -67,6 +67,32 @@ adb -s emulator-5564 shell settings put system font_scale 1.0
 - Debug 单元测试、Debug 构建、Debug lint、Release 构建（含 R8）通过。
 - 新增 5 项统计单元测试通过：配置校验、同意前与关闭后不发送、不开启时不补报、SDK 异常隔离、属性白名单。
 - 运行中设置内容的浅色 / 深色与窄屏大字体状态已截图；开关使用既有 `SettingsRow` 的整行 Switch 语义。
-- 真实主页设置弹层的打开和展开已截图；已配置开关的开/关状态使用预览注入。开关持久化与网络上报尚未端到端验证。
-- 真实 App Key 尚未提供，Aptabase 收件、目标网络连通性、真实 NFC / 扫码 / BLE 双机交换埋点尚未实测。
+- 真实主页设置弹层的打开和展开已截图；已配置开关的开/关状态使用预览注入。设置内修改的持久化与网络上报尚未端到端验证；引导最后一步的勾选/取消勾选完成后重启均已验证 DataStore 保存结果，见下方记录。
+- App Key 已配置到仓库变量，单次 Debug `integration_test` 接收请求返回 HTTP 200；控制台展示、不同目标网络和真实 NFC / 扫码 / BLE 双机交换埋点尚未核查。
 - SDK 不提供可靠离线队列或取消已提交请求的接口，关闭后已提交请求仍可能完成，已在界面与文档说明。
+
+
+## 引导最后一步：默认勾选的独立选项
+
+此组变更前为 PR 初始提交 `16986a3`，变更后为本 PR 的后续提交；来自同一模拟器实际 MainActivity 的最后一步，滚动到完成按钮，使用固定测试卡片 `TelemetryTest`。
+
+| 页面 / 状态 | 变更前 | 变更后 |
+|---|---|---|
+| 最后一步，浅色 | ![原最后一步](onboarding/before-checked-light.png) | ![新增默认勾选项](onboarding/after-checked-light.png) |
+| 最后一步，深色 | ![原最后一步](onboarding/before-checked-dark.png) | ![新增默认勾选项](onboarding/after-checked-dark.png) |
+
+| 关键状态 | 浅色 | 深色 |
+|---|---|---|
+| 用户取消勾选 | ![取消勾选](onboarding/after-unchecked-light.png) | ![取消勾选](onboarding/after-unchecked-dark.png) |
+| 统计说明 | ![说明弹窗](onboarding/after-explanation-light.png) | ![说明弹窗](onboarding/after-explanation-dark.png) |
+
+复现：全新安装，创建测试卡片并完成预览，进入第 3 / 3 步。滚动到完成按钮上方，确认复选项默认勾选、点击整行可取消、点击「说明」可查看字段；点击完成后重启，检查设置中的统计选择。可用测试数据迁移预置 `identity` 的 `onboarding_step=2` 直接进入最后一步。
+
+已在未配置 App Key 的构建中分别完成取消勾选和默认勾选流程，重启后读取 `files/datastore/settings.preferences_pb`，确认 `usage_analytics` 分别为 false / true；测试不会向真实服务发数据。另用已配置 App Key 的 Debug 包重复执行这两条持久化流程；控制台事件展示仍待核查。
+
+
+引导最后一步在 320dp / 字体 1.5 倍下的状态（选项文字自然换行，仍为独立一行控件；说明内容可滚动）：
+
+| 引导选择 | 说明弹窗 |
+|---|---|
+| ![窄屏引导选择](onboarding/after-narrow-large-font.png) | ![窄屏说明弹窗](onboarding/after-explanation-narrow-large-font.png) |
