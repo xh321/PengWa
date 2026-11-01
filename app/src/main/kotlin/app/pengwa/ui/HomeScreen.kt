@@ -13,19 +13,15 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -69,7 +65,7 @@ fun HomeScreen(
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var showGuide by rememberSaveable { mutableStateOf(false) }
 
-    SideEffect { onDetailVisibilityChanged(identity != null && (editing || showingCard)) }
+    SideEffect { onDetailVisibilityChanged(identity != null && (editing || showingCard || showSettings)) }
     DisposableEffect(Unit) { onDispose { onDetailVisibilityChanged(false) } }
 
     if (showGuide) {
@@ -100,6 +96,11 @@ fun HomeScreen(
         return
     }
 
+    if (showSettings) {
+        SettingsScreen(onBack = { showSettings = false }, onShowGuide = { showSettings = false; showGuide = true }, modifier = modifier)
+        return
+    }
+
     if (showingCard) {
         CardDetailsPage("我的卡片", onBack = { showingCard = false }, modifier = modifier,
             onEdit = { viewModel.beginEdit(); editing = true }) {
@@ -117,8 +118,6 @@ fun HomeScreen(
             onOpenLab = onOpenLab,
         )
     }
-
-    if (showSettings) SettingsSheet(onDismiss = { showSettings = false }, onShowGuide = { showSettings = false; showGuide = true })
 }
 
 @Composable
@@ -149,39 +148,6 @@ internal fun ExchangeSession(mode: ExchangeMode) {
     LifecycleResumeEffect(mode) {
         state.set(mode)
         onPauseOrDispose { state.set(ExchangeMode.None) }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun SettingsSheet(onDismiss: () -> Unit, onShowGuide: () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        val context = LocalContext.current
-        LaunchedEffect(Unit) { context.pengWa.analytics.track(app.pengwa.analytics.AnalyticsEvent.SettingsViewed) }
-        SettingsContent(backgroundBroadcast = { BackgroundBroadcastToggle() }, notification = { NotificationToggle() }, onShowGuide = onShowGuide, update = { AppUpdateSection() }, analytics = { AnalyticsToggle() })
-    }
-}
-
-@Composable
-internal fun SettingsContent(backgroundBroadcast: @Composable () -> Unit, notification: @Composable () -> Unit, onShowGuide: (() -> Unit)? = null, update: @Composable () -> Unit = {}, analytics: @Composable () -> Unit = {}) {
-    Column(
-        modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = PageGutter, end = PageGutter, bottom = 32.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Text(stringResource(R.string.settings_title), style = MaterialTheme.typography.titleLarge)
-        if (onShowGuide != null) TextButton(onClick = onShowGuide) { Text("扩列图解") }
-        Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
-            Column(Modifier.padding(16.dp)) { backgroundBroadcast() }
-        }
-        Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
-            Column(Modifier.padding(16.dp)) { notification() }
-        }
-        Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
-            Column(Modifier.padding(16.dp)) { analytics() }
-        }
-        Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
-            Column(Modifier.padding(16.dp)) { update() }
-        }
     }
 }
 

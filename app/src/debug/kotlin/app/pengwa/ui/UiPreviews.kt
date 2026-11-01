@@ -215,8 +215,9 @@ internal fun SettingsPreview(
 ) {
     var analyticsEnabled by remember(analyticsInitiallyEnabled) { mutableStateOf(analyticsInitiallyEnabled) }
     PreviewSurface {
-        Box(Modifier.safeDrawingPadding()) {
+        SettingsPage(onBack = {}, modifier = Modifier.safeDrawingPadding()) {
             SettingsContent(
+                onShowGuide = {},
                 backgroundBroadcast = { SettingsRow(stringResource(R.string.bg_setting_title), stringResource(R.string.bg_setting_desc), false) {} },
                 notification = { SettingsRow(stringResource(R.string.notif_setting_title), stringResource(R.string.notif_setting_desc), false) {} },
                 update = { AppUpdateContent(updateState, {}, {}, {}) },
@@ -289,8 +290,9 @@ internal fun updatePreviewState(index: Int): app.pengwa.update.UpdateState {
 @Composable
 internal fun UpdateLivePreview() {
     PreviewSurface {
-        Box(Modifier.safeDrawingPadding()) {
+        SettingsPage(onBack = {}, modifier = Modifier.safeDrawingPadding()) {
             SettingsContent(
+                onShowGuide = {},
                 backgroundBroadcast = { SettingsRow(stringResource(R.string.bg_setting_title), stringResource(R.string.bg_setting_desc), false) {} },
                 notification = { SettingsRow(stringResource(R.string.notif_setting_title), stringResource(R.string.notif_setting_desc), false) {} },
                 update = { AppUpdateSection() },
