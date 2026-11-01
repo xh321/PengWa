@@ -47,6 +47,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -177,37 +179,48 @@ private fun Prompt(message: String, actionLabel: String?, onAction: () -> Unit) 
 @Composable
 private fun PeerRow(peer: NearbyPeer, onExchange: () -> Unit) {
     Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surface) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                NameStamp(peer.name.orEmpty())
-                Column(Modifier.weight(1f)) {
-                    Text(peer.name ?: stringResource(R.string.bt_peer_unknown), style = MaterialTheme.typography.titleSmall)
-                    val status = when {
-                        peer.state == PeerState.Failed -> peer.message ?: stringResource(R.string.bt_failed)
-                        peer.state == PeerState.Exchanging -> stringResource(R.string.bt_requesting)
-                        peer.state == PeerState.Waiting -> stringResource(R.string.bt_waiting)
-                        peer.state == PeerState.Done -> stringResource(R.string.bt_done)
-                        peer.name == null -> stringResource(R.string.bt_reading_name)
-                        else -> null
-                    }
-                    if (status != null) Text(
-                        text = status,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = when (peer.state) {
-                            PeerState.Failed -> MaterialTheme.colorScheme.error
-                            PeerState.Done -> LocalStatusColors.current.success
-                            else -> MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                    )
+        Row(
+            Modifier.fillMaxWidth().padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            NameStamp(peer.name.orEmpty())
+            Column(Modifier.weight(1f)) {
+                Text(peer.name ?: stringResource(R.string.bt_peer_unknown),
+                    style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                val status = when {
+                    peer.state == PeerState.Failed -> peer.message ?: stringResource(R.string.bt_failed)
+                    peer.state == PeerState.Exchanging -> stringResource(R.string.bt_requesting)
+                    peer.state == PeerState.Waiting -> stringResource(R.string.bt_waiting)
+                    peer.state == PeerState.Done -> stringResource(R.string.bt_done)
+                    peer.name == null -> stringResource(R.string.bt_reading_name)
+                    else -> null
                 }
+                if (status != null) Text(
+                    text = status,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = when (peer.state) {
+                        PeerState.Failed -> MaterialTheme.colorScheme.error
+                        PeerState.Done -> LocalStatusColors.current.success
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
             }
             PeerSignal(peer.rssi)
             when (peer.state) {
                 PeerState.Exchanging, PeerState.Waiting -> CircularProgressIndicator(
-                    modifier = Modifier.align(Alignment.End).size(24.dp), strokeWidth = 2.dp)
-                PeerState.Done -> PengWaIcon(PengWaIcons.Success, modifier = Modifier.align(Alignment.End), tint = LocalStatusColors.current.success)
-                else -> OutlinedButton(onClick = onExchange, modifier = Modifier.align(Alignment.End).heightIn(min = 48.dp)) {
-                    Text(stringResource(if (peer.state == PeerState.Failed) R.string.bt_retry else R.string.bt_request))
+                    modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                PeerState.Done -> PengWaIcon(PengWaIcons.Success, tint = LocalStatusColors.current.success)
+                else -> {
+                    val action = stringResource(if (peer.state == PeerState.Failed) R.string.bt_retry else R.string.bt_request)
+                    OutlinedButton(
+                        onClick = onExchange,
+                        modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = action },
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+                    ) {
+                        Text(stringResource(if (peer.state == PeerState.Failed) R.string.bt_retry else R.string.bt_request_short), maxLines = 1)
+                    }
                 }
             }
         }
@@ -230,26 +243,24 @@ private fun PeerSignal(rssi: Int) {
         NearbySignal.Unknown -> R.string.bt_distance_unknown
     })
     val description = "$proximity，$strength"
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shape = MaterialTheme.shapes.small,
-        modifier = Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = description },
+    Row(
+        Modifier.clearAndSetSemantics { contentDescription = description },
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Row(
-                modifier = Modifier.size(32.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.Bottom,
-            ) {
-                repeat(3) { index ->
-                    Box(Modifier.width(7.dp).height((10 + index * 10).dp).background(
-                        color = if (index < signal.bars) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.outlineVariant,
-                        shape = RoundedCornerShape(2.dp),
-                    ))
-                }
+        Row(
+            modifier = Modifier.size(20.dp),
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            repeat(3) { index ->
+                Box(Modifier.width(4.dp).height((6 + index * 6).dp).background(
+                    color = if (index < signal.bars) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.outlineVariant,
+                    shape = RoundedCornerShape(1.dp),
+                ))
             }
-            Text(proximity, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
         }
+        Text(proximity, style = MaterialTheme.typography.labelMedium)
     }
 }
