@@ -13,3 +13,7 @@ Source: https://github.com/simple-icons/simple-icons/tree/90646e4bf7f3b89df6c37e
 
 Original 24 × 24 path geometry is preserved. CC0 1.0 Universal: [simple-icons-LICENSE.md](simple-icons-LICENSE.md).
 The same license is packaged in the APK at `assets/licenses/simple-icons-LICENSE.md`.
+
+# Coil
+
+Card images use Coil (`coil-core` / `coil-compose`), Apache-2.0: https://github.com/coil-kt/coil . Only embedded image loading is used; no network loader dependency is included.

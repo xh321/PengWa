@@ -78,6 +78,7 @@ android {
             engineVersion = libs.versions.screenshot.get()
             targetVariants.add("debug")
             dependencies {
+    implementation(libs.coil.compose)
                 implementation(libs.androidx.compose.ui.tooling)
                 implementation(libs.screenshot.validation.api)
             }
@@ -86,6 +87,7 @@ android {
 }
 
 dependencies {
+    implementation(libs.coil.compose)
     implementation(project(":core:model"))
     implementation(project(":core:protocol"))
     implementation(project(":core:data"))
