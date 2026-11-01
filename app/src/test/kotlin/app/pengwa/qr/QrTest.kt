@@ -42,13 +42,11 @@ class QrTest {
     }
 
     @Test
-    fun `旧二维码仅用于识别且忽略显示名`() {
+    fun `旧二维码和旧发现版本被拒绝`() {
         val old = "pengwa://c/" + Base64.getUrlEncoder().withoutPadding().encodeToString(encodeIdentity(alice))
-        val peer = assertNotNull(QrPayload.decode(old))
-        assertEquals(alice.id, peer.id)
-        assertTrue(peer.card.blocks.isEmpty())
-        assertTrue(!peer.cardComplete)
-        assertTrue(peer.displayName != alice.displayName)
+        assertNull(QrPayload.decode(old))
+        val previous = PeerDiscovery.encode(alice).also { it[0] = 0xd2.toByte() }
+        assertNull(QrPayload.decode(QrPayload.PREFIX + Base64.getUrlEncoder().withoutPadding().encodeToString(previous)))
     }
 
     @Test

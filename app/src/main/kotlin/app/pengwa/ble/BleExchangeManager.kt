@@ -63,9 +63,7 @@ enum class RequestReply { Prompt, Decline }
 
 /**
  * BLE 名片交换的 Android 实现。
- *  - 服务端（广播）：提供六个特征——
- *    预览（只读，旧版只有显示名，新版附身份摘要）、状态（只读，我对这次申请的决定）、
- *    旧版交换与名片，以及新版完整卡片分块读写特征；
+ *  - 服务端（广播）：只提供当前协议的身份预览、申请状态和二进制卡片特征；
  *  - 客户端（扫描）：扫描带该服务 UUID 的广播；读预览填列表；用户点选某人后，
  *    **先写入我的名片发出申请 → 轮询对方的决定 → 对方同意后读取它的名片**。
  * 广播里不放 ID 和名字，连上之后才读取。所有主动连接排进一个串行队列，同一时刻只有一个。
@@ -180,20 +178,11 @@ class BleExchangeManager(
             BleProtocol.SERVICE_UUID,
             BluetoothGattService.SERVICE_TYPE_PRIMARY,
         )
-        service.addCharacteristic(readOnly(BleProtocol.PREVIEW_CHAR_UUID))
         service.addCharacteristic(readOnly(BleProtocol.PEER_PREVIEW_CHAR_UUID))
         service.addCharacteristic(readOnly(BleProtocol.STATUS_CHAR_UUID))
-        service.addCharacteristic(readOnly(BleProtocol.IDENTITY_CHAR_UUID))
         service.addCharacteristic(BluetoothGattCharacteristic(BleProtocol.CARD_CHAR_UUID,
             BluetoothGattCharacteristic.PROPERTY_READ or BluetoothGattCharacteristic.PROPERTY_WRITE,
             BluetoothGattCharacteristic.PERMISSION_READ or BluetoothGattCharacteristic.PERMISSION_WRITE))
-        service.addCharacteristic(
-            BluetoothGattCharacteristic(
-                BleProtocol.EXCHANGE_CHAR_UUID,
-                BluetoothGattCharacteristic.PROPERTY_WRITE,
-                BluetoothGattCharacteristic.PERMISSION_WRITE,
-            ),
-        )
         server.addService(service)
         gattServer = server
         return true
@@ -214,11 +203,10 @@ class BleExchangeManager(
         transfers.clear()
     }
 
-    /** 用户对某条申请做出决定。旧版同意时返回基础身份；新版在完整传输确认后单独回调，不在此时入册。 */
+    /** 做出决定后仍等待完整传输确认，此时不入册。 */
     fun decideRequest(address: String, accept: Boolean): Identity? {
-        val peer = sessions.decide(address, accept)
-        // Rich cards are recorded after the client acknowledges the complete download.
-        return if (transfers.containsKey(address)) null else peer
+        sessions.decide(address, accept)
+        return null // Complete cards are recorded only after the final ACK.
     }
 
     /** 申请超时没人处理：让申请方读到"没有回应"。 */
@@ -260,26 +248,16 @@ class BleExchangeManager(
                         return
                     }
                     synchronized(transfer) {
-                        if (transfer.outgoing == null) transfer.outgoing = identityProvider()?.let(CardCodec::encode)
+                        if (transfer.outgoing == null) transfer.outgoing = identityProvider()?.let { CardCodec.encodeBinary(it) }
                         transfer.outgoing?.let { bytes ->
                             if (transfer.cursor !in bytes.indices) null else CardTransfer.frame(bytes, transfer.cursor, minOf(transfer.mtu - 2, 510)).also { transfer.readEnd = transfer.cursor + it.size - CardTransfer.HEADER }
                         }
                     }
                 }
                 // 预览只含显示名，供附近的人列表使用，不需要申请
-                BleProtocol.PREVIEW_CHAR_UUID -> identityProvider()?.let { encodePreview(it.displayName) }
                 BleProtocol.PEER_PREVIEW_CHAR_UUID -> identityProvider()?.let(::encodePeerPreview)
                 // 状态只说明我对这个连接的申请做了什么决定
                 BleProtocol.STATUS_CHAR_UUID -> byteArrayOf(sessions.status(device.address).code)
-                BleProtocol.IDENTITY_CHAR_UUID -> {
-                    // 必须发出过申请并且我同意了，才给
-                    if (!sessions.canRead(device.address)) {
-                        log("[服务端] ${device.address} 没有得到同意就想读取，已拒绝")
-                        server.sendResponse(device, requestId, BluetoothGatt.GATT_INSUFFICIENT_AUTHORIZATION, offset, null)
-                        return
-                    }
-                    identityProvider()?.let(::encodeIdentity)
-                }
                 else -> {
                     server.sendResponse(device, requestId, BluetoothGatt.GATT_READ_NOT_PERMITTED, offset, null)
                     return
@@ -306,28 +284,7 @@ class BleExchangeManager(
                 if (responseNeeded) gattServer?.sendResponse(device, requestId, if (ok) BluetoothGatt.GATT_SUCCESS else BluetoothGatt.GATT_FAILURE, offset, null)
                 return
             }
-            // Legacy basic cards remain supported on their original characteristic.
-            val peer = if (characteristic.uuid == BleProtocol.EXCHANGE_CHAR_UUID && !preparedWrite && offset == 0) {
-                sessions.onRequest(device.address, value)
-            } else {
-                null
-            }
-            // 写入成功只代表"申请已送达"，同不同意要看之后的状态
-            if (responseNeeded) {
-                val status = if (peer != null) BluetoothGatt.GATT_SUCCESS else BluetoothGatt.GATT_FAILURE
-                gattServer?.sendResponse(device, requestId, status, offset, null)
-            }
-            if (peer == null) {
-                log("[服务端] 收到不合法的名片数据，已拒绝")
-                return
-            }
-            when (listener.onIncomingRequest(device.address, peer)) {
-                RequestReply.Prompt -> log("[服务端] ${peer.displayName} 申请交换，等待我的决定")
-                RequestReply.Decline -> {
-                    sessions.decide(device.address, accept = false)
-                    log("[服务端] 自动拒绝了 ${peer.displayName} 的申请")
-                }
-            }
+            if (responseNeeded) gattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_WRITE_NOT_PERMITTED, offset, null)
         }
     }
 
@@ -353,7 +310,7 @@ class BleExchangeManager(
             }
             if (!transfer.incoming.append(frame)) return false
             if (transfer.incoming.complete) {
-                val peer = CardCodec.decode(transfer.incoming.result()!!) ?: return false
+                val peer = CardCodec.decodeBinary(transfer.incoming.result()!!) ?: return false
                 sessions.onRequest(address, peer)
                 if (listener.onIncomingRequest(address, peer) == RequestReply.Decline) sessions.decide(address, false)
             }
@@ -527,7 +484,6 @@ class BleExchangeManager(
             when (op.kind) {
                 Kind.Preview -> {
                     val preview = service.getCharacteristic(BleProtocol.PEER_PREVIEW_CHAR_UUID)
-                        ?: service.getCharacteristic(BleProtocol.PREVIEW_CHAR_UUID)
                     if (preview == null || !gatt.readCharacteristic(preview)) gatt.disconnect()
                 }
                 Kind.Exchange -> {
@@ -545,7 +501,7 @@ class BleExchangeManager(
                         }
                         // 先出示我的名片，等于向对方发出申请
                         else -> {
-                            upload = CardCodec.encode(me)
+                            upload = CardCodec.encodeBinary(me)
                             timing.mark("upload_start", bytes = upload!!.size, mtu = mtu)
                             sendChunk(gatt)
                         }
@@ -654,7 +610,7 @@ class BleExchangeManager(
                         gatt.disconnect()
                     } else if (download.complete) {
                         timing.mark("download_complete", bytes = download.received)
-                        downloadedPeer = CardCodec.decode(download.result()!!)
+                        downloadedPeer = CardCodec.decodeBinary(download.result()!!)
                         if (downloadedPeer == null || (op.expectedId != null && downloadedPeer?.id != op.expectedId)) {
                             failure = "对方的卡片不合法"
                             gatt.disconnect()
@@ -664,12 +620,8 @@ class BleExchangeManager(
                         }
                     } else requestChunk(gatt)
                 }
-                BleProtocol.PREVIEW_CHAR_UUID, BleProtocol.PEER_PREVIEW_CHAR_UUID -> {
-                    val preview = if (!ok) null else if (uuid == BleProtocol.PEER_PREVIEW_CHAR_UUID) {
-                        decodePeerPreview(value)
-                    } else {
-                        decodePreview(value)?.let { PeerPreview(it) }
-                    }
+                BleProtocol.PEER_PREVIEW_CHAR_UUID -> {
+                    val preview = if (ok) decodePeerPreview(value) else null
                     reported = true
                     report(op, preview, null, null)
                     gatt.disconnect()

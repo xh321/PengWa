@@ -26,14 +26,14 @@
 NFC 和新版二维码共用 `exchange/PeerDiscovery.kt`：
 
 ```
-[0xD2: 1 字节][UUID: 16 字节，大端]
+[0xD3: 1 字节][UUID: 16 字节，大端]
 ```
 
-严格要求 17 字节。没有显示名、头像、内容块或图片。D2 与旧版名片编码 01 不兼容，避免将发现误判为卡片交换。
+严格要求 17 字节。没有显示名、头像、内容块或图片。D3 与旧版名片编码 01 不兼容，避免将发现误判为卡片交换。
 解码得到的占位显示名仅供内部 API 使用，不会直接存入集邮册。
 
 二维码内容为 `pengwa://p/` + 发现载荷的 Base64URL（无填充）。生成保持黑码白底，纠错等级 M。
-旧 `pengwa://c/` 二维码经原有严格校验后仅提取 UUID，丢弃显示名，不直接导入旧卡片。
+旧 `pengwa://c/` 二维码和 D2 发现载荷直接拒绝，不进行协议兼容。
 新版完整卡片传输要求对方具备新版 GATT 特征；缺少时提示版本不兼容。
 
 ## 用户卡片
@@ -111,7 +111,7 @@ NFC 和新版二维码共用 `exchange/PeerDiscovery.kt`：
 发现等待匹配的期限为 30 秒，连接后由蓝牙交换期限管理；整个交换不是跨设备分布式事务，
 最后确认或本地写库时故障可能导致单侧已有记录，重新交换由相遇防抖减少重复计数。
 
-旧蓝牙客户端仍可申请交换基础身份，但无法传输完整内容。新版主动连接旧客户端明确失败，不静默丢掉内容块。
+网络协议仅支持当前版本，使用独立服务 UUID，不提供旧式基础身份交换或回退。本地历史卡片仍可读取。
 完整卡片的空内容可清空旧内容；旧式基础身份相遇不会覆盖已有头像与内容块。
 
 ## NFC ISO-DEP / HCE
@@ -121,12 +121,12 @@ NFC 和新版二维码共用 `exchange/PeerDiscovery.kt`：
 | 步骤 | 命令 | 响应 |
 |---|---|---|
 | SELECT | `00 A4 04 00 07 F050454E475741 00` | `90 00` |
-| 识别 | `80 E0 00 00 11 [D2 + 发起方 UUID] 00` | `[D2 + 出示方 UUID] 90 00` |
+| 识别 | `80 E0 00 00 11 [D3 + 发起方 UUID] 00` | `[D3 + 出示方 UUID] 90 00` |
 
 必须先 SELECT；切页、角色切换、后台或 deactivation 清理会话。合法识别仅通知蓝牙控制器，不调用相遇记录器。
 生产入口显式使用 `discoveryOnly=true`，旧基础名片 NFC 载荷不再被接受。
-标准 NDEF 标签仍使用 `application/vnd.pengwa.card` MIME，但负载改为 D2 发现载荷；系统拉起后也只启动蓝牙连接。
-私有 AID 归 payment，标准标签 AID `D2760000850101` 归 other；厂商钱包路由争用仍需真机按机型验证。
+标准 NDEF 标签仍使用 `application/vnd.pengwa.card` MIME，但负载改为 D3 发现载荷；系统拉起后也只启动蓝牙连接。
+私有 AID 归 payment，标准标签 AID `D3760000850101` 归 other；厂商钱包路由争用仍需真机按机型验证。
 调试日志只记录命令头、状态、耗时和生命周期，不记录载荷或身份 UUID。
 
 ## 本地存储与验证
@@ -138,3 +138,9 @@ NFC 和新版二维码共用 `exchange/PeerDiscovery.kt`：
 NFC 只识别、旧版 NFC 拒绝、二维码只含发现载荷与旧码只提取身份。原有单元测试继续运行。
 模拟器 UI 与持久化验证及运行截图见 [custom-card 截图说明](screenshots/custom-card/README.md)。
 当前尚未完成双 Android 真机的 NFC → BLE、二维码 → BLE、附近列表 → BLE 端到端验证，不能据此宣布实机传输验收通过。
+
+## Performance protocol revision V3
+
+Service UUID: `da9c7844-c076-4b1e-9a5f-b9433bc5bac3`.
+Wire cards use PWC3 raw binary image fields, never PWC2 Base64 image strings. Local storage retains PWC2.
+The performance protocol description in `exchange-performance.md` supersedes older transport format descriptions above.
