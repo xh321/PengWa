@@ -22,3 +22,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "PengWa"
 include(":app")
+include(":core:model", ":core:protocol", ":core:data", ":core:bluetooth")
+include(":core:designsystem", ":core:nfc", ":core:media")

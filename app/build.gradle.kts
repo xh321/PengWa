@@ -86,6 +86,13 @@ android {
 }
 
 dependencies {
+    implementation(project(":core:model"))
+    implementation(project(":core:protocol"))
+    implementation(project(":core:data"))
+    implementation(project(":core:bluetooth"))
+    implementation(project(":core:designsystem"))
+    implementation(project(":core:nfc"))
+    implementation(project(":core:media"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -93,7 +100,6 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
 
     // 二维码：ZXing core 同时负责生成和识别；CameraX 只负责取景和送帧
-    implementation(libs.zxing.core)
     implementation(libs.androidx.camera.core)
     implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.camera.lifecycle)

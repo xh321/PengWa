@@ -130,22 +130,20 @@
 
 ## 4. 代码结构
 
-```
-app/src/main/kotlin/app/pengwa/
-├── PengWaApplication.kt        应用单例：身份、集邮册、相遇记录器、蓝牙总控、当前模式
-├── MainActivity.kt             NFC 角色生命周期与读卡回调、被 NDEF 标签拉起、前后台状态
-├── exchange/ExchangeMode.kt    当前模式（面对面页的 NFC 出示/读取、蓝牙、都不是）——全应用共享的单一状态
-├── identity/                   身份：模型、存储、显示名规则
-├── contacts/                   集邮册：SQLite 存储
-├── meeting/                    相遇记录器（排除自己、10 秒防抖、通知界面）
-├── nfc/                        NFC：私有协议、NDEF 标签模拟、HCE 服务、读卡流程
-├── ble/                        蓝牙：协议、GATT 管理、总控、附近列表、申请—同意、后台前台服务
-├── qr/                         二维码：内容格式、生成与识别（ZXing）
-├── photo/                      拍照：临时文件 → 相册
-├── notification/               常驻通知栏、交换申请通知
-└── ui/                         Compose 界面：主页（两页）、集邮册、设置、实验室、扫码……
-app/src/test/                   纯 Kotlin 单元测试（协议、状态机、列表模型……）
-docs/                           protocol.md（协议规格）、release.md（发布与签名）
+```text
+app/                    Android 应用：Compose UI、导航、通知、HCE 服务入口、蓝牙总控和服务
+core/
+├── model/              Kotlin/JVM：身份、卡片、显示名规则、名片编码、联系人模型、相遇防抖
+├── protocol/           Kotlin/JVM：BLE/NFC/二维码协议、分块传输、发现与交换状态机
+├── data/               Android 库：身份与设置存储、集邮册 SQLite、相遇记录
+├── bluetooth/          Android 库：GATT 客户端/服务端、扫描与广播、系统蓝牙权限
+├── designsystem/       Android/Compose 库：主题、通用组件与 Phosphor 图标
+├── nfc/                Android 库：NFC 角色调度、读卡、NDEF 解析、默认钱包
+└── media/              Android 库：图片处理、临时拍照文件与相册保存
+各模块 src/test/         跟随模块维护的单元测试；跨通道交换测试放在 core/protocol
+app/src/debug/          调试页面与 Compose Preview
+app/src/screenshotTest/ Compose 截图测试入口
+docs/                   协议、发布、设计系统与验证记录
 ```
 
 **纯 Kotlin、可在电脑上测试的部分**：名片编码、显示名规则、APDU 协议与卡模拟状态机、NDEF、二维码内容与识别、
@@ -277,7 +275,7 @@ docs/                           protocol.md（协议规格）、release.md（发
 
 ```bash
 # 构建与测试
-./gradlew testDebugUnitTest        # 183 项单元测试
+./gradlew :core:model:test :core:protocol:test testDebugUnitTest  # 所有模块单元测试
 ./gradlew assembleDebug            # 调试版
 ./gradlew assembleRelease          # 发布版；有 secrets/keystore.properties 时自动签名
 # 校验签名

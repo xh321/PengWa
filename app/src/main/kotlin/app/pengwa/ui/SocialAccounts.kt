@@ -16,6 +16,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.stateDescription
 import app.pengwa.R
+import app.pengwa.ui.components.PengWaIcons
 import app.pengwa.identity.CardBlock
 import app.pengwa.identity.SocialPlatform
 import app.pengwa.identity.socialProfileUrl
@@ -31,7 +32,7 @@ private val SocialPlatform.icon: Int get() = when (this) {
 
 @Composable
 private fun SocialIcon(platform: SocialPlatform?) {
-    Icon(painterResource(platform?.icon ?: R.drawable.ph_users), contentDescription = null,
+    Icon(painterResource(platform?.icon ?: PengWaIcons.Nearby), contentDescription = null,
         modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
 }
 
@@ -69,7 +70,7 @@ internal fun SocialAccountBlock(block: CardBlock, onOpen: (String) -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (profile != null) IconButton(onClick = { onOpen(profile) }) {
-                    Icon(painterResource(R.drawable.ph_arrow_right), contentDescription = "打开${label}主页")
+                    Icon(painterResource(PengWaIcons.Next), contentDescription = "打开${label}主页")
                 }
             }
         }
