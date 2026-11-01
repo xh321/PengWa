@@ -25,8 +25,8 @@ android {
         // 29：往自己创建的相册条目写照片不需要存储权限，省掉旧版本的一整套分支
         minSdk = 29
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.1.1"
         val revision = providers.environmentVariable("GITHUB_SHA").orNull
             ?.takeIf { it.matches(Regex("[0-9a-fA-F]{40,64}")) } ?: "local"
         buildConfigField("String", "BUILD_REVISION", "\"$revision\"")
