@@ -17,3 +17,7 @@ The same license is packaged in the APK at `assets/licenses/simple-icons-LICENSE
 # Nordic Android BLE Library
 
 BLE GATT client transport uses https://github.com/nordicsemi/Android-BLE-Library (BSD-3-Clause). The original license is bundled at `app/src/main/assets/licenses/nordic-ble-LICENSE.txt`. Scanning, advertising and the existing peripheral implementation remain native.
+
+# Coil
+
+Card images use Coil (`coil-core` / `coil-compose`), Apache-2.0: https://github.com/coil-kt/coil . Only embedded image loading is used; no network loader dependency is included.
