@@ -3,6 +3,7 @@ package app.pengwa.notification
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import app.pengwa.pengWa
 
 /**
  * 用户在通知栏把常驻通知划掉时触发（应用自己 cancel 不会触发）。
@@ -10,6 +11,9 @@ import android.content.Intent
  */
 class NotificationDismissReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        PengWaNotification.setEnabled(context, false)
+        val pending = goAsync()
+        context.pengWa.persistSetting {
+            PengWaNotification.setEnabledPersisted(context, false)
+        }.invokeOnCompletion { pending.finish() }
     }
 }

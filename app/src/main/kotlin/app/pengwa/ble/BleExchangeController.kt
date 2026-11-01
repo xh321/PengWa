@@ -1,5 +1,7 @@
 package app.pengwa.ble
 
+import app.pengwa.pengWa
+
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.content.BroadcastReceiver
@@ -194,10 +196,12 @@ class BleExchangeController(
 
     /** 设置里的"后台蓝牙广播"开关：打开会启动前台服务并挂上常驻通知，关闭则停掉。 */
     fun setBackgroundBroadcast(enabled: Boolean) {
-        BroadcastSettings.setEnabled(appContext, enabled)
-        if (enabled) BleBroadcastService.start(appContext) else BleBroadcastService.stop(appContext)
-        PengWaNotification.refresh(appContext)
-        refresh()
+        appContext.pengWa.persistSetting {
+            BroadcastSettings.setEnabled(appContext, enabled)
+            if (enabled) BleBroadcastService.start(appContext) else BleBroadcastService.stop(appContext)
+            PengWaNotification.refresh(appContext)
+            refresh()
+        }
     }
 
     fun observeBackgroundBroadcast(onChange: (Boolean) -> Unit): () -> Unit = BroadcastSettings.observe(appContext, onChange)

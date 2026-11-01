@@ -12,11 +12,11 @@ object BroadcastSettings {
 
     fun isEnabled(context: Context): Boolean = setting.get(context)
 
-    fun setEnabled(context: Context, enabled: Boolean) {
+    suspend fun setEnabled(context: Context, enabled: Boolean) {
         setting.set(context, enabled)
     }
 
-    /** 监听开关变化，返回取消监听的函数（SharedPreferences 只弱引用监听器，调用方要保留它）。 */
+    /** 监听开关变化，返回取消监听的函数（调用方离开页面时取消收集）。 */
     fun observe(context: Context, onChange: (Boolean) -> Unit): () -> Unit =
         setting.observe(context, onChange)
 }

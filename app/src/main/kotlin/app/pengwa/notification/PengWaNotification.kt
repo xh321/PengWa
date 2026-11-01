@@ -36,13 +36,17 @@ object PengWaNotification {
         enabledSetting.get(context)
 
     fun setEnabled(context: Context, enabled: Boolean) {
+        context.pengWa.persistSetting { setEnabledPersisted(context, enabled) }
+    }
+
+    suspend fun setEnabledPersisted(context: Context, enabled: Boolean) {
         enabledSetting.set(context, enabled)
         refresh(context)
     }
 
     /**
      * 监听"是否开启"的变化（开关切换、在通知栏划掉都会触发），返回取消监听的函数。
-     * SharedPreferences 只弱引用监听器，所以监听器由返回的函数持有，调用方要保留这个函数。
+     * 返回的函数用于取消 Flow 收集，调用方离开页面时调用。
      */
     fun observeEnabled(context: Context, onChange: (Boolean) -> Unit): () -> Unit =
         enabledSetting.observe(context, onChange)

@@ -5,6 +5,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.async
 import app.pengwa.identity.OnboardingStep
 import app.pengwa.identity.Identity
 import app.pengwa.identity.NameError
@@ -29,19 +31,22 @@ class IdentityViewModel(application: Application) : AndroidViewModel(application
         if (draft == null) draft = identity ?: Identity(repository.id, "")
     }
 
-    fun moveOnboardingTo(step: OnboardingStep): String? = runCatching {
+    suspend fun moveOnboardingTo(step: OnboardingStep): String? = viewModelScope.async { runCatching {
         repository.saveOnboardingStep(step)
         onboardingStep = step
         null
-    }.getOrElse { "进度保存失败，请重试" }
+    }.getOrElse { "进度保存失败，请重试" } }.await()
 
-    fun saveOnboardingDraft(): String? = saveDraft(onboarding = true)
+    suspend fun saveOnboardingDraft(): String? = saveDraft(onboarding = true)
 
     fun beginEdit() { draft = identity }
     fun updateDraft(value: Identity) { draft = value }
-    fun saveDraft(): String? = saveDraft(onboarding = false)
+    suspend fun saveDraft(): String? = saveDraft(onboarding = false)
 
-    private fun saveDraft(onboarding: Boolean): String? {
+    private suspend fun saveDraft(onboarding: Boolean): String? =
+        viewModelScope.async { persistDraft(onboarding) }.await()
+
+    private suspend fun persistDraft(onboarding: Boolean): String? {
         val value = draft ?: return "卡片尚未准备好"
         validateDisplayName(value.displayName)?.let { return "显示名为空、过长或包含不可显示字符（最多 32 字节）" }
         val normalized = value.copy(displayName = normalizeDisplayName(value.displayName))
@@ -56,7 +61,7 @@ class IdentityViewModel(application: Application) : AndroidViewModel(application
     }
 
     /** 保存显示名；通过校验返回 null，否则返回错误原因且不保存。存的是规范化后的名字。 */
-    fun saveDisplayName(raw: String): NameError? {
+    suspend fun saveDisplayName(raw: String): NameError? {
         validateDisplayName(raw)?.let { return it }
         repository.saveDisplayName(normalizeDisplayName(raw))
         identity = repository.load()

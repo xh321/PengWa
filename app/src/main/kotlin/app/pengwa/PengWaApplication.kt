@@ -19,6 +19,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
+import app.pengwa.settings.SettingsStorage
 
 /**
  * 全应用共享的单例都挂在这里。身份、集邮册、相遇记录器各只有一份，
@@ -69,12 +71,26 @@ class PengWaApplication : Application() {
         )
     }
 
+    val storageReady by lazy {
+        applicationScope.async {
+            identityRepository.initialize()
+            SettingsStorage.initialize(this@PengWaApplication)
+        }
+    }
+
+    fun persistSetting(action: suspend () -> Unit) = mainScope.launch {
+        try { storageReady.await(); action() }
+        catch (error: java.io.IOException) { Log.e("PengWaStorage", "Unable to save setting", error) }
+    }
+
     override fun onCreate() {
         super.onCreate()
         // 进程被系统杀掉后重新启动时，恢复用户开启的常驻通知
-        PengWaNotification.refresh(this)
+        storageReady
+        mainScope.launch { storageReady.await(); PengWaNotification.refresh(this@PengWaApplication) }
         // 主页与附近娃娃启用前台蓝牙；离开前台交换会话就停
         mainScope.launch {
+            storageReady.await()
             exchangeMode.mode.collect { bleExchange.setPageActive(it == ExchangeMode.Bluetooth || it == ExchangeMode.NfcDisplay || it == ExchangeMode.NfcRead) }
         }
     }

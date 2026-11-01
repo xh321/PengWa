@@ -17,6 +17,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.pengwa.identity.OnboardingStep
 import app.pengwa.MainActivity
+import kotlinx.coroutines.launch
 import app.pengwa.R
 import app.pengwa.ui.components.PengWaIcon
 import app.pengwa.ui.components.PengWaIcons
@@ -30,7 +31,8 @@ internal fun OnboardingScreen(
 ) {
     var error by remember { mutableStateOf<String?>(null) }
     val step = viewModel.onboardingStep
-    fun moveTo(next: OnboardingStep) { error = viewModel.moveOnboardingTo(next) }
+    val scope = rememberCoroutineScope()
+    fun moveTo(next: OnboardingStep) { scope.launch { error = viewModel.moveOnboardingTo(next) } }
     BackHandler(enabled = step == OnboardingStep.PreviewCard) { moveTo(OnboardingStep.CreateCard) }
 
     Column(modifier.fillMaxSize()) {
@@ -70,8 +72,10 @@ internal fun OnboardingScreen(
             OnboardingStep.LearnExchange -> ExchangeGuide(
                 onBack = { moveTo(OnboardingStep.PreviewCard) },
                 onFinish = { tab ->
-                    error = viewModel.moveOnboardingTo(OnboardingStep.Complete)
-                    if (error == null) onFinish(tab)
+                    scope.launch {
+                        error = viewModel.moveOnboardingTo(OnboardingStep.Complete)
+                        if (error == null) onFinish(tab)
+                    }
                 },
                 modifier = Modifier.weight(1f),
             )

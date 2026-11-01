@@ -97,7 +97,7 @@ internal fun CardEditor(viewModel: IdentityViewModel, onClose: () -> Unit, modif
 internal fun CardEditorContent(
     draft: Identity,
     onChange: (Identity) -> Unit,
-    onSave: () -> String?,
+    onSave: suspend () -> String?,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
     onboarding: Boolean = false,
@@ -183,7 +183,9 @@ internal fun CardEditorContent(
         }
         if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        Button(enabled = !loading, onClick = { error = onSave(); if (error == null) onClose() }, modifier = Modifier.fillMaxWidth()) { Text(if (onboarding) "保存并预览" else "保存卡片") }
+        Button(enabled = !loading, onClick = { if (!loading) { loading = true; scope.launch {
+            try { error = onSave(); if (error == null) onClose() } finally { loading = false }
+        } } }, modifier = Modifier.fillMaxWidth()) { Text(if (onboarding) "保存并预览" else "保存卡片") }
         if (!onboarding) TextButton(onClick = ::close, modifier = Modifier.fillMaxWidth(), enabled = !loading) { Text("取消") }
     }
     if (confirmDiscard) AlertDialog(onDismissRequest = { confirmDiscard = false }, title = { Text("放弃本次编辑？") }, text = { Text("尚未保存的修改将被丢弃。") }, confirmButton = { TextButton(onClick = onClose) { Text("放弃") } }, dismissButton = { TextButton(onClick = { confirmDiscard = false }) { Text("继续编辑") } })

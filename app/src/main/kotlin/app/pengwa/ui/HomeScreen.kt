@@ -21,6 +21,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,6 +38,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
+import kotlinx.coroutines.launch
 import app.pengwa.R
 import app.pengwa.exchange.ExchangeMode
 import app.pengwa.identity.Identity
@@ -169,15 +172,19 @@ internal fun SettingsContent(backgroundBroadcast: @Composable () -> Unit, notifi
 internal fun NameForm(
     initialName: String,
     canCancel: Boolean,
-    onSave: (String) -> NameError?,
+    onSave: suspend (String) -> NameError?,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var name by rememberSaveable { mutableStateOf(initialName) }
     var error by rememberSaveable { mutableStateOf<NameError?>(null) }
 
+    val scope = rememberCoroutineScope()
+    var saving by remember { mutableStateOf(false) }
     fun submit() {
-        error = onSave(name)
+        if (saving) return
+        saving = true
+        scope.launch { try { error = onSave(name) } finally { saving = false } }
     }
 
     Column(
