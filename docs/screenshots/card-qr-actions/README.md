@@ -3,7 +3,7 @@
 - 删除底部通栏“扫一扫”，改为右上角的取景框式扫码图标（Phosphor Scan）；保留 48dp 触控区域和“扫一扫”无障碍名称。
 - 编辑入口收进名片预览：点击眼睛图标“查看我的卡片”，再点“编辑”；保存后返回预览。同步更新首次创建名片的说明。
 - 二维码使用圆角气泡卡片；二维码本身保留四模块识别静区，取消原来额外的圆角白色内框。
-- 碰一碰改为二维码上方的醒目状态卡，显示“碰一碰，交换名片”及贴近手机 NFC 区域的说明；关闭、不支持 NFC 时显示对应指引。
+- 碰一碰放在二维码下方，使用 64dp 大图标和居中文字，不使用背景卡片，显示“碰一碰，交换名片”及贴近手机 NFC 区域的说明；关闭、不支持 NFC 时显示对应指引。
 - 移除“出示／读取”模式选择，不增加开始按钮。双方保持主页打开，由应用自动协调 NFC 角色；引导图解同步更新。
 
 ## 运行截图
@@ -29,7 +29,7 @@
 | 放大二维码，浅色 | ![](before-expanded-light.png) | ![](after-expanded-light.png) |
 | 放大二维码，深色 | ![](before-expanded-dark.png) | ![](after-expanded-dark.png) |
 
-补充状态：[相机扫码](after-scanner-light.png)、[375dp 手机](after-home-phone-375.png)、[320dp／2 倍字体](after-home-large-text.png)、[640 × 320dp 横屏](after-home-landscape.png)。适配截图均为浅色、420dpi，分辨率依次为 984 × 1968、840 × 1680、1680 × 840；大字体下正文允许滚动。
+补充状态：[相机扫码](after-scanner-light.png)、[375dp 手机](after-home-phone-375.png)、[320dp／2 倍字体](after-home-large-text.png)、[640 × 320dp 横屏](after-home-landscape.png)、[横屏下滑后的提示](after-home-landscape-scrolled.png)、[大字体下滑后的提示](after-home-large-text-scrolled.png)。适配截图均为浅色、420dpi，375dp、320dp 和横屏分辨率分别为 984 × 1968、840 × 1680、1680 × 840，下滑截图沿用对应尺寸；大字体及横屏下可滚动查看二维码下方的提示。
 
 ## 复现与验证
 

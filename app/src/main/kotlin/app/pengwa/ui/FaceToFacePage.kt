@@ -13,7 +13,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -138,31 +137,16 @@ internal fun FaceToFacePageContent(
     var expanded by rememberSaveable { mutableStateOf(false) }
     BoxWithConstraints(modifier.fillMaxSize()) {
         val compact = maxHeight < 300.dp && maxWidth >= 480.dp
-        if (compact) {
-            Row(Modifier.fillMaxSize().padding(horizontal = PageGutter, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        NfcStatus(nfcState, onOpenNfcSettings, onOpenLab = onOpenLab)
-                        NfcWalletInstructions(nfcState, defaultWallet, onRequestWallet)
-                    }
-                }
-                Column(Modifier.widthIn(max = 216.dp).weight(1f), horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    BoxWithConstraints(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                        val edge = minOf(200.dp, maxWidth - 16.dp, maxHeight - 16.dp).coerceAtLeast(48.dp)
-                        ExchangeQrCard(identity, onExpand = { expanded = true }, showHint = false, codeSize = edge)
-                    }
-                }
-            }
-        } else {
-            Column(Modifier.fillMaxSize().padding(horizontal = PageGutter, vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    NfcStatus(nfcState, onOpenNfcSettings, onOpenLab = onOpenLab)
-                    NfcWalletInstructions(nfcState, defaultWallet, onRequestWallet)
-                    ExchangeQrCard(identity, onExpand = { expanded = true })
-                }
-            }
+        val codeSize = minOf(200.dp, maxHeight - 40.dp).coerceAtLeast(48.dp)
+        Column(
+            Modifier.fillMaxSize().padding(horizontal = PageGutter, vertical = 12.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            ExchangeQrCard(identity, onExpand = { expanded = true }, showHint = !compact, codeSize = codeSize)
+            NfcStatus(nfcState, onOpenNfcSettings, onOpenLab = onOpenLab)
+            NfcWalletInstructions(nfcState, defaultWallet, onRequestWallet)
         }
     }
     if (expanded) QrCardDialog(identity) { expanded = false }

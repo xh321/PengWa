@@ -72,7 +72,7 @@
 
     <!-- NFC 与相遇 -->
     <string name="nfc_ready">碰一碰，交换名片</string>
-    <string name="nfc_auto_hint">保持双方主页打开，将两部手机的 NFC 区域贴近。识别后自动通过蓝牙交换完整名片。</string>
+    <string name="nfc_auto_hint">双方保持主页打开，将手机 NFC 区域贴近。\n识别后会自动交换完整名片。</string>
     <string name="nfc_enable_hint">开启 NFC 后，将两部手机的 NFC 区域贴近即可识别对方。</string>
     <string name="nfc_alternative_hint">可以扫对方二维码，或前往“附近娃娃”交换名片。</string>
     <string name="nfc_wallet_help_title">NFC 钱包兼容提示</string>
