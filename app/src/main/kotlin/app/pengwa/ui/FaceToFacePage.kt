@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,6 +25,7 @@ import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -201,7 +203,7 @@ private fun ExchangeQrCard(
         shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
-        Column(Modifier.padding(if (showHint) 12.dp else 8.dp), horizontalAlignment = Alignment.CenterHorizontally,
+        Column(Modifier.padding(if (showHint) 16.dp else 8.dp), horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Column(
                 Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onExpand),
@@ -211,6 +213,18 @@ private fun ExchangeQrCard(
                 QrCodeView(remember(identity) { QrPayload.encode(identity) }, if (showHint) Modifier.widthIn(max = 200.dp).fillMaxWidth() else Modifier.size(codeSize))
                 if (showHint) Text(stringResource(R.string.qr_hint), modifier = Modifier.widthIn(max = 340.dp), style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+            }
+            if (showHint) {
+                Row(
+                    Modifier.widthIn(max = 240.dp).fillMaxWidth().padding(top = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    HorizontalDivider(Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
+                    Text(stringResource(R.string.exchange_or), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    HorizontalDivider(Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
+                }
             }
             footer()
         }

@@ -72,8 +72,8 @@
 
     <!-- NFC 与相遇 -->
     <string name="nfc_ready">碰一碰，交换名片</string>
-    <string name="nfc_auto_hint">双方保持主页打开，将手机 NFC 区域贴近。\n识别后会自动交换完整名片。</string>
-    <string name="nfc_enable_hint">开启 NFC 后，将两部手机的 NFC 区域贴近即可识别对方。</string>
+    <string name="nfc_auto_hint">双方打开此页，将手机背面 NFC 区域贴近\n即可自动交换名片</string>
+    <string name="nfc_enable_hint">开启 NFC 后，将手机背面 NFC 区域贴近\n即可自动交换名片</string>
     <string name="nfc_alternative_hint">可以扫对方二维码，或前往“附近娃娃”交换名片。</string>
     <string name="nfc_wallet_help_title">NFC 钱包兼容提示</string>
     <string name="nfc_wallet_help">部分手机的默认钱包可能优先响应 NFC。若只响未识别或弹出钱包，可切换默认钱包为碰碰娃后重试。使用原钱包刷卡前，请手动切回。</string>
@@ -130,7 +130,8 @@
     <string name="bg_running">已开启 · 正在后台广播，有人申请时会通知你</string>
 
     <!-- 面对面页的二维码与扫码 -->
-    <string name="qr_hint">扫二维码识别对方，完整卡片通过蓝牙交换。请保持双方应用打开。</string>
+    <string name="exchange_or">或</string>
+    <string name="qr_hint">请对方扫一扫，交换彼此的名片</string>
     <string name="qr_scan">扫一扫</string>
     <string name="qr_scan_hint">把对方的二维码放进取景框</string>
     <string name="qr_close">关闭</string>

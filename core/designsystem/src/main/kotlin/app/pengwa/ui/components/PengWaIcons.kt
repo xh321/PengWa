@@ -20,6 +20,7 @@ object PengWaIcons {
     val BookFill = R.drawable.ph_address_book_fill
     val Lab = R.drawable.ph_flask
     val LabFill = R.drawable.ph_flask_fill
+    val Phone = R.drawable.ph_device_mobile
     val Tap = R.drawable.ph_contactless_payment
     val Camera = R.drawable.ph_camera
     val Bluetooth = R.drawable.ph_bluetooth
