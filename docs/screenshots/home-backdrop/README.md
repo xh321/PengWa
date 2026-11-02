@@ -1,13 +1,13 @@
 # 主页面背景装饰
 
-主页面交换区新增淡莓粉色纸艺邮票、爱心名片与星点插画，呼应集邮手册主题。装饰位于二维码卡片下方的右下角留白，不参与布局、点击或无障碍朗读。二维码继续使用现有主题的不透明卡片背景。深色主题降低插画透明度；交换区高度不足 440dp 时隐藏，避免短窗口里装饰与说明争抢空间。没有新增动画。
+主页面交换区新增两张轻轻相碰的淡莓粉色名片插画，搭配爱心和中心闪光，呼应交换名片。装饰位于二维码卡片下方的右下角留白，不参与布局、点击或无障碍朗读。二维码继续使用现有主题的不透明卡片背景。深色主题降低插画透明度；交换区高度不足 440dp 时隐藏，避免短窗口里装饰与说明争抢空间。没有新增动画。
 
-资源：[`home_encounter_collage.webp`](../../../app/src/main/res/drawable-nodpi/home_encounter_collage.webp)，768 × 512，保留透明通道，约 56 KB。使用内置 imagegen 生成，再缩放、转为 WebP 用于 Android 打包。生成原图保留在本机 imagegen 输出目录。
+资源：[`home_friend_cards.webp`](../../../app/src/main/res/drawable-nodpi/home_friend_cards.webp)，768 × 512，保留透明通道，约 30 KB。使用内置 imagegen 生成，再缩放、转为 WebP 用于 Android 打包。生成原图保留在本机 imagegen 输出目录。
 
 ## 生成提示词
 
 ```text
-Use case: stylized-concept. Asset type: decorative corner illustration for PengWa, an Android app for exchanging friend cards and collecting encounter stamps. Create a refined flat paper-cut scrapbook vignette on a genuinely transparent background. Two overlapping blank scalloped postage stamps and a small rounded friend card, with a tiny outlined heart, a few four-point sparkles, and one loose curved postal cancellation line. Warm dusty blush pink, muted berry rose, cream, and a very small touch of sage, low saturation, delicate clean outlines, subtle paper grain, no heavy shadow. Compact asymmetrical diagonal arrangement rising from lower left to upper right; objects form one cohesive cluster with generous transparent margins. Decorative stationery, not an app icon. No text, no letters, no numbers, no QR code, no people, no interface, no background rectangle. Designed to remain elegant and readable at 160dp as a faint corner decoration behind a UI.
+Use case: stylized-concept. Asset type: subtle decorative illustration for the lower corner of PengWa, an Android app for exchanging friend cards. Primary request: two friend cards gently bumping together, expressing a friendly first meeting. A pair of small horizontal rounded paper business cards tilted inward toward one another; their inner upper corners touch at the center with a tiny four-point sparkle. Each card has one simple circular avatar silhouette and two short abstract embossed lines, no readable text. One card dusty blush pink, the other warm ivory with muted berry outlines. Two tiny floating hearts above the contact point and only a few delicate sparkles. Refined flat paper-cut illustration with subtle paper grain, clean rounded edges, warm friendly understated mood, low saturation. Compact cohesive wide composition, 3:2 canvas, generous truly transparent margins. Must clearly read as exactly two business cards, not smartphones or stamps. No flowers, leaves, postage stamps, postal marks, frame, background rectangle, scenery, characters, letters, numbers, logos, QR codes, heavy shadows or glow. Intended to remain clear at 200dp wide and low opacity behind an Android UI. Transparent background.
 ```
 
 ## 运行截图（PR 描述附录）

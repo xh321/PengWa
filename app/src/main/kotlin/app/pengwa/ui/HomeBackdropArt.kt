@@ -10,12 +10,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import app.pengwa.R
 
-/** A quiet scrapbook accent, excluded from accessibility and pointer input. */
+/** Two friend cards meeting, excluded from accessibility and pointer input. */
 @Composable
 internal fun HomeBackdropArt(modifier: Modifier = Modifier) {
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     Image(
-        painter = painterResource(R.drawable.home_encounter_collage),
+        painter = painterResource(R.drawable.home_friend_cards),
         contentDescription = null,
         modifier = modifier.width(200.dp),
         alpha = if (dark) 0.18f else 0.42f,
