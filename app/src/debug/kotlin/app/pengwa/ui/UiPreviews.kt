@@ -163,9 +163,7 @@ internal class ContactsPreviewProvider : PreviewParameterProvider<ContactsPrevie
 @Composable
 internal fun ContactsScreenPreview(@PreviewParameter(ContactsPreviewProvider::class) sample: ContactsPreviewState) {
     PreviewDestination(MainActivity.TAB_CONTACTS) {
-        ContactsScreenContent(contacts = sample.contacts, now = 1_793_462_400_000L) { buttonModifier ->
-            CameraButtonContent(onClick = {}, modifier = buttonModifier)
-        }
+        ContactsScreenContent(contacts = sample.contacts, now = 1_793_462_400_000L)
     }
 }
 

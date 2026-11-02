@@ -127,7 +127,7 @@ fun PengWaRoot(
                 )
                 selectedTab == MainActivity.TAB_NEARBY -> NearbyScreen(modifier = contentModifier)
                 selectedTab == MainActivity.TAB_CONTACTS -> ContactsScreen(
-                    onMessage = showMessage, modifier = contentModifier,
+                    modifier = contentModifier,
                     onDetailVisibilityChanged = { showingDetail = it },
                     onExchange = { selectedTab = MainActivity.TAB_ME },
                 )
