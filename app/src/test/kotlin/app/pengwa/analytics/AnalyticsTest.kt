@@ -51,7 +51,12 @@ class AnalyticsTest {
             "screen" to setOf("home", "nearby", "contacts", "settings"),
             "source" to setOf("nfc", "qr"),
             "direction" to setOf("outgoing"),
-            "result" to setOf("success", "failure"),
+            "result" to setOf("success", "failure", "cancelled", "invalid", "self", "peer"),
+            "card" to setOf("own", "contact"),
+            "setting" to setOf("background_broadcast", "ongoing_notification"),
+            "value" to setOf("on", "off"),
+            "decision" to setOf("accept", "decline", "expired"),
+            "mechanism" to setOf("manual", "nfc_auto", "cooldown", "capacity", "timeout"),
         )
         AnalyticsEvent.entries.forEach { event ->
             event.properties.forEach { (key, value) -> assertTrue(value in allowed.getValue(key)) }

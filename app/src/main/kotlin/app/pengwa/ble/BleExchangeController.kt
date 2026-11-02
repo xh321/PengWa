@@ -138,6 +138,8 @@ class BleExchangeController(
                 mainHandler.post {
                     if (peer.id == discoveryPeer && SystemClock.elapsedRealtime() < discoveryUntil && discoveryAutoAccept) {
                         manager.decideRequest(address, true)
+                        // Count the NFC authorization submission, not card-transfer success.
+                        onAnalytics(AnalyticsEvent.IncomingAutoAccepted)
                         receivingCards.add(address)
                         discoveryAutoAccept = false
                         discoveryUntil = SystemClock.elapsedRealtime() + 180_000L
@@ -305,6 +307,7 @@ class BleExchangeController(
         mainHandler.postDelayed({
             if (discoveryPeer != null && discoveryUntil == deadline) {
                 discoveryPeer = null
+                onAnalytics(if (source == "NFC") AnalyticsEvent.NfcDiscoveryTimedOut else AnalyticsEvent.QrDiscoveryTimedOut)
                 _discoveryStatus.value = "未能完成交换，请保持双方应用在前台并重新碰一碰"
                 refresh()
             }
@@ -318,6 +321,9 @@ class BleExchangeController(
             return
         }
         discoveryPeer = null
+        if (peer.id != identityProvider()?.id) {
+            onAnalytics(if (source == "NFC") AnalyticsEvent.NfcDiscoveryRetried else AnalyticsEvent.QrDiscoveryRetried)
+        }
         discover(peer, true, source)
     }
 
@@ -351,9 +357,11 @@ class BleExchangeController(
     // ------------------------------------------------------------------ 别人来申请我
 
     /** Main-thread request processing keeps prompt/disconnect ordering consistent. */
-    private fun submitIncoming(request: IncomingRequest): RequestReply =
-        when (val result = requests.submit(request)) {
+    private fun submitIncoming(request: IncomingRequest): RequestReply {
+        val alreadyPending = _incoming.value.any { it.key == request.key }
+        return when (val result = requests.submit(request)) {
             Submission.Prompt -> {
+                if (!alreadyPending && !request.simulated) onAnalytics(AnalyticsEvent.IncomingPrompted)
                 onRequestAdded(request)
                 RequestReply.Prompt
             }
@@ -364,9 +372,18 @@ class BleExchangeController(
                         DeclineReason.TooManyPending -> "待处理的申请太多，自动拒绝 ${request.peer.displayName}"
                     },
                 )
+                if (!request.simulated) {
+                    onAnalytics(
+                        when (result.reason) {
+                            DeclineReason.RecentlyDeclined -> AnalyticsEvent.IncomingCooldownDeclined
+                            DeclineReason.TooManyPending -> AnalyticsEvent.IncomingCapacityDeclined
+                        },
+                    )
+                }
                 RequestReply.Decline
             }
         }
+    }
 
     private fun onRequestAdded(request: IncomingRequest) {
         publishIncoming()
@@ -379,6 +396,10 @@ class BleExchangeController(
         val request = requests.decide(key, accept, SystemClock.elapsedRealtime()) ?: return
         RequestNotifier.cancel(appContext, key)
         val peer = if (request.simulated) request.peer else manager.decideRequest(key, accept)
+        // A consumed queue entry records the user's decision intent, not BLE completion.
+        if (!request.simulated) {
+            onAnalytics(if (accept) AnalyticsEvent.IncomingAccepted else AnalyticsEvent.IncomingDeclined)
+        }
         if (accept) {
             if (peer != null) handlePeer(peer, "我同意了对方的申请") else {
                 receivingCards.add(key)
@@ -395,6 +416,7 @@ class BleExchangeController(
     private fun expireOverdue() {
         requests.takeExpired(SystemClock.elapsedRealtime()).forEach {
             manager.expireRequest(it.key)
+            if (!it.simulated) onAnalytics(AnalyticsEvent.IncomingExpired)
             RequestNotifier.cancel(appContext, it.key)
             log("${it.peer.displayName} 的申请超时未处理")
         }

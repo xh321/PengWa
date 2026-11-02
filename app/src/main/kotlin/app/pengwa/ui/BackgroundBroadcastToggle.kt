@@ -32,6 +32,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.pengwa.R
+import app.pengwa.analytics.AnalyticsEvent
 import app.pengwa.ble.BlePermissions
 import app.pengwa.pengWa
 import app.pengwa.ui.components.SettingsRow
@@ -95,6 +96,9 @@ fun BackgroundBroadcastToggle(modifier: Modifier = Modifier) {
             title = stringResource(R.string.bg_setting_title), description = stringResource(R.string.bg_setting_desc),
             checked = checked,
             onCheckedChange = { turnOnRequested ->
+                context.pengWa.analytics.track(
+                    if (turnOnRequested) AnalyticsEvent.BackgroundBroadcastRequestedOn else AnalyticsEvent.BackgroundBroadcastRequestedOff,
+                )
                 when {
                     !turnOnRequested -> controller.setBackgroundBroadcast(false)
                     hasBroadcastPermissions(context) -> turnOn()

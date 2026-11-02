@@ -45,11 +45,36 @@ Debug 使用 SDK 的 `asDebug`，Release 使用 `asRelease`，在 Aptabase 中�
 | `ble_exchange_started` | `direction=outgoing` | 附近列表申请或识别对方后的 BLE 申请实际发起时 |
 | `ble_exchange_finished` | `direction=outgoing`, `result=success/failure` | BLE 发起端收到终态回调；不含识别后尚未发起 BLE 的发现超时 |
 | `ble_card_received` | 无 | 接收端收到完整卡片完成回调；不是去重后的集邮册新增人数 |
+| `card_created` | 无 | 首次显示名或引导卡片成功保存后；不代表引导同意前会发送事件 |
+| `card_edit_started` | 无 | 用户从自己的卡片详情打开编辑器 |
+| `card_editor_preview_opened` | 无 | 编辑器中主动打开卡片预览 |
+| `card_edit_finished` | `result=success/cancelled` | 非引导编辑成功保存 / 确认放弃；校验失败不记成功 |
+| `card_viewed` | `card=own/contact` | 主动打开自己的卡片详情 / 集邮册某张卡片；不含对象标识 |
+| `qr_scan_opened` | 无 | 点击首页扫码入口且原来不在扫描；不代表相机权限已授予 |
+| `qr_scan_finished` | `result=peer/self/invalid/cancelled` | 扫到有效对方 / 自己 / 非法内容 / 主动关闭；不上传码内容，peer 不代表完成交换 |
+| `photo_capture_started` | 无 | 点击集邮册拍照入口；可能随后请求权限，不等同于系统相机已启动 |
+| `photo_capture_finished` | `result=success/failure/cancelled` | 照片成功保存 / 失败 / 系统相机取消；不上传照片或文件路径 |
+| `preference_requested` | `setting=background_broadcast/ongoing_notification`, `value=on/off` | 用户操作开关时；记录意图，权限拒绝或系统蓝牙未开可能导致功能未生效 |
+| `ble_incoming_prompted` | 无 | 真实交换申请进入待处理队列；同一待处理请求不重复计数 |
+| `ble_incoming_decided` | `decision=accept/decline/expired`, `mechanism=manual/nfc_auto/cooldown/capacity/timeout` | 手动同意或拒绝、NFC 短时自动授权、冷却/容量拒绝、待处理超时；只发送有效组合，模拟申请不计 |
+| `peer_discovery_retried` | `source=nfc/qr` | 存在有效的上次识别目标且没有进行中交换时，用户发起重试；重试也会产生新识别事件 |
+| `peer_discovery_timed_out` | `source=nfc/qr` | 识别后的 30 秒发现窗口到期且目标仍未完成发现流程；BLE 已发起后转入独立传输超时，不计入此事件 |
 
-成功与失败只统计底层 BLE 交换；NFC 与二维码负责识别，并非独立完成交换。
+### 分析建议与限制
+
+- `card_edit_started → card_edit_finished` 观察编辑完成/放弃趋势；`card_editor_preview_opened` 观察预览偏好。
+- 对比 `card_viewed` 的 `own/contact`，观察自我展示与集邮册回访的相对频率。
+- `qr_scan_opened → qr_scan_finished → peer_recognized → ble_exchange_started → ble_exchange_finished` 观察扫码识别与传输各阶段事件量；按识别来源、申请决定机制分析使用倾向。
+- `photo_capture_started → photo_capture_finished` 观察拍照完成趋势；`preference_requested` 观察后台发现与通知的操作意图。
+- main 已采用 NFC 自动协调，不再提供手动展示/读取模式选择，故不添加已失去触发入口的模式偏好事件。
+- 这些是匿名事件量，不是去重人数；只覆盖开启统计的人群，存在选择偏差。未增加安装 ID、用户画像或跨会话关联 ID。
+- 中途退出、进程死亡、引导未完成或不可靠网络会使漏斗不闭合，事件比率不能视作精确转化率。首次卡片保存可能早于引导完成，不补报被门禁丢弃的 `card_created`。
+- `ble_incoming_decided` 记录成功消费 app 队列后的手动处理意图、自动授权提交或 app 待处理超时，不代表底层传输完成。
+
+`ble_exchange_finished` 的成功与失败只统计底层 BLE 交换；NFC 与二维码负责识别，并非独立完成交换。
 不为每次交换上传关联 ID，因此不能跨设备拼接漏斗；不能把接收端事件与发起端成功事件相加当作交换次数。
 当前不上传错误原文、错误码或耗时，避免把协议日志中可能出现的身份信息带出；后续可增加固定分类错误码。
-实验室模拟申请不触发卡片接收埋点；预览入口只渲染测试状态，不触发任何统计。
+实验室模拟申请不触发真实申请处理及卡片接收埋点；预览入口只渲染测试状态，不触发任何统计。
 
 ## 上报字段与隐私
 

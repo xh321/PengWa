@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.async
+import app.pengwa.analytics.AnalyticsEvent
 import app.pengwa.identity.OnboardingStep
 import app.pengwa.identity.Identity
 import app.pengwa.identity.NameError
@@ -17,6 +18,7 @@ import app.pengwa.pengWa
 
 class IdentityViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = application.pengWa.identityRepository
+    private val analytics = application.pengWa.analytics
 
     var identity: Identity? by mutableStateOf(repository.load())
         private set
@@ -61,12 +63,15 @@ class IdentityViewModel(application: Application) : AndroidViewModel(application
         validateDisplayName(value.displayName)?.let { return "显示名为空、过长或包含不可显示字符（最多 32 字节）" }
         val normalized = value.copy(displayName = normalizeDisplayName(value.displayName))
         app.pengwa.identity.CardCodec.validate(normalized.card)?.let { return it }
+        val creating = identity == null
         return runCatching {
             repository.saveCard(normalized, onboardingStep = if (onboarding) OnboardingStep.PreviewCard else null)
             identity = repository.load()
             getApplication<Application>().pengWa.bleExchange.refresh()
             if (onboarding) onboardingStep = OnboardingStep.PreviewCard
             PengWaNotification.refresh(getApplication())
+            if (creating) analytics.track(AnalyticsEvent.CardCreated)
+            else if (!onboarding) analytics.track(AnalyticsEvent.CardEditSaved)
             null
         }.getOrElse { it.message ?: "保存失败，请重试" }
     }
@@ -74,9 +79,11 @@ class IdentityViewModel(application: Application) : AndroidViewModel(application
     /** 保存显示名；通过校验返回 null，否则返回错误原因且不保存。存的是规范化后的名字。 */
     suspend fun saveDisplayName(raw: String): NameError? {
         validateDisplayName(raw)?.let { return it }
+        val creating = identity == null
         repository.saveDisplayName(normalizeDisplayName(raw))
         identity = repository.load()
         PengWaNotification.refresh(getApplication()) // 通知栏上的名字同步更新
+        if (creating) analytics.track(AnalyticsEvent.CardCreated)
         return null
     }
 }
