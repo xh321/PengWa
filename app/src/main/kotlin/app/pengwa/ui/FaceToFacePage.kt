@@ -11,6 +11,8 @@ import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.toArgb
+import app.pengwa.ui.theme.LocalQrColors
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
@@ -248,19 +250,22 @@ private fun QrCardDialog(identity: Identity, onClose: () -> Unit) {
     }
 }
 
-/** 把文字画成二维码。固定黑码白底，不随深色主题变化，否则很多扫码器识别不了。 */
+/** 深色码点配浅色底，夜间使用柔和底色；保留静区与模块比例。 */
 @Composable
 fun QrCodeView(text: String, modifier: Modifier = Modifier) {
-    val bitmap = remember(text) {
+    val colors = LocalQrColors.current
+    val bitmap = remember(text, colors) {
         val matrix = QrEncoder.encode(text)
-        // Four white modules are the QR quiet zone, without an extra decorative frame.
+        // Four light modules are the quiet zone; use the same color as the light cells.
         val quietZone = 4
         val edge = matrix.width + quietZone * 2
+        val foreground = colors.foreground.toArgb()
+        val background = colors.background.toArgb()
         val pixels = IntArray(edge * edge) { index ->
             val x = index % edge - quietZone
             val y = index / edge - quietZone
             if (x in 0 until matrix.width && y in 0 until matrix.height && matrix[x, y])
-                android.graphics.Color.BLACK else android.graphics.Color.WHITE
+                foreground else background
         }
         Bitmap.createBitmap(pixels, edge, edge, Bitmap.Config.ARGB_8888).asImageBitmap()
     }

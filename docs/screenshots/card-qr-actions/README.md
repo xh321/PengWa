@@ -8,13 +8,20 @@
 
 ## 本轮视觉细化
 
-保留同一气泡、左右 20dp 边距和二维码下方的碰一碰提示。将绿色支付式图标改为主题色双手机示意，缩小标题，精简说明；二维码识别静区和自动 NFC 交互保持不变。
+保留同一气泡、左右 20dp 边距和二维码下方的碰一碰提示。将绿色支付式图标改为主题色双手机示意，缩小标题，精简说明；二维码识别静区和自动 NFC 交互保持不变。暗色主题的二维码底色由纯白调整为暖灰 `#D8CCD2`，主页及放大页保持黑色码点与同色静区。
 
 | 同一主页场景 | 调整前（371323c） | 调整后 |
 |---|---|---|
 | 浅色 | ![](before-polish-home-light.png) | ![](after-home-light.png) |
 | 深色 | ![](before-polish-home-dark.png) | ![](after-home-dark.png) |
 | 320dp／2 倍字体，操作图标另起一行 | ![](before-polish-home-large-text.png) | ![](after-home-large-text.png) |
+
+## 暗色二维码底色
+
+| 暗色场景 | 纯白底（9471f2b） | 暖灰底 |
+|---|---|---|
+| 主页 | ![](before-qr-tone-home-dark.png) | ![](after-home-dark.png) |
+| 放大二维码 | ![](before-qr-tone-expanded-dark.png) | ![](after-expanded-dark.png) |
 
 ## 运行截图
 

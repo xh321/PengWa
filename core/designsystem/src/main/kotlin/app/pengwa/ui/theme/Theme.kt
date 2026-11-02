@@ -23,7 +23,10 @@ fun PengWaTheme(
         darkTheme -> DarkColors
         else -> LightColors
     }
-    CompositionLocalProvider(LocalStatusColors provides if (darkTheme) DarkStatusColors else LightStatusColors) {
+    CompositionLocalProvider(
+        LocalStatusColors provides if (darkTheme) DarkStatusColors else LightStatusColors,
+        LocalQrColors provides if (darkTheme) DarkQrColors else LightQrColors,
+    ) {
         MaterialTheme(colorScheme = colors, typography = PengWaTypography, shapes = PengWaShapes, content = content)
     }
 }
