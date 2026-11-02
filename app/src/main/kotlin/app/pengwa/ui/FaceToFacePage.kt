@@ -27,9 +27,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -62,8 +60,6 @@ import app.pengwa.pengWa
 import app.pengwa.nfc.NfcWallet
 import app.pengwa.qr.QrEncoder
 import app.pengwa.qr.QrPayload
-import app.pengwa.ui.components.PengWaIcon
-import app.pengwa.ui.components.PengWaIcons
 import app.pengwa.ui.theme.PageGutter
 
 /**
@@ -76,14 +72,14 @@ fun FaceToFacePage(
     role: ExchangeMode,
     onRoleChange: (ExchangeMode) -> Unit,
     onMessage: (String) -> Unit,
+    scanning: Boolean,
+    onScanningChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     onOpenLab: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val resources = LocalResources.current
-    // 故意不用 rememberSaveable：离开这一页再回来，应该回到二维码而不是直接亮相机
-    var scanning by remember { mutableStateOf(false) }
-    BackHandler(enabled = scanning) { scanning = false }
+    BackHandler(enabled = scanning) { onScanningChange(false) }
 
     val mode by context.pengWa.exchangeMode.mode.collectAsStateWithLifecycle()
     val nfcState = rememberNfcState(role)
@@ -104,7 +100,7 @@ fun FaceToFacePage(
     if (scanning) {
         QrScanner(
             onResult = { text ->
-                scanning = false
+                onScanningChange(false)
                 val peer = QrPayload.decode(text)
                 when {
                     peer == null -> onMessage(resources.getString(R.string.qr_invalid))
@@ -112,7 +108,7 @@ fun FaceToFacePage(
                     else -> context.pengWa.bleExchange.discover(peer, initiate = true, source = "二维码")
                 }
             },
-            onClose = { scanning = false },
+            onClose = { onScanningChange(false) },
             modifier = modifier,
         )
         return
@@ -134,7 +130,6 @@ fun FaceToFacePage(
                     if (!wallet.openSettings()) onMessage(resources.getString(R.string.nfc_wallet_open_failed))
                 }
         },
-        onScan = { scanning = true },
         onOpenLab = onOpenLab,
         modifier = modifier,
     )
@@ -147,7 +142,6 @@ internal fun FaceToFacePageContent(
     nfcState: NfcState,
     onRoleChange: (ExchangeMode) -> Unit,
     onOpenNfcSettings: () -> Unit,
-    onScan: () -> Unit,
     modifier: Modifier = Modifier,
     onOpenLab: (() -> Unit)? = null,
     defaultWallet: Boolean = false,
@@ -164,7 +158,6 @@ internal fun FaceToFacePageContent(
                     Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         NfcInstructions(role, nfcState, onRoleChange, defaultWallet, onRequestWallet)
                     }
-                    ScanButton(onScan, Modifier.fillMaxWidth().padding(top = 8.dp))
                 }
                 Column(Modifier.widthIn(max = 216.dp).weight(1f), horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -183,7 +176,6 @@ internal fun FaceToFacePageContent(
                     ExchangeQrCard(identity, onExpand = { expanded = true })
                     NfcStatus(nfcState, onOpenNfcSettings, onOpenLab = onOpenLab)
                 }
-                ScanButton(onScan, Modifier.padding(top = 12.dp).fillMaxWidth())
             }
         }
     }
@@ -267,21 +259,12 @@ private fun WalletHelp(onRequestWallet: () -> Unit) {
 }
 
 @Composable
-private fun ScanButton(onScan: () -> Unit, modifier: Modifier = Modifier) {
-    Button(onClick = onScan, shape = MaterialTheme.shapes.medium, modifier = modifier.heightIn(min = 52.dp)) {
-        PengWaIcon(PengWaIcons.Qr, tint = MaterialTheme.colorScheme.onPrimary)
-        Text(stringResource(R.string.qr_scan), modifier = Modifier.padding(start = 8.dp))
-    }
-}
-
-@Composable
 private fun ExchangeQrCard(identity: Identity, onExpand: () -> Unit, modifier: Modifier = Modifier, showHint: Boolean = true, codeSize: Dp = 200.dp) {
     Surface(
-        onClick = onExpand, modifier = modifier.widthIn(max = if (showHint) 340.dp else codeSize + 16.dp).fillMaxWidth(),
-        shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        onClick = onExpand, modifier = modifier.widthIn(max = if (showHint) 340.dp else codeSize).fillMaxWidth(),
+        color = Color.Transparent,
     ) {
-        Column(Modifier.padding(if (showHint) 12.dp else 8.dp), horizontalAlignment = Alignment.CenterHorizontally,
+        Column(horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             QrCodeView(remember(identity) { QrPayload.encode(identity) }, if (showHint) Modifier.widthIn(max = 200.dp).fillMaxWidth() else Modifier.size(codeSize))
             if (showHint) Text(stringResource(R.string.qr_hint), style = MaterialTheme.typography.bodyMedium,
@@ -312,17 +295,21 @@ private fun QrCardDialog(identity: Identity, onClose: () -> Unit) {
 fun QrCodeView(text: String, modifier: Modifier = Modifier) {
     val bitmap = remember(text) {
         val matrix = QrEncoder.encode(text)
-        val pixels = IntArray(matrix.width * matrix.height) { index ->
-            if (matrix[index % matrix.width, index / matrix.width]) android.graphics.Color.BLACK else android.graphics.Color.WHITE
+        // Four white modules are the QR quiet zone, without an extra decorative frame.
+        val quietZone = 4
+        val edge = matrix.width + quietZone * 2
+        val pixels = IntArray(edge * edge) { index ->
+            val x = index % edge - quietZone
+            val y = index / edge - quietZone
+            if (x in 0 until matrix.width && y in 0 until matrix.height && matrix[x, y])
+                android.graphics.Color.BLACK else android.graphics.Color.WHITE
         }
-        Bitmap.createBitmap(pixels, matrix.width, matrix.height, Bitmap.Config.ARGB_8888).asImageBitmap()
+        Bitmap.createBitmap(pixels, edge, edge, Bitmap.Config.ARGB_8888).asImageBitmap()
     }
     Image(
         bitmap = bitmap,
         contentDescription = stringResource(R.string.qr_code_label),
         filterQuality = FilterQuality.None,
-        modifier = modifier.aspectRatio(1f)
-            .background(Color.White, RoundedCornerShape(16.dp))
-            .padding(24.dp), // Fixed quiet zone; neither the code nor its white backing follows the theme.
+        modifier = modifier.aspectRatio(1f),
     )
 }
