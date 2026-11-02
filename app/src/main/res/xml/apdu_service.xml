@@ -7,7 +7,7 @@
     android:requireDeviceUnlock="false">
 
     <!-- 私有 AID：F0 + "PENGWA" 的 ASCII，与 ApduProtocol.AID 保持一致。
-         两边都装了 App 时一次碰触双向交换名片；对方必须先出示合法名片才会拿到我的名片。 -->
+         两边都装了 App 时一次碰触双向交换卡片；对方必须先出示合法卡片才会拿到我的卡片。 -->
     <aid-group
         android:category="payment"
         android:description="@string/hce_aid_group_description">
@@ -15,7 +15,7 @@
     </aid-group>
 
     <!-- NFC Forum NDEF 标签应用的标准 AID，与 T4tEmulator.AID 保持一致。
-         任何手机都把我们当一张标签来读，系统据此拉起 App；仅在名片页前台时响应（TagShareGate）。 -->
+         任何手机都把我们当一张标签来读，系统据此拉起 App；仅在卡片页前台时响应（TagShareGate）。 -->
     <aid-group
         android:category="other"
         android:description="@string/hce_tag_group_description">

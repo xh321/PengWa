@@ -58,7 +58,7 @@ class T4tEmulator(
                 ApduProtocol.SW_OK
             }
             FILE_NDEF -> {
-                // 选中时就定格内容，读的过程中名字被改了也不会读出前后不一致的数据
+                // 选中时就定格内容，读的过程中显示名被改了也不会读出前后不一致的数据
                 val current = message() ?: return ApduProtocol.SW_FILE_NOT_FOUND
                 ndefFile = byteArrayOf((current.size shr 8).toByte(), current.size.toByte()) + current
                 selectedFile = FILE_NDEF

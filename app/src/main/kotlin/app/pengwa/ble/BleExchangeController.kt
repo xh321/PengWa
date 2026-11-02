@@ -28,7 +28,7 @@ import kotlinx.coroutines.flow.update
  * 蓝牙交换的总控：全应用只有这一个，持有唯一的 [BleExchangeManager]。
  *
  * 什么时候运行由 [BleRunPolicy.plan] 决定，有两种场景：
- *  - **主页／附近娃娃**（前台）：广播 + 扫描，把扫到的人整理成 [nearby] 列表，用户点选某人就向他**申请**交换；
+ *  - **扩列／附近娃娃**（前台）：广播 + 扫描，把扫到的人整理成 [nearby] 列表，用户点选某人就向他**申请**交换；
  *  - **后台广播**（用户在设置里打开，由前台服务保活）：只广播、不扫描，等别人来申请。
  *
  * **被申请的一方必须同意才会交换**：收到申请进入 [incoming]，应用在前台时界面弹对话框，
@@ -40,7 +40,7 @@ import kotlinx.coroutines.flow.update
 class BleExchangeController(
     context: Context,
     private val identityProvider: () -> Identity?,
-    /** 对方名片到手时回调；返回 true 表示算一次有效相遇（自己的名片或刚碰过的返回 false）。 */
+    /** 对方卡片到手时回调；返回 true 表示算一次有效相遇（自己的卡片或刚碰过的返回 false）。 */
     private val onPeer: (peer: Identity, how: String) -> Boolean,
 ) {
     private val appContext = context.applicationContext
@@ -171,7 +171,7 @@ class BleExchangeController(
 
     // ------------------------------------------------------------------ 启停
 
-    /** 是否处于前台识别／交换页面；主页和附近娃娃均广播并扫描。 */
+    /** 是否处于前台识别／交换页面；扩列和附近娃娃均广播并扫描。 */
     fun setPageActive(value: Boolean) {
         if (value == pageActive) return
         pageActive = value
@@ -367,9 +367,9 @@ class BleExchangeController(
         val recorded = onPeer(peer, how)
         log(
             if (recorded) {
-                "收到名片：${peer.displayName}（${peer.id.toString().take(8)}）— $how"
+                "收到卡片：${peer.displayName}（${peer.id.toString().take(8)}）— $how"
             } else {
-                "忽略：自己的名片或刚刚已经碰过"
+                "忽略：自己的卡片或刚刚已经碰过"
             },
         )
     }

@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 主题图标仅使用 alpha：名片留空，系统负责前景 / 背景颜色。 -->
+<!-- 主题图标仅使用 alpha：卡片留空，系统负责前景 / 背景颜色。 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
     <group android:rotation="-12" android:pivotX="42" android:pivotY="57">
-        <!-- 被前方名片遮住的右边框不绘制，避免透明区域露出交叉线。 -->
+        <!-- 被前方卡片遮住的右边框不绘制，避免透明区域露出交叉线。 -->
         <path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF"
             android:strokeWidth="3" android:strokeLineCap="round"
             android:pathData="M50,39H34Q27,39 27,46V68Q27,75 34,75H48" />

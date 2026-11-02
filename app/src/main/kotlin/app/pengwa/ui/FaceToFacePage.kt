@@ -68,7 +68,7 @@ import app.pengwa.ui.theme.PageGutter
 
 /**
  * NFC 与二维码共用的面对面交换页，扫一扫一键打开相机。
- * 离开主页时组合销毁，相机与亮度覆盖随之释放。
+ * 离开扩列页时组合销毁，相机与亮度覆盖随之释放。
  */
 @Composable
 fun FaceToFacePage(

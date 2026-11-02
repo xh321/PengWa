@@ -33,7 +33,7 @@ object ApduProtocol {
         byteArrayOf(CLA_ISO, INS_SELECT, P1_SELECT_BY_NAME, 0x00, AID.size.toByte()) + AID + byteArrayOf(0x00)
 
     fun exchangeCommand(card: ByteArray): ByteArray {
-        require(card.size in 1..255) { "名片长度需在 1..255 字节" }
+        require(card.size in 1..255) { "卡片长度需在 1..255 字节" }
         return byteArrayOf(CLA_PROPRIETARY, INS_EXCHANGE, 0x00, 0x00, card.size.toByte()) + card + byteArrayOf(0x00)
     }
 
@@ -65,7 +65,7 @@ object ApduProtocol {
 class ApduHandler(
     private val identityProvider: () -> Identity?,
     private val onPeer: (Identity) -> Unit,
-    /** 为 false 时不响应：主页没有停在碰一碰 / 扫码页的时候，别人碰不到我。 */
+    /** 为 false 时不响应：扩列没有停在碰一碰 / 扫码页的时候，别人碰不到我。 */
     private val armed: () -> Boolean = { true },
     private val discoveryOnly: Boolean = false,
 ) {
@@ -96,7 +96,7 @@ class ApduHandler(
 
     private fun handleExchange(command: ByteArray): ByteArray {
         if (!selected) return ApduProtocol.SW_CONDITIONS_NOT_SATISFIED
-        // 对方必须出示合法名片才会拿到我的名片，避免被通用读卡器随手抄走
+        // 对方必须出示合法卡片才会拿到我的卡片，避免被通用读卡器随手抄走
         val data = ApduProtocol.commandData(command) ?: return ApduProtocol.SW_WRONG_LENGTH
         val peer = (if (discoveryOnly) PeerDiscovery.decode(data) else decodeIdentity(data)) ?: return ApduProtocol.SW_WRONG_DATA
         val me = identityProvider() ?: return ApduProtocol.SW_CONDITIONS_NOT_SATISFIED
@@ -126,7 +126,7 @@ fun runInitiator(me: Identity, discoveryOnly: Boolean, transceive: (ByteArray) -
     }
     val payload = response.copyOfRange(0, response.size - 2)
     val peer = (if (discoveryOnly) PeerDiscovery.decode(payload) else decodeIdentity(payload))
-        ?: return ExchangeResult.Failed("对方返回的名片不合法")
+        ?: return ExchangeResult.Failed("对方返回的卡片不合法")
     return ExchangeResult.Peer(peer)
 }
 

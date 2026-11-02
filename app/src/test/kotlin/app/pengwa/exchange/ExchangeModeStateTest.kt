@@ -35,7 +35,7 @@ class ExchangeModeStateTest {
     }
 
     @Test
-    fun `离开主页回到都不用`() {
+    fun `离开扩列回到都不用`() {
         val state = ExchangeModeState()
         state.set(ExchangeMode.NfcDisplay)
         state.set(ExchangeMode.None)

@@ -36,12 +36,12 @@ class IdentityViewModel(application: Application) : AndroidViewModel(application
         }.getOrElse { it.message ?: "保存失败，请重试" }
     }
 
-    /** 保存显示名；通过校验返回 null，否则返回错误原因且不保存。存的是规范化后的名字。 */
+    /** 保存显示名；通过校验返回 null，否则返回错误原因且不保存。存的是规范化后的显示名。 */
     fun saveDisplayName(raw: String): NameError? {
         validateDisplayName(raw)?.let { return it }
         repository.saveDisplayName(normalizeDisplayName(raw))
         identity = repository.load()
-        PengWaNotification.refresh(getApplication()) // 通知栏上的名字同步更新
+        PengWaNotification.refresh(getApplication()) // 通知栏上的显示名同步更新
         return null
     }
 }

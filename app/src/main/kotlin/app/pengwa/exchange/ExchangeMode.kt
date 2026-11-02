@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * 我的名片提供 NFC 出示／读取和二维码；主页与附近娃娃都启用蓝牙发现和卡片传输。
+ * 我的卡片提供 NFC 出示／读取和二维码；扩列与附近娃娃都启用蓝牙发现和卡片传输。
  * [None] 表示没有前台交换会话（集邮册、实验室、退后台、息屏、正在改名）。
  */
 enum class ExchangeMode { None, NfcDisplay, NfcRead, Bluetooth }

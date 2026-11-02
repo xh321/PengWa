@@ -99,7 +99,7 @@ class T4tEmulatorTest {
     // ---- 标准读卡器完整读一遍 ----
 
     @Test
-    fun `标准读卡器能完整读出标签并解出名片`() {
+    fun `标准读卡器能完整读出标签并解出卡片`() {
         val message = assertNotNull(readTag(emulator()))
         val (type, payload) = assertNotNull(NdefMessages.parseShortMimeRecord(message))
         assertEquals(NdefMessages.MIME_TYPE, type)
@@ -107,7 +107,7 @@ class T4tEmulatorTest {
     }
 
     @Test
-    fun `最长的名片也能分多次读完`() {
+    fun `最长的卡片也能分多次读完`() {
         val longName = Identity(UUID.randomUUID(), "一".repeat(10) + "ab") // 32 字节
         val message = assertNotNull(readTag(emulator(longName)))
         assertTrue(message.size > T4tEmulator.MAX_READ, "需要分多次读取才有意义")
@@ -125,7 +125,7 @@ class T4tEmulatorTest {
     }
 
     @Test
-    fun `还没设置名字时也不响应`() {
+    fun `还没设置显示名时也不响应`() {
         assertNull(readTag(emulator(identity = null)))
     }
 
@@ -139,7 +139,7 @@ class T4tEmulatorTest {
     }
 
     @Test
-    fun `读取中途名字被改 也不会读出前后不一致的内容`() {
+    fun `读取中途显示名被改 也不会读出前后不一致的内容`() {
         var current = alice
         val emulator = T4tEmulator(message = { message(current) }, armed = { true })
         emulator.process(selectAid(T4tEmulator.AID))

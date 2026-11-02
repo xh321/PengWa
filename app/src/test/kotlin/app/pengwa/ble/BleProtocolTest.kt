@@ -16,7 +16,7 @@ class BleProtocolTest {
         byteArrayOf(version) + id.toBytes() + name
 
     @Test
-    fun `编码格式 版本 + 16 字节 GUID + UTF-8 名字`() {
+    fun `编码格式 版本 + 16 字节 GUID + UTF-8 显示名`() {
         val bytes = encodeIdentity(Identity(id, "小熊"))
         assertEquals(1, bytes[0].toInt())
         assertContentEquals(id.toBytes(), bytes.copyOfRange(1, 17))
@@ -24,19 +24,19 @@ class BleProtocolTest {
     }
 
     @Test
-    fun `编码再解码得到同一个名片`() {
+    fun `编码再解码得到同一个卡片`() {
         val original = Identity(id, "Yuki 小熊 🐻")
         assertEquals(original, decodeIdentity(encodeIdentity(original)))
     }
 
     @Test
-    fun `最长名片不超过 49 字节`() {
+    fun `最长卡片不超过 49 字节`() {
         val bytes = encodeIdentity(Identity(id, "a".repeat(32)))
         assertEquals(49, bytes.size)
     }
 
     @Test
-    fun `编码超长名字直接报错`() {
+    fun `编码超长显示名直接报错`() {
         assertFailsWith<IllegalArgumentException> {
             encodeIdentity(Identity(id, "a".repeat(33)))
         }
@@ -46,7 +46,7 @@ class BleProtocolTest {
     fun `null 空数组和只有头部都解不出来`() {
         assertNull(decodeIdentity(null))
         assertNull(decodeIdentity(ByteArray(0)))
-        assertNull(decodeIdentity(raw(ByteArray(0)))) // 名字为空
+        assertNull(decodeIdentity(raw(ByteArray(0)))) // 显示名为空
     }
 
     @Test
@@ -61,19 +61,19 @@ class BleProtocolTest {
     }
 
     @Test
-    fun `对方发来的名字超长时拒绝`() {
+    fun `对方发来的显示名超长时拒绝`() {
         assertNull(decodeIdentity(raw("a".repeat(33).toByteArray())))
     }
 
     @Test
-    fun `对方发来带控制字符或零宽字符的名字时拒绝`() {
+    fun `对方发来带控制字符或零宽字符的显示名时拒绝`() {
         assertNull(decodeIdentity(raw("a\nb".toByteArray())))
         assertNull(decodeIdentity(raw("a​b".toByteArray())))
         assertNull(decodeIdentity(raw("a‮b".toByteArray())))
     }
 
     @Test
-    fun `对方发来未规范化或带首尾空白的名字时拒绝`() {
+    fun `对方发来未规范化或带首尾空白的显示名时拒绝`() {
         assertNull(decodeIdentity(raw(" abc".toByteArray()))) // 首部空格
         assertNull(decodeIdentity(raw("é".toByteArray()))) // 分解形式，应为 NFC
     }

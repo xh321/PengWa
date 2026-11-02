@@ -45,7 +45,7 @@ class ContactStore(context: Context) :
         _contacts.value = queryAll()
     }
 
-    /** 记录一次相遇：新朋友插入；老朋友更新名字、最近时间并把次数加一。 */
+    /** 记录一次相遇：新朋友插入；老朋友更新显示名、最近时间并把次数加一。 */
     suspend fun recordMeeting(id: UUID, displayName: String, at: Long, card: app.pengwa.identity.CardContent? = null) = withContext(Dispatchers.IO) {
         val encodedCard = card?.let { app.pengwa.identity.CardCodec.encode(app.pengwa.identity.Identity(id, displayName, it)) }
         val db = writableDatabase

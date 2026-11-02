@@ -77,7 +77,7 @@ class IncomingRequestsTest {
     }
 
     @Test
-    fun `冷却按名片 ID 认人 换了设备地址也一样`() {
+    fun `冷却按卡片 ID 认人 换了设备地址也一样`() {
         val requests = IncomingRequests(declineCooldownMillis = 600_000)
         requests.submit(req("addr-1", alice))
         requests.decide("addr-1", accept = false, now = 0)

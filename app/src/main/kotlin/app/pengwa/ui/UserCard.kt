@@ -177,7 +177,7 @@ internal fun CardEditorContent(
                     }) { Text("+ ${type.label()}") }
                 }
             }
-            Text("图片会压缩为小图。扫码、附近蓝牙和 NFC 只用于识别，完整卡片通过蓝牙交换。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("图片会经过压缩。扫码、附近蓝牙和 NFC 只用于识别，完整卡片通过蓝牙交换。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -187,7 +187,7 @@ internal fun CardEditorContent(
     if (confirmDiscard) AlertDialog(onDismissRequest = { confirmDiscard = false }, title = { Text("放弃本次编辑？") }, text = { Text("尚未保存的修改将被丢弃。") }, confirmButton = { TextButton(onClick = onClose) { Text("放弃") } }, dismissButton = { TextButton(onClick = { confirmDiscard = false }) { Text("继续编辑") } })
 }
 
-private fun BlockType.label(): String = when (this) { BlockType.Text -> "文字"; BlockType.Link -> "链接"; BlockType.Social -> "社媒"; BlockType.Image -> "小图" }
+private fun BlockType.label(): String = when (this) { BlockType.Text -> "文字"; BlockType.Link -> "链接"; BlockType.Social -> "社交账号"; BlockType.Image -> "图片" }
 
 @Composable
 internal fun HomeBluetoothStatus() {

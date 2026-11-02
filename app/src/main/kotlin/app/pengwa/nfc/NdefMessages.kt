@@ -15,7 +15,7 @@ object NdefMessages {
     private const val FLAG_IL = 0x08
     private const val TNF_MIME = 0x02
 
-    /** 把 [payload]（名片字节）包装成一条 NDEF 消息。 */
+    /** 把 [payload]（卡片字节）包装成一条 NDEF 消息。 */
     fun mimeMessage(payload: ByteArray): ByteArray {
         val type = MIME_TYPE.toByteArray(Charsets.US_ASCII)
         require(payload.size <= 255) { "短记录的负载最多 255 字节" }

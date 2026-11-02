@@ -63,7 +63,7 @@ object PengWaNotification {
     /** 这条通知是否应该存在：用户开了常驻通知，或者后台蓝牙广播开着（前台服务必须有通知）。 */
     fun shouldShow(context: Context): Boolean = isEnabled(context) || BroadcastSettings.isEnabled(context)
 
-    /** 按当前设置和身份状态发出或撤掉通知；名字修改、开关切换、进程重启后都调用它。 */
+    /** 按当前设置和身份状态发出或撤掉通知；显示名修改、开关切换、进程重启后都调用它。 */
     fun refresh(context: Context) {
         val appContext = context.applicationContext
         val manager = appContext.getSystemService(NotificationManager::class.java)

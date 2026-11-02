@@ -27,7 +27,7 @@ import app.pengwa.ui.components.ExchangeRequestDialog
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
-/** 底部导航只保留三个目的地；实验室仅 Debug 版通过主页状态图标连点打开。 */
+/** 底部导航只保留三个目的地；实验室仅 Debug 版通过扩列页状态图标连点打开。 */
 @Composable
 fun PengWaRoot(
     requestedTab: Int?,

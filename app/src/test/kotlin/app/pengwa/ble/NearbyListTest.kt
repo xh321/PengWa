@@ -47,14 +47,14 @@ class NearbyListTest {
     }
 
     @Test
-    fun `读到预览后有了名字并变为可交换`() {
+    fun `读到预览后有了显示名并变为可交换`() {
         val list = NearbyList()
         list.onSeen("A", -60, 0)
         list.takePreviewCandidates()
         list.onPreview("A", "小熊")
         assertEquals("小熊", list.peer("A").name)
         assertEquals(PeerState.Ready, list.peer("A").state)
-        assertTrue(list.takePreviewCandidates().isEmpty(), "已有名字的不需要再读")
+        assertTrue(list.takePreviewCandidates().isEmpty(), "已有显示名的不需要再读")
     }
 
     @Test
@@ -120,7 +120,7 @@ class NearbyListTest {
     }
 
     @Test
-    fun `交换成功后标记已完成并用对方名片里的名字`() {
+    fun `交换成功后标记已完成并用对方卡片里的显示名`() {
         val list = NearbyList()
         list.onSeen("A", -60, 0)
         list.beginExchange("A")
@@ -134,9 +134,9 @@ class NearbyListTest {
         val list = NearbyList()
         list.onSeen("A", -60, 0)
         list.beginExchange("A")
-        list.onExchanged("A", peerName = null, error = "对方拒绝了你的名片")
+        list.onExchanged("A", peerName = null, error = "对方拒绝了你的卡片")
         assertEquals(PeerState.Failed, list.peer("A").state)
-        assertEquals("对方拒绝了你的名片", list.peer("A").message)
+        assertEquals("对方拒绝了你的卡片", list.peer("A").message)
         assertTrue(list.beginExchange("A"), "失败后应能重试")
         assertNull(list.peer("A").message)
     }

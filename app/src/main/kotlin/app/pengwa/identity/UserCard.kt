@@ -44,7 +44,7 @@ object CardCodec {
         card.blocks.any { it.title.length > 60 || it.text.length > MAX_TEXT || it.url.length > MAX_TEXT } -> "标题最多 60 字，正文最多 $MAX_TEXT 字"
         card.blocks.any { !validImage(it.image) } -> "图片格式或大小不符合要求"
         card.blocks.any { it.type == BlockType.Link && !validLink(it.text) } -> "链接需要完整的 http 或 https 地址"
-        card.blocks.any { it.url.isNotEmpty() && !validLink(it.url) } -> "社媒主页需要完整的 http 或 https 地址"
+        card.blocks.any { it.url.isNotEmpty() && !validLink(it.url) } -> "主页链接需要完整的 http 或 https 地址"
         card.blocks.any { it.type == BlockType.Image && it.image.isEmpty() } -> "请为图片块选择图片"
         else -> null
     }

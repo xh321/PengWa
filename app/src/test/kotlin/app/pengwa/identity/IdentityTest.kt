@@ -32,12 +32,12 @@ class IdentityTest {
     }
 
     @Test
-    fun `空白名字被判为 Empty`() {
+    fun `空白显示名被判为 Empty`() {
         assertEquals(NameError.Empty, validateDisplayName("   "))
     }
 
     @Test
-    fun `正常名字通过校验`() {
+    fun `正常显示名通过校验`() {
         assertEquals(null, validateDisplayName(" 小熊 "))
     }
 }
