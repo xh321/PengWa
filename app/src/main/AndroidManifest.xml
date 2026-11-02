@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- 蓝牙交换名片：BLE 不是硬性要求，没有 BLE 的设备仍可安装（只是用不了该功能） -->
+    <!-- 蓝牙交换卡片：BLE 不是硬性要求，没有 BLE 的设备仍可安装（只是用不了该功能） -->
     <uses-feature
         android:name="android.hardware.bluetooth_le"
         android:required="false" />

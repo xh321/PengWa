@@ -3,37 +3,37 @@
     <string name="app_name">碰碰娃</string>
 
     <!-- 底部导航 -->
-    <string name="tab_me">主页</string>
+    <string name="tab_me">扩列</string>
     <string name="tab_contacts">集邮册</string>
     <string name="tab_nearby">附近娃娃</string>
     <string name="tab_lab">实验室</string>
 
     <!-- 身份 -->
     <string name="setup_title">给自己起个名字</string>
-    <string name="setup_hint">别人碰到你时会看到这个名字，之后可以随时修改。</string>
+    <string name="setup_hint">别人碰到你时会看到这个显示名，之后可以随时修改。</string>
     <string name="display_name_label">显示名</string>
     <string name="save">保存</string>
     <string name="cancel">取消</string>
     <string name="edit_name">修改显示名</string>
 
-    <!-- 主页 -->
+    <!-- 扩列 -->
     <string name="home_id_short">ID %1$s</string>
-    <string name="home_edit">编辑名片</string>
+    <string name="home_edit">编辑卡片</string>
     <string name="home_settings">设置</string>
     <string name="settings_title">设置</string>
 
-    <string name="name_error_empty">名字不能为空</string>
-    <string name="name_error_too_long">名字太长了（最多约 10 个汉字）</string>
-    <string name="name_error_invalid_char">名字里有不支持的字符（换行、零宽字符等）</string>
+    <string name="name_error_empty">显示名不能为空</string>
+    <string name="name_error_too_long">显示名太长了（最多约 10 个汉字）</string>
+    <string name="name_error_invalid_char">显示名里有不支持的字符（换行、零宽字符等）</string>
 
     <!-- 集邮册 -->
     <string name="contacts_empty">还没有碰到过娃友\n碰一碰，就会出现在这里</string>
 
     <!-- 实验室（仅调试版） -->
     <string name="lab_title">实验室（仅调试版）</string>
-    <string name="lab_back">返回碰一碰</string>
+    <string name="lab_back">返回扩列</string>
     <string name="lab_nfc">NFC 诊断</string>
-    <string name="lab_nfc_help">先返回主页复现问题，再连点碰一碰图标 5 次进入这里复制日志。显示最近 60 条，复制最近 400 条和设备信息；退出进程后清空。日志不包含姓名、ID 或名片原文。</string>
+    <string name="lab_nfc_help">先返回扩列复现问题，再连点碰一碰图标 5 次进入这里复制日志。显示最近 60 条，复制最近 400 条和设备信息；退出进程后清空。日志不包含显示名、ID 或卡片原文。</string>
     <string name="lab_nfc_copy">复制 NFC 日志</string>
     <string name="lab_nfc_clear">清空日志</string>
     <string name="lab_ble">蓝牙交换</string>
@@ -44,7 +44,7 @@
     <string name="lab_off">未开</string>
     <string name="ble_log_empty">（暂无日志）</string>
     <string name="lab_demo_data">测试数据</string>
-    <string name="lab_add_demo">添加 5 条假名片</string>
+    <string name="lab_add_demo">添加 5 条假卡片</string>
     <string name="lab_simulate_request">5 秒后模拟收到一个交换申请</string>
 
     <!-- 相机 -->
@@ -62,28 +62,28 @@
     <string name="nfc_wallet_help">部分手机的默认钱包可能优先响应 NFC。若只响未识别或弹出钱包，可切换默认钱包为碰碰娃后重试。使用原钱包刷卡前，请手动切回。</string>
     <string name="nfc_wallet_set_default">设为默认钱包</string>
     <string name="nfc_wallet_open_failed">无法打开设置，请在系统设置中搜索“NFC”或“默认钱包”。</string>
-    <string name="nfc_display_unsupported">此设备无法出示 NFC 名片，请选择读取或扫码。</string>
+    <string name="nfc_display_unsupported">此设备无法通过 NFC 出示扩列卡片，请选择读取或扫码。</string>
     <string name="nfc_status_icon">碰一碰状态</string>
-    <string name="nfc_role_display">出示我的名片</string>
-    <string name="nfc_role_read">读取对方名片</string>
+    <string name="nfc_role_display">出示我的卡片</string>
+    <string name="nfc_role_read">读取对方卡片</string>
     <string name="nfc_display_hint">对方选择读取，碰触手机发现彼此，再通过蓝牙交换完整卡片。</string>
     <string name="nfc_read_hint">靠近对方手机的 NFC 区域，发现后通过蓝牙交换完整卡片。</string>
     <string name="nfc_unsupported">此设备不支持碰一碰</string>
     <string name="nfc_disabled">碰一碰未开启</string>
     <string name="nfc_open_settings">去开启</string>
     <string name="meeting_snackbar">碰到了 %1$s</string>
-    <string name="hce_service_description">碰碰娃名片</string>
-    <string name="hce_aid_group_description">两边都装了碰碰娃时，碰一下互换名片</string>
-    <string name="hce_tag_group_description">名片页打开时，让其他手机把我当作一张名片标签读取</string>
+    <string name="hce_service_description">碰碰娃扩列卡片</string>
+    <string name="hce_aid_group_description">两边都装了碰碰娃时，碰一碰即可交换卡片</string>
+    <string name="hce_tag_group_description">扩列页打开时，让其他手机把我当作一张扩列卡片标签读取</string>
 
     <!-- 蓝牙页 -->
-    <string name="bt_permission_intro">蓝牙交换需要“附近的设备”权限，才能发现附近的碰碰娃</string>
-    <string name="bt_permission_needed">没有“附近的设备”权限，无法发现附近的碰碰娃</string>
+    <string name="bt_permission_intro">蓝牙交换需要“附近的设备”权限，才能发现附近的娃娃</string>
+    <string name="bt_permission_needed">没有“附近的设备”权限，无法发现附近的娃娃</string>
     <string name="bt_grant">允许</string>
     <string name="bt_open_app_settings">去系统设置</string>
     <string name="bt_off">系统蓝牙未开启</string>
     <string name="bt_turn_on">开启蓝牙</string>
-    <string name="bt_peer_unknown">附近的碰碰娃</string>
+    <string name="bt_peer_unknown">附近的娃娃</string>
     <string name="bt_reading_name">正在识别…</string>
     <string name="bt_signal_strong">信号强</string>
     <string name="bt_signal_medium">信号中</string>
@@ -96,13 +96,13 @@
     <string name="bt_failed">交换失败</string>
 
     <!-- 收到交换申请（蓝牙需要被申请的一方同意；NFC 和二维码不需要） -->
-    <string name="request_title">%1$s 想和你交换名片</string>
-    <string name="request_body">对方在附近，通过蓝牙向你申请交换（ID %1$s）。\n同意后你们会互相收到对方的名片。</string>
+    <string name="request_title">%1$s 想和你交换卡片</string>
+    <string name="request_body">对方在附近，通过蓝牙向你申请交换（ID %1$s）。\n同意后你们会互相收到对方的卡片。</string>
     <string name="request_notif_text">来自附近的蓝牙 · 同意后才会交换</string>
     <string name="request_accept">同意</string>
     <string name="request_decline">拒绝</string>
     <string name="request_channel_name">交换申请</string>
-    <string name="request_channel_desc">有人通过蓝牙向你申请交换名片时提醒你</string>
+    <string name="request_channel_desc">有人通过蓝牙向你申请交换卡片时提醒你</string>
 
     <!-- 设置：后台蓝牙广播 -->
     <string name="bg_setting_title">后台蓝牙广播</string>
@@ -111,7 +111,7 @@
     <string name="bg_running">已开启 · 正在后台广播，有人申请时会通知你</string>
 
     <!-- 面对面页的二维码与扫码 -->
-    <string name="qr_hint">扫二维码识别对方，完整卡片通过蓝牙交换。请保持双方应用打开。</string>
+    <string name="qr_hint">扫码识别对方，完整卡片通过蓝牙交换。请保持双方应用打开。</string>
     <string name="qr_scan">扫一扫</string>
     <string name="qr_scan_hint">把对方的二维码放进取景框</string>
     <string name="qr_close">关闭</string>
@@ -120,34 +120,34 @@
 
     <!-- 常驻通知开关 -->
     <string name="notif_setting_title">常驻通知</string>
-    <string name="notif_setting_desc">在通知栏显示我的名片，一键进入主页和集邮册</string>
+    <string name="notif_setting_desc">在通知栏显示我的卡片，一键进入扩列和集邮册</string>
     <string name="notif_permission_needed">需要允许通知权限才能显示</string>
     <string name="notif_open_settings">去系统设置</string>
 
     <!-- 通知栏 -->
-    <string name="notif_channel_name">常驻名片</string>
-    <string name="notif_channel_desc">在通知栏显示我的名片，并提供快捷入口</string>
+    <string name="notif_channel_name">常驻卡片</string>
+    <string name="notif_channel_desc">在通知栏显示我的卡片，并提供快捷入口</string>
     <string name="notif_id_format">ID %1$s</string>
     <string name="notif_hint">点下面的按钮快速进入</string>
     <string name="notif_id_broadcasting">ID %1$s · 蓝牙广播中</string>
     <string name="notif_hint_broadcasting">蓝牙广播中：附近的人可以向你申请交换，你同意后才会交换</string>
     <string name="notif_forced_by_broadcast">后台蓝牙广播开着时，这条通知必须常驻</string>
-    <string name="notif_btn_me">主页</string>
+    <string name="notif_btn_me">扩列</string>
     <string name="notif_btn_contacts">集邮册</string>
-    <string name="my_card">我的名片</string>
-    <string name="contacts_count">已收集 %1$d 位娃友的名片</string>
+    <string name="my_card">我的扩列卡片</string>
+    <string name="contacts_count">已收集 %1$d 位娃友的卡片</string>
     <string name="contacts_empty_title">下一次相遇，从这里开始</string>
-    <string name="contacts_exchange">去交换名片</string>
+    <string name="contacts_exchange">去交换卡片</string>
     <string name="contact_times">遇见 %1$d 次</string>
     <string name="contact_first">初次相遇</string>
     <string name="contact_last">最近相遇</string>
     <string name="contact_id">完整 ID</string>
     <string name="close">关闭</string>
-    <string name="bt_consent_hint">对方同意后，才会互相交换名片</string>
+    <string name="bt_consent_hint">对方同意后，才会互相交换卡片</string>
     <string name="bt_search_title">寻找下一次相遇</string>
-    <string name="bt_search_help">让对方也打开“附近娃娃”。暂未发现？可以靠近一些、检查权限，或回到主页扫码。</string>
+    <string name="bt_search_help">让对方也打开“附近娃娃”。暂未发现？可以靠近一些、检查权限，或返回扩列扫码。</string>
     <string name="bt_search_count">发现 %1$d 位 · 持续搜索中</string>
     <string name="request_source">来自附近的蓝牙</string>
     <string name="request_accept_in_app">同意交换</string>
-    <string name="qr_code_label">我的名片二维码</string>
+    <string name="qr_code_label">我的卡片二维码</string>
 </resources>

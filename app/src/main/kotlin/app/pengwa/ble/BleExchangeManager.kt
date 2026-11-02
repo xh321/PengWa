@@ -60,13 +60,13 @@ interface BleExchangeListener {
 enum class RequestReply { Prompt, Decline }
 
 /**
- * BLE 名片交换的 Android 实现。
+ * BLE 卡片交换的 Android 实现。
  *  - 服务端（广播）：提供六个特征——
  *    预览（只读，旧版只有显示名，新版附身份摘要）、状态（只读，我对这次申请的决定）、
- *    旧版交换与名片，以及新版完整卡片分块读写特征；
+ *    旧版交换与卡片，以及新版完整卡片分块读写特征；
  *  - 客户端（扫描）：扫描带该服务 UUID 的广播；读预览填列表；用户点选某人后，
- *    **先写入我的名片发出申请 → 轮询对方的决定 → 对方同意后读取它的名片**。
- * 广播里不放 ID 和名字，连上之后才读取。所有主动连接排进一个串行队列，同一时刻只有一个。
+ *    **先写入我的卡片发出申请 → 轮询对方的决定 → 对方同意后读取它的卡片**。
+ * 广播里不放 ID 和显示名，连上之后才读取。所有主动连接排进一个串行队列，同一时刻只有一个。
  *
  * 所有方法要求调用前已取得对应的蓝牙权限，因此整体抑制 MissingPermission。
  */
@@ -316,7 +316,7 @@ class BleExchangeManager(
                 gattServer?.sendResponse(device, requestId, status, offset, null)
             }
             if (peer == null) {
-                log("[服务端] 收到不合法的名片数据，已拒绝")
+                log("[服务端] 收到不合法的卡片数据，已拒绝")
                 return
             }
             when (listener.onIncomingRequest(device.address, peer)) {
@@ -445,7 +445,7 @@ class BleExchangeManager(
         pump()
     }
 
-    /** 把结果交给监听方：预览回调名字，交换回调名片或错误。 */
+    /** 把结果交给监听方：预览回调显示名，交换回调卡片或错误。 */
     private fun report(op: Op, preview: PeerPreview?, peer: Identity?, error: String?) {
         when (op.kind) {
             Kind.Preview -> listener.onPreview(op.address, preview)
@@ -456,7 +456,7 @@ class BleExchangeManager(
     /**
      * 客户端流程：连接 → 协商 MTU → 发现服务 →
      *  - 预览：读预览 → 断开；
-     *  - 交换：写我的名片（= 发出申请）→ 每秒读一次状态，等对方决定 → 同意后读对方的名片 → 断开。
+     *  - 交换：写我的卡片（= 发出申请）→ 每秒读一次状态，等对方决定 → 同意后读对方的卡片 → 断开。
      */
     private inner class ClientCallback(private val op: Op) : BluetoothGattCallback() {
         private var gatt: BluetoothGatt? = null
@@ -534,7 +534,7 @@ class BleExchangeManager(
                             failure = "你还没有设置显示名"
                             gatt.disconnect()
                         }
-                        // 先出示我的名片，等于向对方发出申请
+                        // 先出示我的卡片，等于向对方发出申请
                         else -> {
                             upload = CardCodec.encode(me)
                             sendChunk(gatt)
@@ -575,7 +575,7 @@ class BleExchangeManager(
         override fun onCharacteristicWrite(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
             if (finished) return
             if (status != BluetoothGatt.GATT_SUCCESS) {
-                failure = "对方拒绝了你的名片"
+                failure = "对方拒绝了你的卡片"
                 gatt.disconnect()
                 return
             }
@@ -664,7 +664,7 @@ class BleExchangeManager(
             }
         }
 
-        /** 根据对方的决定往下走：同意就读名片，还没决定就一秒后再问，其余都是失败。 */
+        /** 根据对方的决定往下走：同意就读卡片，还没决定就一秒后再问，其余都是失败。 */
         private fun handleDecision(gatt: BluetoothGatt, code: Byte?) {
             when (code?.let(ExchangeStatus::fromCode)) {
                 ExchangeStatus.Accepted -> {

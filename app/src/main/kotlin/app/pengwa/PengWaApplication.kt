@@ -33,7 +33,7 @@ class PengWaApplication : Application() {
     }
 
     /**
-     * 当前前台目的地（我的名片 / 附近娃娃 / 都不是）。我的名片同时提供 NFC 与扫码。
+     * 当前前台目的地（我的卡片 / 附近娃娃 / 都不是）。我的卡片同时提供 NFC 与扫码。
      * NFC 服务、蓝牙总控、NFC 前台调度都读它。
      */
     val exchangeMode = ExchangeModeState()
@@ -53,7 +53,7 @@ class PengWaApplication : Application() {
     }
 
     /**
-     * 蓝牙交换总控：停在主页或附近娃娃时广播并扫描；设置里打开"后台蓝牙广播"后，由前台服务在后台只广播、等别人来申请。
+     * 蓝牙交换总控：停在扩列或附近娃娃时广播并扫描；设置里打开"后台蓝牙广播"后，由前台服务在后台只广播、等别人来申请。
      * 被申请的一方同意后才会交换。
      */
     val bleExchange: BleExchangeController by lazy {
@@ -68,7 +68,7 @@ class PengWaApplication : Application() {
         super.onCreate()
         // 进程被系统杀掉后重新启动时，恢复用户开启的常驻通知
         PengWaNotification.refresh(this)
-        // 主页与附近娃娃启用前台蓝牙；离开前台交换会话就停
+        // 扩列与附近娃娃启用前台蓝牙；离开前台交换会话就停
         mainScope.launch {
             exchangeMode.mode.collect { bleExchange.setPageActive(it == ExchangeMode.Bluetooth || it == ExchangeMode.NfcDisplay || it == ExchangeMode.NfcRead) }
         }

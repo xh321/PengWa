@@ -31,7 +31,7 @@ class GattExchangeSessionsTest {
     }
 
     @Test
-    fun `同意之后才允许读取 并返回对方名片`() {
+    fun `同意之后才允许读取 并返回对方卡片`() {
         val sessions = GattExchangeSessions<String>()
         sessions.request("AA:01")
         assertEquals(alice, sessions.decide("AA:01", accept = true))
@@ -83,7 +83,7 @@ class GattExchangeSessionsTest {
     }
 
     @Test
-    fun `申请的名片不合法就不受理`() {
+    fun `申请的卡片不合法就不受理`() {
         val sessions = GattExchangeSessions<String>()
         assertNull(sessions.onRequest("AA:01", byteArrayOf(1, 2, 3)))
         assertNull(sessions.onRequest("AA:01", null))
@@ -91,7 +91,7 @@ class GattExchangeSessionsTest {
     }
 
     @Test
-    fun `名字带零宽字符的申请不受理`() {
+    fun `显示名带零宽字符的申请不受理`() {
         val sessions = GattExchangeSessions<String>()
         val evil = byteArrayOf(1) + ByteArray(16) { it.toByte() } + "a​b".toByteArray()
         assertNull(sessions.onRequest("AA:01", evil))

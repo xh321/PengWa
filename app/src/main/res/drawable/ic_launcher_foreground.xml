@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 两张向彼此倾斜的娃娃名片；主体位于 adaptive icon 的中央安全区。 -->
+<!-- 两张向彼此倾斜的娃娃卡片；主体位于 adaptive icon 的中央安全区。 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"

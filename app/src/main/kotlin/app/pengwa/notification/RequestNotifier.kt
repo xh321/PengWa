@@ -13,7 +13,7 @@ import app.pengwa.ble.IncomingRequest
 import app.pengwa.pengWa
 
 /**
- * "有人想和你交换名片"的通知：应用在后台时用它提醒，带"同意 / 拒绝"两个按钮。
+ * "有人想和你交换卡片"的通知：应用在后台时用它提醒，带"同意 / 拒绝"两个按钮。
  * 同意按钮要求先解锁手机，避免在锁屏状态下被人随手点掉。应用在前台时不发通知，直接弹对话框。
  */
 object RequestNotifier {

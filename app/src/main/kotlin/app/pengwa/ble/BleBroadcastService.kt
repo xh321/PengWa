@@ -13,7 +13,7 @@ import app.pengwa.pengWa
 
 /**
  * 后台蓝牙广播的前台服务。安卓不允许应用在后台长期广播，必须挂一条常驻通知并声明前台服务类型；
- * 这条通知就是主页"设置"里的常驻通知（自定义布局），多一行"蓝牙广播中"。
+ * 这条通知就是扩列"设置"里的常驻通知（自定义布局），多一行"蓝牙广播中"。
  *
  * 服务本身不做蓝牙操作：只在启动和销毁时通知 [BleExchangeController] 重新决定该广播还是停止。
  * 后台只广播、接受申请，不扫描，所以很省电。重启手机或在设置里强行停止后不会自动恢复，需要再打开一次应用。
@@ -24,7 +24,7 @@ class BleBroadcastService : Service() {
         super.onCreate()
         val notification = PengWaNotification.build(this)
         if (notification == null) {
-            // 还没设置显示名，没有名片可以广播
+            // 还没设置显示名，没有卡片可以广播
             stopSelf()
             return
         }

@@ -4,11 +4,11 @@ import java.util.UUID
 
 /**
  * [Exchanging]：正在连接并送出我的申请；[Waiting]：申请已送达，等对方同意；
- * [Done]：对方同意，名片已互换；[Failed]：被拒绝、没回应或出错。
+ * [Done]：对方同意，卡片已互换；[Failed]：被拒绝、没回应或出错。
  */
 enum class PeerState { Discovered, Ready, Exchanging, Waiting, Done, Failed }
 
-/** 附近的一个碰碰娃。[name] 在读到预览之前是 null；[message] 在失败时说明原因。 */
+/** 附近的一个娃娃。[name] 在读到预览之前是 null；[message] 在失败时说明原因。 */
 data class NearbyPeer(
     val address: String,
     val name: String?,
@@ -22,9 +22,9 @@ data class NearbyPeer(
 )
 
 /**
- * 蓝牙页"附近的人"列表的数据模型。纯 Kotlin，时间由调用方传入，线程安全（蓝牙回调来自多个线程）。
+ * 蓝牙页"附近的娃娃"列表的数据模型。纯 Kotlin，时间由调用方传入，线程安全（蓝牙回调来自多个线程）。
  *  - 每次扫描到广播就更新信号和最后看到的时间；
- *  - 新设备需要读一次预览拿到名字，最多尝试 [maxPreviewAttempts] 次，避免对读不出来的设备反复连接；
+ *  - 新设备需要读一次预览拿到显示名，最多尝试 [maxPreviewAttempts] 次，避免对读不出来的设备反复连接；
  *  - 超过 [ttlMillis] 没再看到就移出列表；列表满了就淘汰最久没看到的。
  */
 class NearbyList(
@@ -89,7 +89,7 @@ class NearbyList(
         if (old.state == PeerState.Exchanging) peers[address] = old.copy(state = PeerState.Waiting)
     }
 
-    /** 交换结束：[error] 为 null 表示成功，[peerName] 是从对方名片里读到的名字。 */
+    /** 交换结束：[error] 为 null 表示成功，[peerName] 是从对方卡片里读到的显示名。 */
     @Synchronized
     fun onExchanged(address: String, peerName: String?, error: String?, identityKey: UUID? = null) {
         val old = peers[address] ?: return

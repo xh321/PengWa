@@ -36,7 +36,7 @@ class QrTest {
     }
 
     @Test
-    fun `最长的名片生成的二维码内容在 80 个字符以内`() {
+    fun `最长的卡片生成的二维码内容在 80 个字符以内`() {
         val longest = Identity(UUID.randomUUID(), "一".repeat(10) + "ab")
         assertTrue(QrPayload.encode(longest).length <= 80)
     }
@@ -52,7 +52,7 @@ class QrTest {
     }
 
     @Test
-    fun `二维码与名字头像内容块无关`() {
+    fun `二维码与显示名头像内容块无关`() {
         val rich = alice.copy(displayName = "Another name", card = app.pengwa.identity.CardContent(
             avatar = "private image", blocks = listOf(app.pengwa.identity.CardBlock(app.pengwa.identity.BlockType.Text, text = "private content")),
         ))
@@ -76,7 +76,7 @@ class QrTest {
     }
 
     @Test
-    fun `名字带零宽字符的名片被拒绝`() {
+    fun `显示名带零宽字符的卡片被拒绝`() {
         val evil = byteArrayOf(1) + ByteArray(16) { it.toByte() } + "a​b".toByteArray()
         val text = "pengwa://c/" + Base64.getUrlEncoder().withoutPadding().encodeToString(evil)
         assertNull(QrPayload.decode(text))

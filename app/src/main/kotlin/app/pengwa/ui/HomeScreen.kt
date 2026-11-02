@@ -45,7 +45,7 @@ import app.pengwa.ui.components.PengWaIcon
 import app.pengwa.ui.components.PengWaIcons
 import app.pengwa.ui.theme.PageGutter
 
-/** 我的名片：碰一碰与扫码共用一页，附近娃娃由底部导航进入。 */
+/** 我的卡片：碰一碰与扫码共用一页，附近娃娃由底部导航进入。 */
 @Composable
 fun HomeScreen(
     viewModel: IdentityViewModel,

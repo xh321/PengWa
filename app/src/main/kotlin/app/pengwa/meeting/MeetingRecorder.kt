@@ -31,7 +31,7 @@ class MeetingDebouncer(private val windowMillis: Long = 10_000L) {
 }
 
 /**
- * NFC 和蓝牙收到名片后统一走这里：排除自己、防抖、写入集邮册、通知界面。
+ * NFC 和蓝牙收到卡片后统一走这里：排除自己、防抖、写入集邮册、通知界面。
  * 可能被系统服务（HCE）在后台线程调用，所以写库放在应用级协程里。
  */
 class MeetingRecorder(
@@ -46,7 +46,7 @@ class MeetingRecorder(
     )
     val events: SharedFlow<MeetingEvent> = _events.asSharedFlow()
 
-    /** 返回 true 表示这次算有效相遇并已开始记录；自己的名片和重复触发返回 false。 */
+    /** 返回 true 表示这次算有效相遇并已开始记录；自己的卡片和重复触发返回 false。 */
     fun record(peer: Identity, via: String): Boolean {
         if (peer.id == selfId()) return false
         if (!debouncer.shouldRecord(peer.id, SystemClock.elapsedRealtime())) return false

@@ -34,7 +34,7 @@ class ApduProtocolTest {
     }
 
     @Test
-    fun `EXCHANGE 命令把名片放在数据域`() {
+    fun `EXCHANGE 命令把卡片放在数据域`() {
         val card = encodeIdentity(alice)
         val command = ApduProtocol.exchangeCommand(card)
         assertEquals(0x80.toByte(), command[0])
@@ -69,7 +69,7 @@ class ApduProtocolTest {
     }
 
     @Test
-    fun `非法名片不会换到我的名片`() {
+    fun `非法卡片不会换到我的卡片`() {
         val handler = handlerFor(alice)
         handler.process(ApduProtocol.selectCommand())
         val garbage = ApduProtocol.exchangeCommand(byteArrayOf(1, 2, 3, 4, 5))
@@ -77,7 +77,7 @@ class ApduProtocolTest {
     }
 
     @Test
-    fun `名字带零宽字符的名片被拒绝且不回调`() {
+    fun `显示名带零宽字符的卡片被拒绝且不回调`() {
         val received = mutableListOf<Identity>()
         val handler = handlerFor(alice, received)
         handler.process(ApduProtocol.selectCommand())
@@ -122,7 +122,7 @@ class ApduProtocolTest {
     }
 
     @Test
-    fun `没停在 NFC 页时不会记录对方 也不会交出我的名片`() {
+    fun `没停在 NFC 页时不会记录对方 也不会交出我的卡片`() {
         val received = mutableListOf<Identity>()
         val handler = ApduHandler(identityProvider = { alice }, onPeer = { received += it }, armed = { false })
         runInitiator(bob) { handler.process(it) }
@@ -153,7 +153,7 @@ class ApduProtocolTest {
     // ------------------------------------------------------------ 两端对接：一次完整的碰触
 
     @Test
-    fun `出示端可交换 切到读取或离开页面后不再提供名片`() {
+    fun `出示端可交换 切到读取或离开页面后不再提供卡片`() {
         val state = ExchangeModeState()
         val received = mutableListOf<Identity>()
         val card = CardRouter(
@@ -191,15 +191,15 @@ class ApduProtocolTest {
     }
 
     @Test
-    fun `一次碰触双方互换名片`() {
+    fun `一次碰触双方互换卡片`() {
         val bobReceived = mutableListOf<Identity>()
         val bobCard = handlerFor(bob, bobReceived) // Bob 的手机被碰（HCE）
 
         // Alice 的手机去碰：命令直接交给 Bob 的处理器，等价于 IsoDep.transceive
         val result = runInitiator(alice) { command -> bobCard.process(command) }
 
-        assertEquals(ExchangeResult.Peer(bob), result)   // Alice 拿到 Bob 的名片
-        assertEquals(listOf(alice), bobReceived)         // Bob 也拿到了 Alice 的名片
+        assertEquals(ExchangeResult.Peer(bob), result)   // Alice 拿到 Bob 的卡片
+        assertEquals(listOf(alice), bobReceived)         // Bob 也拿到了 Alice 的卡片
     }
 
     @Test
@@ -248,7 +248,7 @@ class ApduProtocolTest {
     }
 
     @Test
-    fun `对方返回的名片不合法时失败`() {
+    fun `对方返回的卡片不合法时失败`() {
         var step = 0
         val result = runInitiator(alice) {
             step++
@@ -258,7 +258,7 @@ class ApduProtocolTest {
     }
 
     @Test
-    fun `最长名片的往返不超过短 APDU 上限`() {
+    fun `最长卡片的往返不超过短 APDU 上限`() {
         val longName = Identity(UUID.randomUUID(), "一".repeat(10) + "ab")
         val command = ApduProtocol.exchangeCommand(encodeIdentity(longName))
         assertTrue(command.size <= 5 + 255 + 1)
