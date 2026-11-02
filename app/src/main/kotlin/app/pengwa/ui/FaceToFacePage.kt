@@ -142,6 +142,10 @@ internal fun FaceToFacePageContent(
     var expanded by rememberSaveable { mutableStateOf(false) }
     BoxWithConstraints(modifier.fillMaxSize()) {
         val compact = maxHeight < 300.dp && maxWidth >= 480.dp
+        // Keep the art behind the exchange controls; short windows need the space for content.
+        if (maxHeight >= 440.dp) {
+            HomeBackdropArt(Modifier.align(Alignment.BottomEnd).padding(end = 20.dp, bottom = 8.dp))
+        }
         val codeSize = minOf(240.dp, maxHeight - 40.dp).coerceAtLeast(48.dp)
         Column(
             Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 12.dp)
