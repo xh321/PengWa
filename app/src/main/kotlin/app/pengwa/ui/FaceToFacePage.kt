@@ -142,7 +142,7 @@ internal fun FaceToFacePageContent(
         val compact = maxHeight < 300.dp && maxWidth >= 480.dp
         val codeSize = minOf(200.dp, maxHeight - 40.dp).coerceAtLeast(48.dp)
         Column(
-            Modifier.fillMaxSize().padding(horizontal = 4.dp, vertical = 12.dp)
+            Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 12.dp)
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
