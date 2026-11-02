@@ -24,6 +24,7 @@ object PengWaIcons {
     val Camera = R.drawable.ph_camera
     val Bluetooth = R.drawable.ph_bluetooth
     val Qr = R.drawable.ph_qr_code
+    val Scan = R.drawable.ph_scan
     val Settings = R.drawable.ph_gear_six
     val View = R.drawable.ph_eye
     val Edit = R.drawable.ph_pencil_simple

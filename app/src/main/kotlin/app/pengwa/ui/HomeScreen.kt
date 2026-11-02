@@ -139,7 +139,7 @@ internal fun HomeHeader(identity: Identity, onView: () -> Unit, onScan: () -> Un
                 modifier = Modifier.padding(top = 4.dp))
         }
         IconButton(onClick = onView) { PengWaIcon(PengWaIcons.View, contentDescription = stringResource(R.string.home_view_card)) }
-        IconButton(onClick = onScan) { PengWaIcon(PengWaIcons.Qr, contentDescription = stringResource(R.string.qr_scan)) }
+        IconButton(onClick = onScan) { PengWaIcon(PengWaIcons.Scan, contentDescription = stringResource(R.string.qr_scan)) }
         IconButton(onClick = onSettings) { PengWaIcon(PengWaIcons.Settings, contentDescription = stringResource(R.string.home_settings)) }
     }
 }
