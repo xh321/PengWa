@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import kotlinx.coroutines.launch
 import app.pengwa.R
+import app.pengwa.analytics.AnalyticsEvent
 import app.pengwa.exchange.ExchangeMode
 import app.pengwa.identity.Identity
 import app.pengwa.identity.NameError
@@ -58,6 +59,7 @@ fun HomeScreen(
     onDetailVisibilityChanged: (Boolean) -> Unit = {},
 ) {
     val identity = viewModel.identity
+    val analytics = LocalContext.current.pengWa.analytics
     // Leaving the home destination starts with the QR code, without restoring the camera.
     var scanning by remember { mutableStateOf(false) }
     var editing by rememberSaveable { mutableStateOf(false) }
@@ -103,14 +105,35 @@ fun HomeScreen(
 
     if (showingCard) {
         CardDetailsPage("我的卡片", onBack = { showingCard = false }, modifier = modifier,
-            onEdit = { viewModel.beginEdit(); editing = true }) {
+            onEdit = {
+                analytics.track(AnalyticsEvent.CardEditStarted)
+                viewModel.beginEdit()
+                editing = true
+            }) {
             UserCardContent(identity)
         }
         return
     }
 
     Column(modifier = modifier.fillMaxSize()) {
-        HomeHeader(identity, onView = { scanning = false; showingCard = true }, onScan = { scanning = true }, onSettings = { scanning = false; showSettings = true })
+        HomeHeader(
+            identity,
+            onView = {
+                if (scanning) analytics.track(AnalyticsEvent.QrScanCancelled)
+                scanning = false
+                analytics.track(AnalyticsEvent.OwnCardViewed)
+                showingCard = true
+            },
+            onScan = {
+                if (!scanning) analytics.track(AnalyticsEvent.QrScanOpened)
+                scanning = true
+            },
+            onSettings = {
+                if (scanning) analytics.track(AnalyticsEvent.QrScanCancelled)
+                scanning = false
+                showSettings = true
+            },
+        )
         HomeBluetoothStatus()
         FaceToFacePage(
             identity = identity,

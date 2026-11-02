@@ -52,6 +52,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import app.pengwa.R
+import app.pengwa.analytics.AnalyticsEvent
 import app.pengwa.identity.Identity
 import app.pengwa.pengWa
 import app.pengwa.nfc.NfcWallet
@@ -73,7 +74,12 @@ fun FaceToFacePage(
 ) {
     val context = LocalContext.current
     val resources = LocalResources.current
-    BackHandler(enabled = scanning) { onScanningChange(false) }
+    val analytics = context.pengWa.analytics
+    fun closeScanner() {
+        analytics.track(AnalyticsEvent.QrScanCancelled)
+        onScanningChange(false)
+    }
+    BackHandler(enabled = scanning) { closeScanner() }
 
     val nfcState = rememberNfcState()
     val canDisplay = remember(context) { context.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_NFC_HOST_CARD_EMULATION) }
@@ -97,12 +103,21 @@ fun FaceToFacePage(
                 onScanningChange(false)
                 val peer = QrPayload.decode(text)
                 when {
-                    peer == null -> onMessage(resources.getString(R.string.qr_invalid))
-                    peer.id == identity.id -> onMessage("这是自己的二维码")
-                    else -> context.pengWa.bleExchange.discover(peer, initiate = true, source = "二维码")
+                    peer == null -> {
+                        analytics.track(AnalyticsEvent.QrScanInvalid)
+                        onMessage(resources.getString(R.string.qr_invalid))
+                    }
+                    peer.id == identity.id -> {
+                        analytics.track(AnalyticsEvent.QrScanSelf)
+                        onMessage("这是自己的二维码")
+                    }
+                    else -> {
+                        analytics.track(AnalyticsEvent.QrScanPeer)
+                        context.pengWa.bleExchange.discover(peer, initiate = true, source = "二维码")
+                    }
                 }
             },
-            onClose = { onScanningChange(false) },
+            onClose = ::closeScanner,
             modifier = modifier,
         )
         return

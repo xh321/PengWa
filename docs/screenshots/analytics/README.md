@@ -108,3 +108,24 @@ adb -s emulator-5564 shell settings put system font_scale 1.0
 | 深色 | ![主分支更新设置](before-modal-footer-dark.png) | ![统计与更新设置共存](after-modal-footer-dark.png) |
 
 合并后 36 项 app 单元测试、Debug 构建、Debug lint、Release 构建及 2 项更新元数据脚本测试通过。
+
+## 行为埋点扩展：统计范围说明更新
+
+本次仅更新统计范围说明，不修改引导默认勾选、既有用户设置、SDK 初始化门禁或关闭后的丢弃行为。
+以下图片可直接用于 PR 描述：
+
+| 页面 / 状态 | main 变更前 | 本次变更后 |
+|---|---|---|
+| 设置，已配置关闭，浅色 | ![原设置说明浅色](../analytics-behavior/before-light.png) | ![新设置说明浅色](../analytics-behavior/after-light.png) |
+| 设置，已配置关闭，深色 | ![原设置说明深色](../analytics-behavior/before-dark.png) | ![新设置说明深色](../analytics-behavior/after-dark.png) |
+| 引导统计说明弹窗，浅色 | ![原引导说明浅色](../analytics-behavior/before-onboarding-light.png) | ![新引导说明浅色](../analytics-behavior/after-onboarding-light.png) |
+| 引导统计说明弹窗，深色 | ![原引导说明深色](../analytics-behavior/before-onboarding-dark.png) | ![新引导说明深色](../analytics-behavior/after-onboarding-dark.png) |
+
+- 环境：AVD `PengWaNavigation` 独立只读实例，`emulator-5582`，Android 16 / API 36，1080 × 2400，420 dpi。
+- 前图来自 main `045fb38` 的 Debug APK，后图来自本 PR 的 Debug APK，均在同一模拟器实际运行，通过 `adb exec-out screencap -p` 获取。
+- 设置复现：启动 `UiPreviewActivity --es screen analytics --ei sample 1`；使用注入的已配置关闭状态，控件与生产设置共用，不操作真实统计服务。
+- 引导复现：临时实例清空应用测试数据 → 创建合成卡片 `TelemetryTest` → 保存并预览 →「卡片准备好了，去扩列」→ 向上滚动 → 点击「说明」；两版本保持相同步骤和测试数据。
+- 浅色/深色使用 `cmd uimode night no/yes`；图片没有真实姓名、ID 或照片。两份构建均未配置真实 App Key。
+- 本 PR 的 Debug 单元测试、Debug 构建、Debug lint 通过。使用最终编译后的 `Analytics` 执行临时 JVM smoke，覆盖全部 42 个事件变体的未开启/开启/关闭、不补报、无配置丢弃及传输异常后恢复。
+- 本 PR 生产路径在模拟器验证：自身卡片详情、编辑预览/保存/确认放弃、扫码入口/相机权限拒绝/关闭、空集邮册、首次引导卡片保存及统计说明弹窗；未向真实 Aptabase 发送事件。
+- 真实二维码内容识别、照片完成/失败/取消、非空集邮册详情、NFC/BLE 双机流程及真实申请决定尚未在设备验证；本次新增事件的 SDK 网络收件与控制台展示尚未验证。

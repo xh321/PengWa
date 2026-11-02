@@ -14,6 +14,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -21,7 +22,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.pengwa.R
+import app.pengwa.analytics.AnalyticsEvent
 import app.pengwa.contacts.Contact
+import app.pengwa.pengWa
 import app.pengwa.ui.components.NameStamp
 import app.pengwa.ui.components.PengWaIcon
 import app.pengwa.ui.components.PengWaIcons
@@ -42,7 +45,14 @@ fun ContactsScreen(
     onDetailVisibilityChanged: (Boolean) -> Unit = {},
 ) {
     val contacts by viewModel.contacts.collectAsStateWithLifecycle()
-    ContactsScreenContent(contacts = contacts, modifier = modifier, onExchange = onExchange, onDetailVisibilityChanged = onDetailVisibilityChanged) { buttonModifier ->
+    val analytics = LocalContext.current.pengWa.analytics
+    ContactsScreenContent(
+        contacts = contacts,
+        modifier = modifier,
+        onExchange = onExchange,
+        onDetailVisibilityChanged = onDetailVisibilityChanged,
+        onContactOpened = { analytics.track(AnalyticsEvent.ContactCardViewed) },
+    ) { buttonModifier ->
         CameraButton(onMessage = onMessage, modifier = buttonModifier)
     }
 }
@@ -54,6 +64,7 @@ internal fun ContactsScreenContent(
     onExchange: () -> Unit = {},
     now: Long = System.currentTimeMillis(),
     onDetailVisibilityChanged: (Boolean) -> Unit = {},
+    onContactOpened: () -> Unit = {},
     cameraButton: @Composable (Modifier) -> Unit,
 ) {
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -91,7 +102,10 @@ internal fun ContactsScreenContent(
             } else {
                 LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = fabClearance)) {
                     items(contacts, key = { it.id }) { contact ->
-                        ContactRow(contact, now, onClick = { selectedId = contact.id.toString() })
+                        ContactRow(contact, now, onClick = {
+                            onContactOpened()
+                            selectedId = contact.id.toString()
+                        })
                     }
                 }
             }

@@ -19,6 +19,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
+import app.pengwa.analytics.AnalyticsEvent
 import app.pengwa.identity.*
 import app.pengwa.pengWa
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -128,8 +129,13 @@ private fun rememberCardImagePainter(value: String): AsyncImagePainter {
 @Composable
 internal fun CardEditor(viewModel: IdentityViewModel, onClose: () -> Unit, modifier: Modifier = Modifier) {
     LaunchedEffect(viewModel) { if (viewModel.draft == null) viewModel.beginEdit() }
+    val analytics = LocalContext.current.pengWa.analytics
     val draft = viewModel.draft ?: return
-    CardEditorContent(draft, viewModel::updateDraft, viewModel::saveDraft, onClose, modifier)
+    CardEditorContent(
+        draft, viewModel::updateDraft, viewModel::saveDraft, onClose, modifier,
+        onCancel = { analytics.track(AnalyticsEvent.CardEditCancelled) },
+        onPreview = { analytics.track(AnalyticsEvent.CardEditorPreviewOpened) },
+    )
 }
 
 @Composable
@@ -140,6 +146,8 @@ internal fun CardEditorContent(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
     onboarding: Boolean = false,
+    onCancel: () -> Unit = {},
+    onPreview: () -> Unit = {},
 ) {
     var preview by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -175,7 +183,10 @@ internal fun CardEditorContent(
     Column(modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(if (preview) "卡片预览" else if (onboarding) "创建我的卡片" else "编辑我的卡片", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
-            TextButton(onClick = { preview = !preview }, enabled = !loading) { Text(if (preview) "继续编辑" else "预览") }
+            TextButton(onClick = {
+                preview = !preview
+                if (preview) onPreview()
+            }, enabled = !loading) { Text(if (preview) "继续编辑" else "预览") }
         }
         if (onboarding && !preview) Text("先填一个让娃友认出你的名字。头像、自我介绍和社媒都可选，以后也能随时修改。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (preview) UserCardContent(draft) else {
@@ -227,7 +238,7 @@ internal fun CardEditorContent(
         } } }, modifier = Modifier.fillMaxWidth()) { Text(if (onboarding) "保存并预览" else "保存卡片") }
         if (!onboarding) TextButton(onClick = ::close, modifier = Modifier.fillMaxWidth(), enabled = !loading) { Text("取消") }
     }
-    if (confirmDiscard) AlertDialog(onDismissRequest = { confirmDiscard = false }, title = { Text("放弃本次编辑？") }, text = { Text("尚未保存的修改将被丢弃。") }, confirmButton = { TextButton(onClick = onClose) { Text("放弃") } }, dismissButton = { TextButton(onClick = { confirmDiscard = false }) { Text("继续编辑") } })
+    if (confirmDiscard) AlertDialog(onDismissRequest = { confirmDiscard = false }, title = { Text("放弃本次编辑？") }, text = { Text("尚未保存的修改将被丢弃。") }, confirmButton = { TextButton(onClick = { onCancel(); onClose() }) { Text("放弃") } }, dismissButton = { TextButton(onClick = { confirmDiscard = false }) { Text("继续编辑") } })
 }
 
 private fun BlockType.label(): String = when (this) { BlockType.Text -> "文字"; BlockType.Link -> "链接"; BlockType.Social -> "社媒"; BlockType.Image -> "小图" }

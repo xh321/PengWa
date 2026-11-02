@@ -27,6 +27,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import app.pengwa.R
+import app.pengwa.analytics.AnalyticsEvent
+import app.pengwa.pengWa
 import app.pengwa.ble.BroadcastSettings
 import app.pengwa.notification.PengWaNotification
 import app.pengwa.ui.components.SettingsRow
@@ -73,6 +75,9 @@ fun NotificationToggle(modifier: Modifier = Modifier) {
             description = stringResource(if (forcedByBroadcast) R.string.notif_forced_by_broadcast else R.string.notif_setting_desc),
             checked = forcedByBroadcast || (wanted && permitted), enabled = !forcedByBroadcast,
             onCheckedChange = { turnOn ->
+                context.pengWa.analytics.track(
+                    if (turnOn) AnalyticsEvent.NotificationRequestedOn else AnalyticsEvent.NotificationRequestedOff,
+                )
                 when {
                     !turnOn -> PengWaNotification.setEnabled(context, false)
                     PengWaNotification.hasPermission(context) -> {
