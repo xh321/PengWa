@@ -2,8 +2,6 @@ package app.pengwa.ui
 
 import android.Manifest
 import android.content.ActivityNotFoundException
-import android.graphics.Bitmap
-import android.graphics.ImageDecoder
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -18,7 +16,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -27,6 +24,11 @@ import androidx.compose.ui.window.Dialog
 import app.pengwa.R
 import app.pengwa.photo.ContactPhotos
 import app.pengwa.photo.PhotoStorage
+import coil3.compose.AsyncImagePainter
+import coil3.compose.rememberAsyncImagePainter
+import coil3.request.ImageRequest
+import coil3.size.Precision
+import coil3.size.Scale
 import java.io.File
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
@@ -140,21 +142,19 @@ internal fun ContactPhotoSection(contactId: UUID) {
 
 @Composable
 private fun ContactPhoto(file: File, description: String, modifier: Modifier, maxSize: Int, scale: ContentScale) {
-    var bitmap by remember(file, maxSize) { mutableStateOf<Bitmap?>(null) }
-    var loaded by remember(file, maxSize) { mutableStateOf(false) }
-    LaunchedEffect(file, maxSize) {
-        bitmap = withContext(Dispatchers.IO) {
-            runCatching {
-                ImageDecoder.decodeBitmap(ImageDecoder.createSource(file)) { decoder, info, _ ->
-                    val factor = minOf(1f, maxSize.toFloat() / maxOf(info.size.width, info.size.height))
-                    decoder.setTargetSize(maxOf(1, (info.size.width * factor).toInt()), maxOf(1, (info.size.height * factor).toInt()))
-                    decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
-                }
-            }.getOrNull()
-        }
-        loaded = true
+    val context = LocalContext.current
+    val request = remember(context, file, maxSize) {
+        ImageRequest.Builder(context)
+            .data(file)
+            .size(maxSize, maxSize)
+            .scale(Scale.FIT)
+            .precision(Precision.EXACT)
+            .build()
     }
-    val image = bitmap
-    if (image != null) Image(image.asImageBitmap(), description, modifier, contentScale = scale)
-    else Box(modifier) { Text(stringResource(if (loaded) R.string.contact_photo_unavailable else R.string.contact_photo_loading)) }
+    val painter = rememberAsyncImagePainter(request)
+    val state by painter.state.collectAsState()
+    if (state is AsyncImagePainter.State.Success) Image(painter, description, modifier, contentScale = scale)
+    else Box(modifier) {
+        Text(stringResource(if (state is AsyncImagePainter.State.Error) R.string.contact_photo_unavailable else R.string.contact_photo_loading))
+    }
 }
