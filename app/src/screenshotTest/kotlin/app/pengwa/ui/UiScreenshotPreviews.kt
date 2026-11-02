@@ -38,6 +38,11 @@ internal fun RequestScreenshots() { RequestPreview() }
 @PreviewTest
 @PengWaPreviews
 @Composable
+internal fun ConnectionSuccessScreenshots() { ConnectionSuccessPreview() }
+
+@PreviewTest
+@PengWaPreviews
+@Composable
 internal fun NameFormScreenshots() { NameFormPreview() }
 
 @PreviewTest

@@ -26,6 +26,7 @@ class UiPreviewActivity : ComponentActivity() {
                 "update" -> SettingsPreview(updatePreviewState(index))
                 "update-live" -> UpdateLivePreview()
                 "request" -> RequestPreview()
+                "meeting" -> ConnectionSuccessPreview()
                 "permission" -> ScannerPermissionPreview()
                 "name" -> NameFormPreview()
                 "details" -> ContactDetailsPreview()

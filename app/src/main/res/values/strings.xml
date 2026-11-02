@@ -84,6 +84,8 @@
     <string name="nfc_disabled">碰一碰未开启</string>
     <string name="nfc_open_settings">去开启</string>
     <string name="meeting_snackbar">碰到了 %1$s</string>
+    <string name="meeting_success_title">相遇成功</string>
+    <string name="meeting_success_hint">卡片交换完成，下一次相遇也值得期待。</string>
     <string name="hce_service_description">碰碰娃名片</string>
     <string name="hce_aid_group_description">两边都装了碰碰娃时，碰一下互换名片</string>
     <string name="hce_tag_group_description">名片页打开时，让其他手机把我当作一张名片标签读取</string>
@@ -115,13 +117,13 @@
     <string name="bt_failed">交换失败</string>
 
     <!-- 收到交换申请（蓝牙需要被申请的一方同意；NFC 和二维码不需要） -->
-    <string name="request_title">%1$s 想和你交换名片</string>
-    <string name="request_body">对方在附近，通过蓝牙向你申请交换（ID %1$s）。\n同意后你们会互相收到对方的名片。</string>
+    <string name="request_title">%1$s 想和你交换卡片</string>
+    <string name="request_body">对方在附近，通过蓝牙向你申请交换（ID %1$s）。\n同意后你们会互相收到对方的卡片。</string>
     <string name="request_notif_text">来自附近的蓝牙 · 同意后才会交换</string>
     <string name="request_accept">同意</string>
     <string name="request_decline">拒绝</string>
     <string name="request_channel_name">交换申请</string>
-    <string name="request_channel_desc">有人通过蓝牙向你申请交换名片时提醒你</string>
+    <string name="request_channel_desc">有人通过蓝牙向你申请交换卡片时提醒你</string>
 
     <!-- 设置：后台蓝牙广播 -->
     <string name="bg_setting_title">后台蓝牙广播</string>

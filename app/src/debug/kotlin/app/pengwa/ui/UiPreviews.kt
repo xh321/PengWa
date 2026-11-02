@@ -16,6 +16,7 @@ import app.pengwa.R
 import androidx.compose.ui.res.stringResource
 import app.pengwa.ui.components.SettingsRow
 import app.pengwa.ui.components.ExchangeRequestDialog
+import app.pengwa.ui.components.MeetingCelebrationOverlay
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -227,6 +228,15 @@ internal fun SettingsPreview(
 internal fun RequestPreview() {
     PreviewHome { }
     PengWaTheme(dynamicColor = false) { ExchangeRequestDialog("名字很长很长的娃友", "00000001", {}, {}) }
+}
+
+@PengWaPreviews
+@Composable
+internal fun ConnectionSuccessPreview() {
+    PreviewHome { }
+    PengWaTheme(dynamicColor = false) {
+        MeetingCelebrationOverlay(name = "名字很长很长的娃友", visible = true, onDismiss = {})
+    }
 }
 
 @PengWaPreviews
