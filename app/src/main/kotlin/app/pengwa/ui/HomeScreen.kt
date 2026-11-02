@@ -51,8 +51,6 @@ import app.pengwa.ui.theme.PageGutter
 @Composable
 fun HomeScreen(
     viewModel: IdentityViewModel,
-    role: ExchangeMode,
-    onRoleChange: (ExchangeMode) -> Unit,
     onMessage: (String) -> Unit,
     modifier: Modifier = Modifier,
     onOpenLab: (() -> Unit)? = null,
@@ -60,6 +58,8 @@ fun HomeScreen(
     onDetailVisibilityChanged: (Boolean) -> Unit = {},
 ) {
     val identity = viewModel.identity
+    // Leaving the home destination starts with the QR code, without restoring the camera.
+    var scanning by remember { mutableStateOf(false) }
     var editing by rememberSaveable { mutableStateOf(false) }
     var showingCard by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
@@ -110,35 +110,45 @@ fun HomeScreen(
     }
 
     Column(modifier = modifier.fillMaxSize()) {
-        HomeHeader(identity, onView = { showingCard = true }, onEdit = { viewModel.beginEdit(); editing = true }, onSettings = { showSettings = true })
+        HomeHeader(identity, onView = { scanning = false; showingCard = true }, onScan = { scanning = true }, onSettings = { scanning = false; showSettings = true })
         HomeBluetoothStatus()
         FaceToFacePage(
-            identity = identity, role = role, onRoleChange = onRoleChange,
+            identity = identity,
             onMessage = onMessage, modifier = Modifier.weight(1f),
             onOpenLab = onOpenLab,
+            scanning = scanning, onScanningChange = { scanning = it },
         )
     }
 }
 
 @Composable
-internal fun HomeHeader(identity: Identity, onView: () -> Unit, onEdit: () -> Unit, onSettings: () -> Unit) {
+internal fun HomeHeader(identity: Identity, onView: () -> Unit, onScan: () -> Unit, onSettings: () -> Unit) {
     val compact = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.height.toDp() < 480.dp }
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = PageGutter, vertical = if (compact) 4.dp else 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        CardAvatar(identity, Modifier.padding(end = 12.dp))
-        Column(Modifier.weight(1f)) {
-            if (!compact) Text(stringResource(R.string.my_card), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-            Text(identity.displayName, style = MaterialTheme.typography.headlineSmall, maxLines = if (compact) 1 else 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
-            if (!compact) Text(stringResource(R.string.home_id_short, identity.id.toString().take(8)),
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp))
+    val separateActions = LocalDensity.current.fontScale >= 1.5f && !compact
+    Column(Modifier.fillMaxWidth().padding(horizontal = PageGutter, vertical = if (compact) 4.dp else 12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            CardAvatar(identity, Modifier.padding(end = 12.dp))
+            Column(Modifier.weight(1f)) {
+                if (!compact) Text(stringResource(R.string.my_card), style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary, maxLines = 1)
+                Text(identity.displayName, style = MaterialTheme.typography.headlineSmall,
+                    maxLines = if (compact) 1 else 2, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 4.dp))
+                if (!compact) Text(stringResource(R.string.home_id_short, identity.id.toString().take(8)),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
+            }
+            if (!separateActions) HomeHeaderActions(onView, onScan, onSettings)
         }
-        IconButton(onClick = onView) { PengWaIcon(PengWaIcons.View, contentDescription = stringResource(R.string.home_view_card)) }
-        IconButton(onClick = onEdit) { PengWaIcon(PengWaIcons.Edit, contentDescription = stringResource(R.string.home_edit)) }
-        IconButton(onClick = onSettings) { PengWaIcon(PengWaIcons.Settings, contentDescription = stringResource(R.string.home_settings)) }
+        if (separateActions) Row(Modifier.align(Alignment.End)) { HomeHeaderActions(onView, onScan, onSettings) }
     }
+}
+
+@Composable
+private fun HomeHeaderActions(onView: () -> Unit, onScan: () -> Unit, onSettings: () -> Unit) {
+    IconButton(onClick = onView) { PengWaIcon(PengWaIcons.View, contentDescription = stringResource(R.string.home_view_card)) }
+    IconButton(onClick = onScan) { PengWaIcon(PengWaIcons.Scan, contentDescription = stringResource(R.string.qr_scan)) }
+    IconButton(onClick = onSettings) { PengWaIcon(PengWaIcons.Settings, contentDescription = stringResource(R.string.home_settings)) }
 }
 
 /** Stops the outgoing hardware session before another destination starts its own. */

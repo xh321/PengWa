@@ -49,10 +49,11 @@ class MainActivity : ComponentActivity() {
             inspectRouting = BuildConfig.DEBUG,
         ) { tag ->
             runOnUiThread {
-                val accepted = lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) &&
-                    pengWa.exchangeMode.isActive(ExchangeMode.NfcRead)
+                val lease = if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
+                    pengWa.exchangeMode.beginNfcExchange(ExchangeMode.NfcRead) else null
+                val accepted = lease != null
                 pengWa.nfcDiagnostics.record("Reader callback accepted=$accepted lifecycle=${lifecycle.currentState} role=${pengWa.exchangeMode.current} tech=${tag.techList.joinToString()}")
-                if (accepted) onTagDiscovered(tag)
+                if (lease != null) onTagDiscovered(tag, lease)
             }
         }
     }
@@ -105,6 +106,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onPause() {
         pengWa.nfcDiagnostics.record("Activity paused; releasing NFC role=${pengWa.exchangeMode.current}")
+        pengWa.exchangeMode.set(ExchangeMode.None)
         nfcMode.apply(ExchangeMode.None)
         super.onPause()
     }
@@ -136,13 +138,19 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun onTagDiscovered(tag: Tag) {
+    private fun onTagDiscovered(tag: Tag, lease: Long) {
         lifecycleScope.launch(Dispatchers.IO) {
-            nfcExchanger.exchange(tag)
-            // 两部手机贴着不动时别反复触发，让系统在短时间内忽略这张"卡"
-            runCatching { nfcAdapter?.ignore(tag, IGNORE_TAG_MILLIS, null, null) }
-                .onSuccess { pengWa.nfcDiagnostics.record("Ignore tag debounceMs=$IGNORE_TAG_MILLIS accepted=$it") }
-                .onFailure { pengWa.nfcDiagnostics.record("Ignore tag failed=${it.javaClass.simpleName}") }
+            try {
+                if (!pengWa.exchangeMode.isNfcExchangeActive(lease)) return@launch
+                nfcExchanger.exchange(tag) { pengWa.exchangeMode.isNfcExchangeActive(lease) }
+                // 两部手机贴着不动时别反复触发，让系统在短时间内忽略这张"卡"
+                runCatching { nfcAdapter?.ignore(tag, IGNORE_TAG_MILLIS, null, null) }
+                    .onSuccess { pengWa.nfcDiagnostics.record("Ignore tag debounceMs=$IGNORE_TAG_MILLIS accepted=$it") }
+                    .onFailure { pengWa.nfcDiagnostics.record("Ignore tag failed=${it.javaClass.simpleName}") }
+            } finally {
+                // Deliver the exchanger's queued main-thread result before releasing its role.
+                android.os.Handler(mainLooper).post { pengWa.exchangeMode.endNfcExchange(lease) }
+            }
         }
     }
 

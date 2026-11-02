@@ -5,17 +5,18 @@ import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.BorderStroke
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.toArgb
+import app.pengwa.ui.theme.LocalQrColors
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,11 +26,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -43,28 +41,22 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import app.pengwa.R
-import app.pengwa.exchange.ExchangeMode
 import app.pengwa.identity.Identity
 import app.pengwa.pengWa
 import app.pengwa.nfc.NfcWallet
 import app.pengwa.qr.QrEncoder
 import app.pengwa.qr.QrPayload
-import app.pengwa.ui.components.PengWaIcon
-import app.pengwa.ui.components.PengWaIcons
-import app.pengwa.ui.theme.PageGutter
 
 /**
  * NFC 与二维码共用的面对面交换页，扫一扫一键打开相机。
@@ -73,20 +65,18 @@ import app.pengwa.ui.theme.PageGutter
 @Composable
 fun FaceToFacePage(
     identity: Identity,
-    role: ExchangeMode,
-    onRoleChange: (ExchangeMode) -> Unit,
     onMessage: (String) -> Unit,
+    scanning: Boolean,
+    onScanningChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     onOpenLab: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val resources = LocalResources.current
-    // 故意不用 rememberSaveable：离开这一页再回来，应该回到二维码而不是直接亮相机
-    var scanning by remember { mutableStateOf(false) }
-    BackHandler(enabled = scanning) { scanning = false }
+    BackHandler(enabled = scanning) { onScanningChange(false) }
 
-    val mode by context.pengWa.exchangeMode.mode.collectAsStateWithLifecycle()
-    val nfcState = rememberNfcState(role)
+    val nfcState = rememberNfcState()
+    val canDisplay = remember(context) { context.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_NFC_HOST_CARD_EMULATION) }
     val wallet = remember(context) { NfcWallet(context, context.pengWa.nfcService) }
     var defaultWallet by remember(wallet) { mutableStateOf(wallet.isDefault()) }
     LifecycleResumeEffect(wallet) {
@@ -97,14 +87,14 @@ fun FaceToFacePage(
         defaultWallet = wallet.isDefault()
     }
     var walletPromptDismissed by rememberSaveable { mutableStateOf(false) }
-    ExchangeSession(if (!scanning) role else ExchangeMode.None)
+    AutomaticNfcExchange(enabled = !scanning, nfcReady = nfcState == NfcState.Ready, canDisplay = canDisplay)
 
-    BrightnessLock(enabled = (mode == ExchangeMode.NfcDisplay || mode == ExchangeMode.NfcRead) && !scanning)
+    BrightnessLock(enabled = !scanning)
 
     if (scanning) {
         QrScanner(
             onResult = { text ->
-                scanning = false
+                onScanningChange(false)
                 val peer = QrPayload.decode(text)
                 when {
                     peer == null -> onMessage(resources.getString(R.string.qr_invalid))
@@ -112,7 +102,7 @@ fun FaceToFacePage(
                     else -> context.pengWa.bleExchange.discover(peer, initiate = true, source = "二维码")
                 }
             },
-            onClose = { scanning = false },
+            onClose = { onScanningChange(false) },
             modifier = modifier,
         )
         return
@@ -120,11 +110,9 @@ fun FaceToFacePage(
 
     FaceToFacePageContent(
         identity = identity,
-        role = role,
         nfcState = nfcState,
-        onRoleChange = onRoleChange,
         onOpenNfcSettings = { context.startActivity(Intent(Settings.ACTION_NFC_SETTINGS)) },
-        defaultWallet = defaultWallet,
+        defaultWallet = defaultWallet || !canDisplay,
         showWalletPrompt = !walletPromptDismissed,
         onDismissWalletPrompt = { walletPromptDismissed = true },
         onRequestWallet = {
@@ -134,7 +122,6 @@ fun FaceToFacePage(
                     if (!wallet.openSettings()) onMessage(resources.getString(R.string.nfc_wallet_open_failed))
                 }
         },
-        onScan = { scanning = true },
         onOpenLab = onOpenLab,
         modifier = modifier,
     )
@@ -143,11 +130,8 @@ fun FaceToFacePage(
 @Composable
 internal fun FaceToFacePageContent(
     identity: Identity,
-    role: ExchangeMode,
     nfcState: NfcState,
-    onRoleChange: (ExchangeMode) -> Unit,
     onOpenNfcSettings: () -> Unit,
-    onScan: () -> Unit,
     modifier: Modifier = Modifier,
     onOpenLab: (() -> Unit)? = null,
     defaultWallet: Boolean = false,
@@ -158,37 +142,21 @@ internal fun FaceToFacePageContent(
     var expanded by rememberSaveable { mutableStateOf(false) }
     BoxWithConstraints(modifier.fillMaxSize()) {
         val compact = maxHeight < 300.dp && maxWidth >= 480.dp
-        if (compact) {
-            Row(Modifier.fillMaxSize().padding(horizontal = PageGutter, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        NfcInstructions(role, nfcState, onRoleChange, defaultWallet, onRequestWallet)
-                    }
-                    ScanButton(onScan, Modifier.fillMaxWidth().padding(top = 8.dp))
-                }
-                Column(Modifier.widthIn(max = 216.dp).weight(1f), horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    BoxWithConstraints(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                        val edge = minOf(200.dp, maxWidth - 16.dp, maxHeight - 16.dp).coerceAtLeast(48.dp)
-                        ExchangeQrCard(identity, onExpand = { expanded = true }, showHint = false, codeSize = edge)
-                    }
-                    NfcStatus(nfcState, onOpenNfcSettings, onOpenLab = onOpenLab)
-                }
+        val codeSize = minOf(240.dp, maxHeight - 40.dp).coerceAtLeast(48.dp)
+        Column(
+            Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 12.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            ExchangeQrCard(identity, onExpand = { expanded = true }, showHint = !compact, codeSize = codeSize) {
+                NfcStatus(nfcState, onOpenNfcSettings, onOpenLab = onOpenLab)
             }
-        } else {
-            Column(Modifier.fillMaxSize().padding(horizontal = PageGutter, vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    NfcInstructions(role, nfcState, onRoleChange, defaultWallet, onRequestWallet)
-                    ExchangeQrCard(identity, onExpand = { expanded = true })
-                    NfcStatus(nfcState, onOpenNfcSettings, onOpenLab = onOpenLab)
-                }
-                ScanButton(onScan, Modifier.padding(top = 12.dp).fillMaxWidth())
-            }
+            NfcWalletInstructions(nfcState, defaultWallet, onRequestWallet)
         }
     }
     if (expanded) QrCardDialog(identity) { expanded = false }
-    if (showWalletPrompt && role == ExchangeMode.NfcDisplay && nfcState == NfcState.Ready && !defaultWallet) {
+    if (showWalletPrompt && nfcState == NfcState.Ready && !defaultWallet) {
         AlertDialog(
             onDismissRequest = onDismissWalletPrompt,
             title = { Text(stringResource(R.string.nfc_wallet_set_default)) },
@@ -204,51 +172,8 @@ internal fun FaceToFacePageContent(
 }
 
 @Composable
-private fun NfcInstructions(role: ExchangeMode, nfcState: NfcState, onRoleChange: (ExchangeMode) -> Unit, defaultWallet: Boolean, onRequestWallet: () -> Unit) {
-    if (nfcState != NfcState.Unsupported) {
-        Row(
-            modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer, MaterialTheme.shapes.medium)
-                .padding(4.dp).selectableGroup(),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            listOf(
-                ExchangeMode.NfcDisplay to R.string.nfc_role_display,
-                ExchangeMode.NfcRead to R.string.nfc_role_read,
-            ).forEach { (candidate, label) ->
-                val selected = role == candidate
-                Surface(
-                    modifier = Modifier.weight(1f),
-                    shape = MaterialTheme.shapes.small,
-                    border = if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
-                    color = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
-                    contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                ) {
-                    Row(
-                        modifier = Modifier.heightIn(min = 48.dp).selectable(
-                            selected = selected, onClick = { onRoleChange(candidate) }, role = Role.RadioButton,
-                        ).padding(horizontal = 8.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(stringResource(label), style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center)
-                    }
-                }
-            }
-        }
-        Text(
-            text = stringResource(when {
-                nfcState == NfcState.DisplayUnsupported -> R.string.nfc_display_unsupported
-                role == ExchangeMode.NfcDisplay -> R.string.nfc_display_hint
-                else -> R.string.nfc_read_hint
-            }),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
-        if (role == ExchangeMode.NfcDisplay && nfcState == NfcState.Ready && !defaultWallet) {
-            WalletHelp(onRequestWallet)
-        }
-    }
+private fun NfcWalletInstructions(nfcState: NfcState, defaultWallet: Boolean, onRequestWallet: () -> Unit) {
+    if (nfcState == NfcState.Ready && !defaultWallet) WalletHelp(onRequestWallet)
 }
 
 /** 所有品牌均可使用；提示兼容问题，不依据品牌或默认钱包状态阻止出示。 */
@@ -267,25 +192,43 @@ private fun WalletHelp(onRequestWallet: () -> Unit) {
 }
 
 @Composable
-private fun ScanButton(onScan: () -> Unit, modifier: Modifier = Modifier) {
-    Button(onClick = onScan, shape = MaterialTheme.shapes.medium, modifier = modifier.heightIn(min = 52.dp)) {
-        PengWaIcon(PengWaIcons.Qr, tint = MaterialTheme.colorScheme.onPrimary)
-        Text(stringResource(R.string.qr_scan), modifier = Modifier.padding(start = 8.dp))
-    }
-}
-
-@Composable
-private fun ExchangeQrCard(identity: Identity, onExpand: () -> Unit, modifier: Modifier = Modifier, showHint: Boolean = true, codeSize: Dp = 200.dp) {
+private fun ExchangeQrCard(
+    identity: Identity,
+    onExpand: () -> Unit,
+    modifier: Modifier = Modifier,
+    showHint: Boolean = true,
+    codeSize: Dp = 240.dp,
+    footer: @Composable () -> Unit,
+) {
     Surface(
-        onClick = onExpand, modifier = modifier.widthIn(max = if (showHint) 340.dp else codeSize + 16.dp).fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
-        Column(Modifier.padding(if (showHint) 12.dp else 8.dp), horizontalAlignment = Alignment.CenterHorizontally,
+        Column(Modifier.padding(if (showHint) 16.dp else 8.dp), horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            QrCodeView(remember(identity) { QrPayload.encode(identity) }, if (showHint) Modifier.widthIn(max = 200.dp).fillMaxWidth() else Modifier.size(codeSize))
-            if (showHint) Text(stringResource(R.string.qr_hint), style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+            Column(
+                Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onExpand),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                QrCodeView(remember(identity) { QrPayload.encode(identity) }, if (showHint) Modifier.widthIn(max = 240.dp).fillMaxWidth() else Modifier.size(codeSize))
+                if (showHint) Text(stringResource(R.string.qr_hint), modifier = Modifier.widthIn(max = 340.dp), style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+            }
+            if (showHint) {
+                Row(
+                    Modifier.widthIn(max = 240.dp).fillMaxWidth().padding(top = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    HorizontalDivider(Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
+                    Text(stringResource(R.string.exchange_or), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    HorizontalDivider(Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
+                }
+            }
+            footer()
         }
     }
 }
@@ -307,22 +250,29 @@ private fun QrCardDialog(identity: Identity, onClose: () -> Unit) {
     }
 }
 
-/** 把文字画成二维码。固定黑码白底，不随深色主题变化，否则很多扫码器识别不了。 */
+/** 深色码点配浅色底，夜间使用柔和底色；保留静区与模块比例。 */
 @Composable
 fun QrCodeView(text: String, modifier: Modifier = Modifier) {
-    val bitmap = remember(text) {
+    val colors = LocalQrColors.current
+    val bitmap = remember(text, colors) {
         val matrix = QrEncoder.encode(text)
-        val pixels = IntArray(matrix.width * matrix.height) { index ->
-            if (matrix[index % matrix.width, index / matrix.width]) android.graphics.Color.BLACK else android.graphics.Color.WHITE
+        // Four light modules are the quiet zone; use the same color as the light cells.
+        val quietZone = 4
+        val edge = matrix.width + quietZone * 2
+        val foreground = colors.foreground.toArgb()
+        val background = colors.background.toArgb()
+        val pixels = IntArray(edge * edge) { index ->
+            val x = index % edge - quietZone
+            val y = index / edge - quietZone
+            if (x in 0 until matrix.width && y in 0 until matrix.height && matrix[x, y])
+                foreground else background
         }
-        Bitmap.createBitmap(pixels, matrix.width, matrix.height, Bitmap.Config.ARGB_8888).asImageBitmap()
+        Bitmap.createBitmap(pixels, edge, edge, Bitmap.Config.ARGB_8888).asImageBitmap()
     }
     Image(
         bitmap = bitmap,
         contentDescription = stringResource(R.string.qr_code_label),
         filterQuality = FilterQuality.None,
-        modifier = modifier.aspectRatio(1f)
-            .background(Color.White, RoundedCornerShape(16.dp))
-            .padding(24.dp), // Fixed quiet zone; neither the code nor its white backing follows the theme.
+        modifier = modifier.aspectRatio(1f),
     )
 }

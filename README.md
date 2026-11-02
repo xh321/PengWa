@@ -21,21 +21,21 @@
 ## 界面一览
 
 <p align="center">
-  <img src="docs/screenshots/card-preview-header/home-light-after.png" width="270" alt="主页：NFC 碰一碰与我的二维码" />
+  <img src="docs/screenshots/card-qr-actions/after-home-light.png" width="270" alt="主页：NFC 碰一碰与我的二维码" />
   <img src="docs/screenshots/card-packing/card-after-light.png" width="270" alt="自定义名片：头像、自我介绍、链接与社交账号" />
 </p>
 
-截图来自 Android 16 / API 36 模拟器中运行的应用，使用合成测试数据。对应页面状态、设备信息和复现步骤见 [主页验证记录](docs/screenshots/card-preview-header/README.md) 与 [名片验证记录](docs/screenshots/card-packing/README.md)；截图不代表双机交换链路已完成实测。
+截图来自 Android 16 / API 36 模拟器中运行的应用，使用合成测试数据。对应页面状态、设备信息和复现步骤见 [主页验证记录](docs/screenshots/card-qr-actions/README.md) 与 [名片验证记录](docs/screenshots/card-packing/README.md)；截图不代表双机交换链路已完成实测。
 
 ## 开始使用
 
 1. **安装碰碰娃**：双方使用 Android 10 及以上手机，安装支持当前名片协议的版本。iOS 版暂未提供。
-2. **准备你的名片**：首次打开按「创建卡片 → 预览确认 → 扩列」完成引导。名字必填，头像、介绍和联系方式可选；之后可在主页编辑，并在设置中重看扩列图解。
+2. **准备你的名片**：首次打开按「创建卡片 → 预览确认 → 扩列」完成引导。名字必填，头像、介绍和联系方式可选；之后可在名片预览中编辑，并在设置中重看扩列图解。
 3. **选择认识的方式**：
 
    | 方式 | 怎么操作 |
    | --- | --- |
-   | NFC 碰一碰 | 双方开启 NFC 和蓝牙并打开主页，一方选择「出示」、另一方选择「读取」，将手机 NFC 感应区靠近。 |
+   | NFC 碰一碰 | 双方开启 NFC 和蓝牙并保持主页打开，将手机 NFC 感应区贴近；应用自动协调读取与出示，无需选择模式或点击开始。 |
    | 扫二维码 | 一方展示主页二维码，另一方点「扫一扫」，扫码后由对方确认蓝牙交换申请。 |
    | 附近娃娃 | 双方开启蓝牙并允许所需权限，在「附近娃娃」中选中对方，申请并等待同意。 |
 

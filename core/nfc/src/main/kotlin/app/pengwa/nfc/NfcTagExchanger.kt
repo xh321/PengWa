@@ -22,7 +22,7 @@ class NfcTagExchanger(
 ) {
     private val exchanges = AtomicInteger()
 
-    fun exchange(tag: Tag): ExchangeResult {
+    fun exchange(tag: Tag, isActive: () -> Boolean = { modeProvider() == ExchangeMode.NfcRead }): ExchangeResult {
         val attempt = exchanges.incrementAndGet()
         val started = SystemClock.elapsedRealtime()
         diagnostics.record("Reader #$attempt start role=${modeProvider()}")
@@ -37,10 +37,12 @@ class NfcTagExchanger(
             }
 
         val result = try {
+            if (!isActive()) return ExchangeResult.NotCompatible
             isoDep.connect()
             isoDep.timeout = TIMEOUT_MS
             diagnostics.record("Reader #$attempt connected timeoutMs=$TIMEOUT_MS maxTransceive=${isoDep.maxTransceiveLength}")
             runInitiator(me, discoveryOnly = true) { command ->
+                if (!isActive()) throw IOException("NFC session ended")
                 val sent = SystemClock.elapsedRealtime()
                 diagnostics.record("Reader #$attempt TX ${NfcDiagnosticLog.commandSummary(command)}")
                 val stage = if (ApduProtocol.isSelect(command)) "SELECT private AID" else "EXCHANGE"
@@ -61,13 +63,13 @@ class NfcTagExchanger(
 
         when (result) {
             is ExchangeResult.Peer -> {
-                android.os.Handler(android.os.Looper.getMainLooper()).post { onPeer(result.identity) }
+                android.os.Handler(android.os.Looper.getMainLooper()).post { if (isActive()) onPeer(result.identity) }
                 diagnostics.record("Reader #$attempt identified; starting BLE elapsedMs=${SystemClock.elapsedRealtime() - started}")
             }
             is ExchangeResult.Failed -> {
                 Log.w(TAG, "NFC 发现失败：${result.reason}")
                 android.os.Handler(android.os.Looper.getMainLooper()).post {
-                    onFailure()
+                    if (isActive()) onFailure()
                 }
             }
             ExchangeResult.NotCompatible -> Log.d(TAG, "不是碰碰娃，忽略")

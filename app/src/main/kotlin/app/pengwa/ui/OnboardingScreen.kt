@@ -64,7 +64,7 @@ internal fun OnboardingScreen(
                     Column(Modifier.padding(20.dp)) {
                         viewModel.identity?.let { UserCardContent(it) }
                         if (viewModel.identity?.card?.blocks.isNullOrEmpty()) {
-                            Text("简单的名字也能开启一次相遇。之后可在主页点铅笔，补充头像和内容。", Modifier.padding(top = 16.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("简单的名字也能开启一次相遇。之后可在名片预览里点“编辑”，补充头像和内容。", Modifier.padding(top = 16.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -124,7 +124,7 @@ private fun ExchangeLesson.illustration(): IllustratedLesson = when (this) {
     ExchangeLesson.Nfc -> IllustratedLesson(
         R.drawable.onboarding_nfc,
         "两位娃友将手机背面的 NFC 感应区域贴近，出现确认标记后互换卡片。",
-        listOf("主页一人选“出示”，一人选“读取”", "开启 NFC，手机背面贴近", "等“交换完成”，到集邮册查看"),
+        listOf("两人打开主页，无需选择模式", "开启 NFC，手机背面贴近", "等“交换完成”，到集邮册查看"),
     )
 }
 

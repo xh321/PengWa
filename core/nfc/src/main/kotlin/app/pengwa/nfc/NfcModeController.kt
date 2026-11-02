@@ -21,6 +21,7 @@ class NfcModeController(
     private var readerRequested = false
     private var preferredRequested = false
     private var current = ExchangeMode.None
+    private var configurationGeneration = 0L
 
     /** 由主线程调用；进入角色时 Activity 必须已 resumed，暂停时在 super.onPause 之前释放。 */
     fun apply(mode: ExchangeMode) {
@@ -53,9 +54,18 @@ class NfcModeController(
             ExchangeMode.NfcRead -> {
                 diagnostics.record("Reader flags=NFC_A|SKIP_NDEF_CHECK platformSounds=enabled")
                 readerRequested = true
+                val generation = configurationGeneration
                 attempt("enableReaderMode") {
                     nfc.enableReaderMode(
-                        activity, onTag,
+                        activity, { tag ->
+                            activity.runOnUiThread {
+                                if (generation == configurationGeneration && current == ExchangeMode.NfcRead) {
+                                    onTag.onTagDiscovered(tag)
+                                } else {
+                                    diagnostics.record("Reader callback ignored: stale configuration")
+                                }
+                            }
+                        },
                         NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK,
                         null,
                     )
@@ -88,6 +98,7 @@ class NfcModeController(
 
     private fun release() {
         val nfc = adapter ?: return
+        configurationGeneration++
         current = ExchangeMode.None
         if (readerRequested) attempt("disableReaderMode") {
             nfc.disableReaderMode(activity)

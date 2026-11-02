@@ -17,6 +17,14 @@ internal val LightStatusColors = StatusColors(Color(0xFF256B57), Color(0xFFD8F1E
 internal val DarkStatusColors = StatusColors(Color(0xFF9CD8BF), Color(0xFF183E32), Color(0xFFF5CF85), Color(0xFF49370C))
 val LocalStatusColors = staticCompositionLocalOf { LightStatusColors }
 
+/** A light quiet zone with dark modules in both themes, without pure-white glare at night. */
+@Immutable
+data class QrColors(val foreground: Color, val background: Color)
+
+internal val LightQrColors = QrColors(Color.Black, Color.White)
+internal val DarkQrColors = QrColors(Color.Black, Color(0xFFD8CCD2))
+val LocalQrColors = staticCompositionLocalOf { LightQrColors }
+
 internal val PengWaShapes = Shapes(
     extraSmall = RoundedCornerShape(8.dp), small = RoundedCornerShape(12.dp),
     medium = RoundedCornerShape(16.dp), large = RoundedCornerShape(24.dp), extraLarge = RoundedCornerShape(24.dp),

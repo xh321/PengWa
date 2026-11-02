@@ -21,7 +21,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import app.pengwa.MainActivity
 import app.pengwa.BuildConfig
 import app.pengwa.R
-import app.pengwa.exchange.ExchangeMode
 import app.pengwa.identity.OnboardingStep
 import app.pengwa.pengWa
 import app.pengwa.ui.components.ExchangeRequestDialog
@@ -45,7 +44,6 @@ fun PengWaRoot(
     }
     var selectedTab by rememberSaveable { mutableIntStateOf(MainActivity.TAB_ME) }
     var showingDetail by remember { mutableStateOf(false) }
-    var nfcRole by rememberSaveable { mutableStateOf(ExchangeMode.NfcDisplay) }
 
     // 通知栏按钮要求切换到某一页
     LaunchedEffect(requestedTab) {
@@ -108,8 +106,6 @@ fun PengWaRoot(
             selectedTab == MainActivity.TAB_ME -> HomeScreen(
                 viewModel = identityViewModel,
                 onDetailVisibilityChanged = { showingDetail = it },
-                role = nfcRole,
-                onRoleChange = { nfcRole = it },
                 onMessage = showMessage,
                 onOpenNearby = { selectedTab = MainActivity.TAB_NEARBY },
                 onOpenLab = if (BuildConfig.DEBUG) ({ selectedTab = MainActivity.TAB_LAB }) else null,
