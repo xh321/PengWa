@@ -5,7 +5,7 @@
 **二维码、附近蓝牙列表与 NFC 碰一碰只用于识别对方；所有用户卡片数据统一通过蓝牙 BLE 传输。**
 识别成功不代表交换成功，不写入集邮册。收到完整卡片并完成传输确认后才记录相遇。
 
-主页（出示／读取）和附近娃娃页在有权限、蓝牙开启时广播并扫描；编辑卡片、集邮册、扫码相机打开及退后台时结束前台会话。
+主页（自动协调 NFC 读取／出示）和附近娃娃页在有权限、蓝牙开启时广播并扫描；编辑卡片、集邮册、扫码相机打开及退后台时结束前台会话。
 扫码完成后返回主页并恢复蓝牙。NFC 不可用不会阻止主页通过二维码识别、蓝牙交换。
 开启后台蓝牙广播后，前台服务可在后台只广播、接收交换申请，不主动扫描。
 
@@ -117,7 +117,13 @@ PWC3 魔数为 `0x50574333`，与本地 PWC2 字段顺序相同，但头像及�
 
 ## NFC ISO-DEP / HCE
 
-私有 AID `F050454E475741`，保留现有读取／出示角色、默认钱包引导和生命周期控制。
+私有 AID `F050454E475741`。主页不提供角色选择或开始按钮：支持 HCE 的手机随机选择初始读取／出示角色，并以独立的 1.5–3 秒窗口交替；仅支持读取的手机保持读取。NFC 不可用时仍保留主页的蓝牙发现与二维码。
+
+Android 的读取模式会关闭卡模拟，因此两种角色需要互斥配置。参见 [NfcAdapter.enableReaderMode](https://developer.android.com/reference/android/nfc/NfcAdapter#enableReaderMode(android.app.Activity,android.nfc.NfcAdapter.ReaderCallback,int,android.os.Bundle))。随机窗口用于降低两台同时打开的手机始终同角色的概率，不承诺固定识别时长。
+
+Reader 回调与 HCE 第一条 APDU 在操作前取得当前会话的通信锁；锁定期间自动调度不切换角色。Reader 结果交付主线程后释放，HCE 在链路失活／服务销毁时释放。离开主页、打开扫码、进入后台会使会话与锁失效；旧会话的清理不能关闭新页面的 NFC 或蓝牙。读取结果交付前再次验证会话，丢弃离开页面后才返回的旧结果。HCE 的 [onDeactivated](https://developer.android.com/reference/android/nfc/cardemulation/HostApduService#onDeactivated(int)) 用于感知链路失活。
+
+保留默认钱包兼容引导与原有 NFC → BLE 双向身份识别协议。自动角色切换的时序仍需在双 Android 真机上验证；模拟器与单元测试不构成硬件互操作验收。
 
 | 步骤 | 命令 | 响应 |
 |---|---|---|

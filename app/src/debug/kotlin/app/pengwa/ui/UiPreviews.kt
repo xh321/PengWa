@@ -31,7 +31,6 @@ import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import app.pengwa.ble.NearbyPeer
 import app.pengwa.ble.PeerState
 import app.pengwa.contacts.Contact
-import app.pengwa.exchange.ExchangeMode
 import app.pengwa.identity.Identity
 import app.pengwa.ui.theme.PengWaTheme
 import java.util.UUID
@@ -48,16 +47,16 @@ internal fun PreviewSurface(content: @Composable () -> Unit) {
     }
 }
 
-internal data class NfcPreviewState(val name: String, val role: ExchangeMode, val state: NfcState, val defaultWallet: Boolean = false)
+internal data class NfcPreviewState(val name: String, val state: NfcState, val defaultWallet: Boolean = false)
 
 internal class NfcPreviewProvider : PreviewParameterProvider<NfcPreviewState> {
     override val values = sequenceOf(
-        NfcPreviewState("出示 · 钱包提示", ExchangeMode.NfcDisplay, NfcState.Ready),
-        NfcPreviewState("出示 · 已是默认钱包", ExchangeMode.NfcDisplay, NfcState.Ready, defaultWallet = true),
-        NfcPreviewState("读取", ExchangeMode.NfcRead, NfcState.Ready),
-        NfcPreviewState("NFC 未开启", ExchangeMode.NfcDisplay, NfcState.Disabled),
-        NfcPreviewState("不支持 NFC", ExchangeMode.NfcRead, NfcState.Unsupported),
-        NfcPreviewState("不支持出示", ExchangeMode.NfcDisplay, NfcState.DisplayUnsupported),
+        NfcPreviewState("就绪 · 钱包提示", NfcState.Ready),
+        NfcPreviewState("就绪 · 已是默认钱包", NfcState.Ready, defaultWallet = true),
+        NfcPreviewState("仅支持读取", NfcState.Ready, defaultWallet = true),
+        NfcPreviewState("NFC 未开启", NfcState.Disabled),
+        NfcPreviewState("不支持 NFC", NfcState.Unsupported),
+        NfcPreviewState("无 HCE 自动保持读取", NfcState.Ready, defaultWallet = true),
     )
 
     override fun getDisplayName(index: Int): String = values.elementAt(index).name
@@ -66,18 +65,15 @@ internal class NfcPreviewProvider : PreviewParameterProvider<NfcPreviewState> {
 @PengWaPreviews
 @Composable
 internal fun FaceToFacePagePreview(@PreviewParameter(NfcPreviewProvider::class) sample: NfcPreviewState) {
-    var role by remember(sample) { mutableStateOf(sample.role) }
     var walletPromptDismissed by remember(sample) { mutableStateOf(false) }
     PreviewHome {
         FaceToFacePageContent(
             identity = Identity(UUID(0L, 1L), "小棉花"),
-            role = role,
             nfcState = sample.state,
             defaultWallet = sample.defaultWallet,
             showWalletPrompt = !walletPromptDismissed,
             onDismissWalletPrompt = { walletPromptDismissed = true },
             onRequestWallet = { walletPromptDismissed = true },
-            onRoleChange = { role = it },
             onOpenNfcSettings = {},
         )
     }

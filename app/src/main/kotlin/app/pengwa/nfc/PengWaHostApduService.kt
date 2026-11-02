@@ -1,6 +1,7 @@
 package app.pengwa.nfc
 
 import app.pengwa.exchange.PeerDiscovery
+import app.pengwa.exchange.ExchangeMode
 import android.nfc.cardemulation.HostApduService
 import android.os.Bundle
 import android.util.Log
@@ -10,10 +11,11 @@ import app.pengwa.pengWa
  * 被碰一方：系统在对方 SELECT 我们的某个 AID 时拉起本服务（屏幕需亮着）。
  *  - 私有 AID：两边都装了 App 时的双向识别，见 [ApduHandler]；
  *  - 标准 NDEF AID：当作一张标签被任何手机读取，见 [T4tEmulator]。
- * 两者都只在 碰一碰 / 扫码页的“出示”角色响应；其余时候拒绝命令并清掉旧会话。
+ * 两者都只在主页自动调度的出示窗口响应；其余时候拒绝命令并清掉旧会话。
  */
 class PengWaHostApduService : HostApduService() {
     private lateinit var router: CardRouter
+    private var lease: Long? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -38,6 +40,12 @@ class PengWaHostApduService : HostApduService() {
     }
 
     override fun processCommandApdu(commandApdu: ByteArray, extras: Bundle?): ByteArray {
+        val state = pengWa.exchangeMode
+        if (lease?.let(state::isNfcExchangeActive) != true) {
+            router.reset()
+            lease = state.beginNfcExchange(ExchangeMode.NfcDisplay)
+        }
+        if (lease == null) return ApduProtocol.SW_CONDITIONS_NOT_SATISFIED
         val response = router.process(commandApdu)
         pengWa.nfcDiagnostics.record("HCE ${NfcDiagnosticLog.commandSummary(commandApdu)} ${NfcDiagnosticLog.responseSummary(response)} role=${pengWa.exchangeMode.current} session=${pengWa.exchangeMode.nfcDisplaySession}")
         if (ApduProtocol.isSelect(commandApdu) || ApduProtocol.isExchange(commandApdu)) {
@@ -56,5 +64,16 @@ class PengWaHostApduService : HostApduService() {
     override fun onDeactivated(reason: Int) {
         pengWa.nfcDiagnostics.record("HCE deactivated reason=$reason (0=link loss, 1=deselected)")
         router.reset()
+        releaseLease()
+    }
+
+    override fun onDestroy() {
+        releaseLease()
+        super.onDestroy()
+    }
+
+    private fun releaseLease() {
+        lease?.let(pengWa.exchangeMode::endNfcExchange)
+        lease = null
     }
 }

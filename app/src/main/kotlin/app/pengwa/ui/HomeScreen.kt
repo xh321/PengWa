@@ -51,8 +51,6 @@ import app.pengwa.ui.theme.PageGutter
 @Composable
 fun HomeScreen(
     viewModel: IdentityViewModel,
-    role: ExchangeMode,
-    onRoleChange: (ExchangeMode) -> Unit,
     onMessage: (String) -> Unit,
     modifier: Modifier = Modifier,
     onOpenLab: (() -> Unit)? = null,
@@ -115,7 +113,7 @@ fun HomeScreen(
         HomeHeader(identity, onView = { scanning = false; showingCard = true }, onScan = { scanning = true }, onSettings = { scanning = false; showSettings = true })
         HomeBluetoothStatus()
         FaceToFacePage(
-            identity = identity, role = role, onRoleChange = onRoleChange,
+            identity = identity,
             onMessage = onMessage, modifier = Modifier.weight(1f),
             onOpenLab = onOpenLab,
             scanning = scanning, onScanningChange = { scanning = it },

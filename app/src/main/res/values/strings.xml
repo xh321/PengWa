@@ -71,17 +71,15 @@
     <string name="camera_grant">允许使用相机</string>
 
     <!-- NFC 与相遇 -->
-    <string name="nfc_ready">碰一碰可用</string>
+    <string name="nfc_ready">碰一碰，交换名片</string>
+    <string name="nfc_auto_hint">保持双方主页打开，将两部手机的 NFC 区域贴近。识别后自动通过蓝牙交换完整名片。</string>
+    <string name="nfc_enable_hint">开启 NFC 后，将两部手机的 NFC 区域贴近即可识别对方。</string>
+    <string name="nfc_alternative_hint">可以扫对方二维码，或前往“附近娃娃”交换名片。</string>
     <string name="nfc_wallet_help_title">NFC 钱包兼容提示</string>
     <string name="nfc_wallet_help">部分手机的默认钱包可能优先响应 NFC。若只响未识别或弹出钱包，可切换默认钱包为碰碰娃后重试。使用原钱包刷卡前，请手动切回。</string>
     <string name="nfc_wallet_set_default">设为默认钱包</string>
     <string name="nfc_wallet_open_failed">无法打开设置，请在系统设置中搜索“NFC”或“默认钱包”。</string>
-    <string name="nfc_display_unsupported">此设备无法出示 NFC 名片，请选择读取或扫码。</string>
     <string name="nfc_status_icon">碰一碰状态</string>
-    <string name="nfc_role_display">出示我的名片</string>
-    <string name="nfc_role_read">读取对方名片</string>
-    <string name="nfc_display_hint">对方选择读取，碰触手机发现彼此，再通过蓝牙交换完整卡片。</string>
-    <string name="nfc_read_hint">靠近对方手机的 NFC 区域，发现后通过蓝牙交换完整卡片。</string>
     <string name="nfc_unsupported">此设备不支持碰一碰</string>
     <string name="nfc_disabled">碰一碰未开启</string>
     <string name="nfc_open_settings">去开启</string>
