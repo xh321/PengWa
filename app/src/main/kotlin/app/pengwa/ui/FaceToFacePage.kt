@@ -153,6 +153,7 @@ internal fun FaceToFacePageContent(
     onRequestWallet: () -> Unit = {},
     showWalletPrompt: Boolean = false,
     onDismissWalletPrompt: () -> Unit = {},
+    bluetoothStatus: @Composable () -> Unit = { HomeBluetoothStatus() },
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     BoxWithConstraints(modifier.fillMaxSize()) {
@@ -168,7 +169,13 @@ internal fun FaceToFacePageContent(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            ExchangeQrCard(identity, onExpand = { expanded = true }, showHint = !compact, codeSize = codeSize) {
+            ExchangeQrCard(
+                identity,
+                onExpand = { expanded = true },
+                showHint = !compact,
+                codeSize = codeSize,
+            ) {
+                bluetoothStatus()
                 NfcStatus(nfcState, onOpenNfcSettings, onOpenLab = onOpenLab)
             }
             NfcWalletInstructions(nfcState, defaultWallet, onRequestWallet)

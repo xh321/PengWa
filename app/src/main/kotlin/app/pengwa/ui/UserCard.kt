@@ -24,6 +24,7 @@ import app.pengwa.identity.*
 import app.pengwa.pengWa
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.pengwa.ui.components.NameStamp
+import app.pengwa.ui.components.EncounterCardsAnimation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import coil3.compose.AsyncImagePainter
@@ -244,7 +245,7 @@ internal fun CardEditorContent(
 private fun BlockType.label(): String = when (this) { BlockType.Text -> "文字"; BlockType.Link -> "链接"; BlockType.Social -> "社媒"; BlockType.Image -> "小图" }
 
 @Composable
-internal fun HomeBluetoothStatus() {
+internal fun HomeBluetoothStatus(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val controller = remember { context.pengWa.bleExchange }
     var permitted by remember { mutableStateOf(app.pengwa.ble.BlePermissions.granted(context)) }
@@ -264,6 +265,7 @@ internal fun HomeBluetoothStatus() {
     }
     if (!permitted || !bluetoothOn || status != null) HomeBluetoothNotice(
         message = when { !permitted -> "交换卡片需要蓝牙授权"; !bluetoothOn -> "请开启蓝牙以交换卡片"; else -> status.orEmpty() },
+        modifier = modifier,
     ) {
         if (permitted && bluetoothOn && status != null && !status.orEmpty().contains("正在") && status != "卡片交换完成") TextButton(onClick = controller::retryDiscovery) { Text("重试连接", maxLines = 1) }
         if (!permitted || !bluetoothOn) TextButton(onClick = {
@@ -275,18 +277,23 @@ internal fun HomeBluetoothStatus() {
 }
 
 @Composable
-internal fun HomeBluetoothNotice(message: String, action: @Composable () -> Unit = {}) {
+internal fun HomeBluetoothNotice(message: String, modifier: Modifier = Modifier, action: @Composable () -> Unit = {}) {
     Surface(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+        modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surfaceContainer, shape = MaterialTheme.shapes.medium,
     ) {
-        Row(
-            Modifier.padding(horizontal = 12.dp, vertical = 4.dp).heightIn(min = 24.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(message, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-            action()
+        Column {
+            if (message.startsWith("正在")) {
+                EncounterCardsAnimation(name = "对方")
+            }
+            Row(
+                Modifier.padding(horizontal = 12.dp, vertical = 4.dp).heightIn(min = 24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(message, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                action()
+            }
         }
     }
 }

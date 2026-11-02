@@ -34,7 +34,7 @@ internal fun sampleImage(width: Int = 192, height: Int = 192, transparent: Boole
     }
 }
 
-private fun sampleCard() = Identity(UUID(0L, 1L), "小棉花", CardContent(sampleImage(), listOf(
+internal fun sampleCard() = Identity(UUID(0L, 1L), "小棉花", CardContent(sampleImage(), listOf(
     CardBlock(BlockType.Text, "关于我", "喜欢拍照、逛展和认识新朋友。下次活动一起集邮吧！"),
     CardBlock(BlockType.Link, "我的作品集", "https://example.com/gallery"),
     CardBlock(BlockType.Social, "社交账号", "@cotton_demo", url = "https://example.com/cotton"),

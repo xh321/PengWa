@@ -16,6 +16,7 @@ import app.pengwa.R
 import androidx.compose.ui.res.stringResource
 import app.pengwa.ui.components.SettingsRow
 import app.pengwa.ui.components.ExchangeRequestDialog
+import app.pengwa.ui.components.PeerCardDialog
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -75,6 +76,7 @@ internal fun FaceToFacePagePreview(@PreviewParameter(NfcPreviewProvider::class) 
             onDismissWalletPrompt = { walletPromptDismissed = true },
             onRequestWallet = { walletPromptDismissed = true },
             onOpenNfcSettings = {},
+            bluetoothStatus = { HomeBluetoothNotice("交换卡片需要蓝牙授权") },
         )
     }
 }
@@ -227,6 +229,16 @@ internal fun SettingsPreview(
 internal fun RequestPreview() {
     PreviewHome { }
     PengWaTheme(dynamicColor = false) { ExchangeRequestDialog("名字很长很长的娃友", "00000001", {}, {}) }
+}
+
+@PengWaPreviews
+@Composable
+internal fun PeerCardPreview() {
+    PreviewHome { }
+    val peer = sampleCard().copy(id = UUID(0L, 2L), displayName = "名字很长很长的娃友")
+    PengWaTheme(dynamicColor = false) {
+        PeerCardDialog(peer, onDismiss = {})
+    }
 }
 
 @PengWaPreviews

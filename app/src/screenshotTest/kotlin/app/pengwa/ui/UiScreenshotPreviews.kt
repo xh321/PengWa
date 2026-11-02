@@ -38,6 +38,16 @@ internal fun RequestScreenshots() { RequestPreview() }
 @PreviewTest
 @PengWaPreviews
 @Composable
+internal fun HomeBluetoothNoticeScreenshots() { HomeBluetoothNoticePreview() }
+
+@PreviewTest
+@PengWaPreviews
+@Composable
+internal fun PeerCardScreenshots() { PeerCardPreview() }
+
+@PreviewTest
+@PengWaPreviews
+@Composable
 internal fun NameFormScreenshots() { NameFormPreview() }
 
 @PreviewTest
