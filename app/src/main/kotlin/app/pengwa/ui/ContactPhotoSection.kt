@@ -148,7 +148,7 @@ private fun ContactPhoto(file: File, description: String, modifier: Modifier, ma
             .data(file)
             .size(maxSize, maxSize)
             .scale(Scale.FIT)
-            .precision(Precision.EXACT)
+            .precision(Precision.INEXACT)
             .build()
     }
     val painter = rememberAsyncImagePainter(request)
