@@ -13,9 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -38,7 +36,6 @@ import java.util.Locale
 
 @Composable
 fun ContactsScreen(
-    onMessage: (String) -> Unit,
     modifier: Modifier = Modifier,
     onExchange: () -> Unit = {},
     viewModel: ContactsViewModel = viewModel(),
@@ -52,9 +49,7 @@ fun ContactsScreen(
         onExchange = onExchange,
         onDetailVisibilityChanged = onDetailVisibilityChanged,
         onContactOpened = { analytics.track(AnalyticsEvent.ContactCardViewed) },
-    ) { buttonModifier ->
-        CameraButton(onMessage = onMessage, modifier = buttonModifier)
-    }
+    )
 }
 
 @Composable
@@ -65,7 +60,6 @@ internal fun ContactsScreenContent(
     now: Long = System.currentTimeMillis(),
     onDetailVisibilityChanged: (Boolean) -> Unit = {},
     onContactOpened: () -> Unit = {},
-    cameraButton: @Composable (Modifier) -> Unit,
 ) {
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
@@ -76,41 +70,36 @@ internal fun ContactsScreenContent(
         ContactDetails(selectedContact, modifier) { selectedId = null }
         return
     }
-    var fabHeight by remember { mutableIntStateOf(56) }
-    val fabClearance = with(LocalDensity.current) { fabHeight.toDp() } + 40.dp
-    Box(modifier = modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize().padding(horizontal = PageGutter)) {
-            Text(stringResource(R.string.tab_contacts), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 24.dp))
-            Text(stringResource(R.string.contacts_count, contacts.size), style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp, bottom = 24.dp))
-            if (contacts.isEmpty()) {
-                Column(
-                    Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = fabClearance),
-                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
-                ) {
-                    Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.primaryContainer) {
-                        PengWaIcon(PengWaIcons.Book, modifier = Modifier.padding(24.dp).size(56.dp), tint = MaterialTheme.colorScheme.primary)
-                    }
-                    Text(stringResource(R.string.contacts_empty_title), style = MaterialTheme.typography.titleMedium,
-                        textAlign = TextAlign.Center, modifier = Modifier.padding(top = 24.dp))
-                    Text(stringResource(R.string.contacts_empty), style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
-                    Button(onClick = onExchange, modifier = Modifier.padding(top = 24.dp).heightIn(min = 48.dp)) {
-                        Text(stringResource(R.string.contacts_exchange))
-                    }
+    Column(modifier.fillMaxSize().padding(horizontal = PageGutter)) {
+        Text(stringResource(R.string.tab_contacts), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 24.dp))
+        Text(stringResource(R.string.contacts_count, contacts.size), style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp, bottom = 24.dp))
+        if (contacts.isEmpty()) {
+            Column(
+                Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
+            ) {
+                Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.primaryContainer) {
+                    PengWaIcon(PengWaIcons.Book, modifier = Modifier.padding(24.dp).size(56.dp), tint = MaterialTheme.colorScheme.primary)
                 }
-            } else {
-                LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = fabClearance)) {
-                    items(contacts, key = { it.id }) { contact ->
-                        ContactRow(contact, now, onClick = {
-                            onContactOpened()
-                            selectedId = contact.id.toString()
-                        })
-                    }
+                Text(stringResource(R.string.contacts_empty_title), style = MaterialTheme.typography.titleMedium,
+                    textAlign = TextAlign.Center, modifier = Modifier.padding(top = 24.dp))
+                Text(stringResource(R.string.contacts_empty), style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
+                Button(onClick = onExchange, modifier = Modifier.padding(top = 24.dp).heightIn(min = 48.dp)) {
+                    Text(stringResource(R.string.contacts_exchange))
+                }
+            }
+        } else {
+            LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(contacts, key = { it.id }) { contact ->
+                    ContactRow(contact, now, onClick = {
+                        onContactOpened()
+                        selectedId = contact.id.toString()
+                    })
                 }
             }
         }
-        cameraButton(Modifier.align(Alignment.BottomEnd).padding(20.dp).onSizeChanged { fabHeight = it.height })
     }
 }
 

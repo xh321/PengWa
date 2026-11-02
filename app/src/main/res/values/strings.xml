@@ -63,11 +63,7 @@
 
     <!-- 相机 -->
     <string name="camera_button">拍照</string>
-    <string name="photo_saved">已保存到相册 · Pictures/PengWa</string>
-    <string name="photo_create_failed">无法创建照片文件</string>
-    <string name="camera_not_found">没有找到相机应用</string>
     <string name="camera_permission_needed">需要相机权限才能使用</string>
-    <string name="camera_permission_denied">没有相机权限，无法拍照</string>
     <string name="camera_grant">允许使用相机</string>
 
     <!-- NFC 与相遇 -->
@@ -170,7 +166,7 @@
     <string name="request_accept_in_app">同意交换</string>
     <string name="qr_code_label">我的名片二维码</string>
     <string name="analytics_title">分享使用统计</string>
-    <string name="analytics_description">开启后通过 Aptabase 上报启动、页面访问、卡片编辑与浏览、扫码和拍照结果、交换申请处理、蓝牙交换结果及设置操作，帮助社区了解功能偏好。仅上报固定行为分类，不含卡片内容、身份、联系方式、照片、二维码内容或蓝牙地址。另包含应用版本、系统版本、设备型号、语言和临时会话标识。关闭后停止新增上报，已提交的请求可能完成。</string>
+    <string name="analytics_description">开启后通过 Aptabase 上报启动、页面访问、卡片编辑与浏览、扫码结果、交换申请处理、蓝牙交换结果及设置操作，帮助社区了解功能偏好。仅上报固定行为分类，不含卡片内容、身份、联系方式、照片、二维码内容或蓝牙地址。另包含应用版本、系统版本、设备型号、语言和临时会话标识。关闭后停止新增上报，已提交的请求可能完成。</string>
     <string name="analytics_unconfigured">此构建未配置统计服务，不会上报。</string>
     <string name="analytics_onboarding_choice">分享使用统计，帮助改进碰碰娃</string>
     <string name="analytics_explanation">说明</string>

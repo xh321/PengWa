@@ -52,8 +52,6 @@ Debug 使用 SDK 的 `asDebug`，Release 使用 `asRelease`，在 Aptabase 中�
 | `card_viewed` | `card=own/contact` | 主动打开自己的卡片详情 / 集邮册某张卡片；不含对象标识 |
 | `qr_scan_opened` | 无 | 点击首页扫码入口且原来不在扫描；不代表相机权限已授予 |
 | `qr_scan_finished` | `result=peer/self/invalid/cancelled` | 扫到有效对方 / 自己 / 非法内容 / 主动关闭；不上传码内容，peer 不代表完成交换 |
-| `photo_capture_started` | 无 | 点击集邮册拍照入口；可能随后请求权限，不等同于系统相机已启动 |
-| `photo_capture_finished` | `result=success/failure/cancelled` | 照片成功保存 / 失败 / 系统相机取消；不上传照片或文件路径 |
 | `preference_requested` | `setting=background_broadcast/ongoing_notification`, `value=on/off` | 用户操作开关时；记录意图，权限拒绝或系统蓝牙未开可能导致功能未生效 |
 | `ble_incoming_prompted` | 无 | 真实交换申请进入待处理队列；同一待处理请求不重复计数 |
 | `ble_incoming_decided` | `decision=accept/decline/expired`, `mechanism=manual/nfc_auto/cooldown/capacity/timeout` | 手动同意或拒绝、NFC 短时自动授权、冷却/容量拒绝、待处理超时；只发送有效组合，模拟申请不计 |
@@ -65,7 +63,7 @@ Debug 使用 SDK 的 `asDebug`，Release 使用 `asRelease`，在 Aptabase 中�
 - `card_edit_started → card_edit_finished` 观察编辑完成/放弃趋势；`card_editor_preview_opened` 观察预览偏好。
 - 对比 `card_viewed` 的 `own/contact`，观察自我展示与集邮册回访的相对频率。
 - `qr_scan_opened → qr_scan_finished → peer_recognized → ble_exchange_started → ble_exchange_finished` 观察扫码识别与传输各阶段事件量；按识别来源、申请决定机制分析使用倾向。
-- `photo_capture_started → photo_capture_finished` 观察拍照完成趋势；`preference_requested` 观察后台发现与通知的操作意图。
+- `preference_requested` 观察后台发现与通知的操作意图。
 - main 已采用 NFC 自动协调，不再提供手动展示/读取模式选择，故不添加已失去触发入口的模式偏好事件。
 - 这些是匿名事件量，不是去重人数；只覆盖开启统计的人群，存在选择偏差。未增加安装 ID、用户画像或跨会话关联 ID。
 - 中途退出、进程死亡、引导未完成或不可靠网络会使漏斗不闭合，事件比率不能视作精确转化率。首次卡片保存可能早于引导完成，不补报被门禁丢弃的 `card_created`。
