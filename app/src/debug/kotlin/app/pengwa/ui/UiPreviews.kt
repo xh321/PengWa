@@ -76,6 +76,7 @@ internal fun FaceToFacePagePreview(@PreviewParameter(NfcPreviewProvider::class) 
             onDismissWalletPrompt = { walletPromptDismissed = true },
             onRequestWallet = { walletPromptDismissed = true },
             onOpenNfcSettings = {},
+            bluetoothStatus = { HomeBluetoothNotice("交换卡片需要蓝牙授权") },
         )
     }
 }

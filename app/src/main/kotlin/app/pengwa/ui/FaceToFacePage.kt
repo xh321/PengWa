@@ -153,6 +153,7 @@ internal fun FaceToFacePageContent(
     onRequestWallet: () -> Unit = {},
     showWalletPrompt: Boolean = false,
     onDismissWalletPrompt: () -> Unit = {},
+    bluetoothStatus: @Composable () -> Unit = { HomeBluetoothStatus() },
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     BoxWithConstraints(modifier.fillMaxSize()) {
@@ -174,7 +175,7 @@ internal fun FaceToFacePageContent(
                 showHint = !compact,
                 codeSize = codeSize,
             ) {
-                HomeBluetoothStatus()
+                bluetoothStatus()
                 NfcStatus(nfcState, onOpenNfcSettings, onOpenLab = onOpenLab)
             }
             NfcWalletInstructions(nfcState, defaultWallet, onRequestWallet)
