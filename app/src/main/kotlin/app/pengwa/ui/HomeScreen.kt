@@ -134,7 +134,6 @@ fun HomeScreen(
                 showSettings = true
             },
         )
-        HomeBluetoothStatus()
         FaceToFacePage(
             identity = identity,
             onMessage = onMessage, modifier = Modifier.weight(1f),

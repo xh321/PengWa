@@ -11,8 +11,8 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 
-/** 一次成功的相遇，界面据此提示"碰到了 xxx"。[via] 是来源（NFC / 蓝牙），仅用于调试日志。 */
-data class MeetingEvent(val name: String, val via: String)
+/** 一次成功的相遇，界面据此展示对方卡片。[via] 是来源（NFC / 蓝牙），仅用于调试日志。 */
+data class MeetingEvent(val peer: Identity, val via: String)
 
 /**
  * NFC 和蓝牙收到名片后统一走这里：排除自己、防抖、写入集邮册、通知界面。
@@ -38,7 +38,7 @@ class MeetingRecorder(
         scope.launch {
             store.recordMeeting(peer.id, peer.displayName, System.currentTimeMillis(), peer.card.takeIf { peer.cardComplete })
             onStored(peer.id)
-            _events.emit(MeetingEvent(peer.displayName, via))
+            _events.emit(MeetingEvent(peer, via))
         }
         return true
     }

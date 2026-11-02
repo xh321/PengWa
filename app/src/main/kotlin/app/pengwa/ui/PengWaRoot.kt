@@ -23,10 +23,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.pengwa.MainActivity
 import app.pengwa.BuildConfig
+import app.pengwa.identity.Identity
 import app.pengwa.identity.OnboardingStep
 import app.pengwa.pengWa
 import app.pengwa.ui.components.ExchangeRequestDialog
-import app.pengwa.ui.components.MeetingCelebrationOverlay
+import app.pengwa.ui.components.PeerCardDialog
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -47,8 +48,7 @@ fun PengWaRoot(
     }
     var selectedTab by rememberSaveable { mutableIntStateOf(MainActivity.TAB_ME) }
     var showingDetail by remember { mutableStateOf(false) }
-    var meetingName by remember { mutableStateOf<String?>(null) }
-    var meetingVisible by remember { mutableStateOf(false) }
+    var meetingPeer by remember { mutableStateOf<Identity?>(null) }
     var meetingSequence by remember { mutableIntStateOf(0) }
 
     // 通知栏按钮要求切换到某一页
@@ -63,15 +63,18 @@ fun PengWaRoot(
         }
     }
 
-    // 碰到人了（NFC、蓝牙或二维码）：震一下并播放一次庆祝。新事件会顶掉还没消失的旧提示。
+    // 对方卡片就是唯一的成功反馈：自动出现、自动消失，不增加必要操作。
     LaunchedEffect(Unit) {
         context.pengWa.meetings.events.collectLatest { event ->
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
             meetingSequence += 1
-            meetingName = event.name
-            meetingVisible = true
+            meetingPeer = event.peer
+        }
+    }
+    LaunchedEffect(meetingSequence, meetingPeer) {
+        if (meetingPeer != null) {
             delay(3_600)
-            meetingVisible = false
+            meetingPeer = null
         }
     }
 
@@ -134,9 +137,12 @@ fun PengWaRoot(
                 )
             }
         }
-        meetingName?.let { name ->
+        meetingPeer?.let { peer ->
             key(meetingSequence) {
-                MeetingCelebrationOverlay(name = name, visible = meetingVisible, onDismiss = { meetingVisible = false })
+                PeerCardDialog(
+                    peer = peer,
+                    onDismiss = { meetingPeer = null },
+                )
             }
         }
     }

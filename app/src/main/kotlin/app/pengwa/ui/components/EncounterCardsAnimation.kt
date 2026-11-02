@@ -1,7 +1,6 @@
 package app.pengwa.ui.components
 
 import android.provider.Settings
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -26,7 +25,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -36,51 +34,42 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import app.pengwa.ui.theme.LocalStatusColors
 import kotlin.math.PI
 import kotlin.math.sin
 
-/** Shared vector motion for an encounter request and its completed state. */
+/** Shared vector motion for an encounter request. */
 @Composable
 internal fun EncounterCardsAnimation(
     name: String,
-    celebrating: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val motionEnabled = remember(context) {
         Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) != 0f
     }
-    when {
-        !motionEnabled -> EncounterCards(name, phase = 1f, celebrating = celebrating, modifier = modifier)
-        celebrating -> {
-            val progress = remember { Animatable(0f) }
-            LaunchedEffect(Unit) { progress.animateTo(1f, tween(900, easing = FastOutSlowInEasing)) }
-            EncounterCards(name, progress.value, celebrating = true, modifier = modifier)
-        }
-        else -> {
-            val transition = rememberInfiniteTransition(label = "encounter-request")
-            val phase by transition.animateFloat(
-                initialValue = 0f,
-                targetValue = 1f,
-                animationSpec = infiniteRepeatable(tween(1400, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-                label = "encounter-cards",
-            )
-            EncounterCards(name, phase, celebrating = false, modifier = modifier)
-        }
+    if (!motionEnabled) {
+        EncounterCards(name, phase = 1f, modifier = modifier)
+    } else {
+        val transition = rememberInfiniteTransition(label = "encounter-request")
+        val phase by transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(1400, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+            label = "encounter-cards",
+        )
+        EncounterCards(name, phase, modifier)
     }
 }
 
 @Composable
-private fun EncounterCards(name: String, phase: Float, celebrating: Boolean, modifier: Modifier) {
+private fun EncounterCards(name: String, phase: Float, modifier: Modifier) {
     val colors = MaterialTheme.colorScheme
-    val statusColors = LocalStatusColors.current
     Box(modifier.fillMaxWidth().height(152.dp).clearAndSetSemantics {}, contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
             val centerY = size.height / 2f
             val pulse = 0.85f + phase * 0.15f
             drawCircle(
-                color = colors.primary.copy(alpha = if (celebrating) 0.10f else 0.06f + phase * 0.04f),
+                color = colors.primary.copy(alpha = 0.06f + phase * 0.04f),
                 radius = size.minDimension * 0.46f * pulse,
                 center = center.copy(y = centerY),
             )
@@ -91,24 +80,10 @@ private fun EncounterCards(name: String, phase: Float, celebrating: Boolean, mod
             )
             sparkles.forEach { sparkle ->
                 val wave = (sin((phase + sparkle.delay) * 2 * PI).toFloat() + 1f) / 2f
-                val alpha = if (celebrating) 0.25f + wave * 0.65f else 0.16f + wave * 0.24f
+                val alpha = 0.16f + wave * 0.24f
                 val radius = sparkle.radius.dp.toPx() * (0.75f + wave * 0.35f)
                 val position = center.copy(x = size.width * sparkle.x, y = size.height * sparkle.y)
                 drawCircle(colors.primary.copy(alpha = alpha), radius = radius, center = position)
-                if (celebrating) {
-                    drawLine(
-                        color = colors.primary.copy(alpha = alpha),
-                        start = position.copy(x = position.x - radius * 2.2f),
-                        end = position.copy(x = position.x + radius * 2.2f),
-                        strokeWidth = 1.5.dp.toPx(),
-                    )
-                    drawLine(
-                        color = colors.primary.copy(alpha = alpha),
-                        start = position.copy(y = position.y - radius * 2.2f),
-                        end = position.copy(y = position.y + radius * 2.2f),
-                        strokeWidth = 1.5.dp.toPx(),
-                    )
-                }
             }
         }
 
@@ -121,13 +96,13 @@ private fun EncounterCards(name: String, phase: Float, celebrating: Boolean, mod
             )
             Surface(
                 shape = CircleShape,
-                color = if (celebrating) statusColors.successContainer else colors.primary,
+                color = colors.primary,
                 shadowElevation = 4.dp,
             ) {
                 Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
                     PengWaIcon(
-                        if (celebrating) PengWaIcons.Success else PengWaIcons.Bluetooth,
-                        tint = if (celebrating) statusColors.success else colors.onPrimary,
+                        PengWaIcons.Bluetooth,
+                        tint = colors.onPrimary,
                         modifier = Modifier.graphicsLayer { scaleX = 0.9f + phase * 0.1f; scaleY = scaleX },
                     )
                 }

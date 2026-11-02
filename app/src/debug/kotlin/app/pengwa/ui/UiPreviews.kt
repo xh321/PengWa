@@ -16,7 +16,7 @@ import app.pengwa.R
 import androidx.compose.ui.res.stringResource
 import app.pengwa.ui.components.SettingsRow
 import app.pengwa.ui.components.ExchangeRequestDialog
-import app.pengwa.ui.components.MeetingCelebrationOverlay
+import app.pengwa.ui.components.PeerCardDialog
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -232,10 +232,11 @@ internal fun RequestPreview() {
 
 @PengWaPreviews
 @Composable
-internal fun ConnectionSuccessPreview() {
+internal fun PeerCardPreview() {
     PreviewHome { }
+    val peer = sampleCard().copy(id = UUID(0L, 2L), displayName = "名字很长很长的娃友")
     PengWaTheme(dynamicColor = false) {
-        MeetingCelebrationOverlay(name = "名字很长很长的娃友", visible = true, onDismiss = {})
+        PeerCardDialog(peer, onDismiss = {})
     }
 }
 

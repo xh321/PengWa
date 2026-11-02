@@ -56,7 +56,7 @@ internal fun ExchangeRequestDialog(name: String, shortId: String, onAccept: () -
                         )
                     }
                 }
-                EncounterCardsAnimation(name = name, celebrating = false)
+                EncounterCardsAnimation(name = name)
                 Text(
                     stringResource(R.string.request_title, name),
                     style = MaterialTheme.typography.headlineSmall,

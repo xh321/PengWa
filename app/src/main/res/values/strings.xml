@@ -83,9 +83,6 @@
     <string name="nfc_unsupported">此设备不支持碰一碰</string>
     <string name="nfc_disabled">碰一碰未开启</string>
     <string name="nfc_open_settings">去开启</string>
-    <string name="meeting_snackbar">碰到了 %1$s</string>
-    <string name="meeting_success_title">相遇成功</string>
-    <string name="meeting_success_hint">卡片交换完成，下一次相遇也值得期待。</string>
     <string name="hce_service_description">碰碰娃名片</string>
     <string name="hce_aid_group_description">两边都装了碰碰娃时，碰一下互换名片</string>
     <string name="hce_tag_group_description">名片页打开时，让其他手机把我当作一张名片标签读取</string>

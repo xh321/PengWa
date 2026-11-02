@@ -168,7 +168,13 @@ internal fun FaceToFacePageContent(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            ExchangeQrCard(identity, onExpand = { expanded = true }, showHint = !compact, codeSize = codeSize) {
+            ExchangeQrCard(
+                identity,
+                onExpand = { expanded = true },
+                showHint = !compact,
+                codeSize = codeSize,
+            ) {
+                HomeBluetoothStatus()
                 NfcStatus(nfcState, onOpenNfcSettings, onOpenLab = onOpenLab)
             }
             NfcWalletInstructions(nfcState, defaultWallet, onRequestWallet)
