@@ -72,10 +72,13 @@ internal fun CustomCardPreview(screen: String) {
     var identity by remember { mutableStateOf(when { screen.startsWith("card-social") -> socialCard(); screen.startsWith("card-masonry") -> masonryCard(); screen.startsWith("card-images") -> imageShapesCard(); else -> sampleCard() }) }
     PreviewSurface {
         when (screen) {
+            "my-card" -> Box(Modifier.systemBarsPadding()) {
+                CardDetailsPage("我的卡片", onBack = {}, onEdit = {}) { UserCardContent(identity) }
+            }
             "card-editor", "card-images-editor", "card-masonry-editor", "card-social-editor" -> Box(Modifier.systemBarsPadding()) {
                 CardEditorContent(identity, { identity = it }, { CardCodec.validate(identity.card) }, {})
             }
-            "card-received", "card-images-received", "card-masonry-received", "card-social-received" -> ContactDetails(Contact(identity.id, identity.displayName, 1761955200000L, 1761955200000L, 2, identity.card)) {}
+            "card-received", "card-images-received", "card-masonry-received", "card-social-received" -> ContactDetails(Contact(identity.id, identity.displayName, 1761955200000L, 1761955200000L, 2, identity.card), Modifier.systemBarsPadding()) {}
             else -> Column(Modifier.systemBarsPadding().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text("我的卡片", style = MaterialTheme.typography.headlineSmall)
                 UserCardContent(identity)

@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
+import app.pengwa.analytics.AnalyticsEvent
 import app.pengwa.identity.Identity
 import app.pengwa.identity.NameError
 import app.pengwa.identity.normalizeDisplayName
@@ -14,6 +15,7 @@ import app.pengwa.pengWa
 
 class IdentityViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = application.pengWa.identityRepository
+    private val analytics = application.pengWa.analytics
 
     var identity: Identity? by mutableStateOf(repository.load())
         private set
@@ -32,6 +34,7 @@ class IdentityViewModel(application: Application) : AndroidViewModel(application
             repository.saveCard(normalized)
             identity = repository.load()
             PengWaNotification.refresh(getApplication())
+            analytics.track(AnalyticsEvent.CardEditSaved)
             null
         }.getOrElse { it.message ?: "保存失败，请重试" }
     }
@@ -39,9 +42,11 @@ class IdentityViewModel(application: Application) : AndroidViewModel(application
     /** 保存显示名；通过校验返回 null，否则返回错误原因且不保存。存的是规范化后的显示名。 */
     fun saveDisplayName(raw: String): NameError? {
         validateDisplayName(raw)?.let { return it }
+        val creating = identity == null
         repository.saveDisplayName(normalizeDisplayName(raw))
         identity = repository.load()
         PengWaNotification.refresh(getApplication()) // 通知栏上的显示名同步更新
+        if (creating) analytics.track(AnalyticsEvent.CardCreated)
         return null
     }
 }

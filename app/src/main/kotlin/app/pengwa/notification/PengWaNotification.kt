@@ -7,7 +7,6 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.os.Build
 import android.widget.RemoteViews
@@ -18,6 +17,7 @@ import app.pengwa.R
 import app.pengwa.ble.BleBroadcastService
 import app.pengwa.ble.BroadcastSettings
 import app.pengwa.pengWa
+import app.pengwa.settings.BooleanSetting
 
 /**
  * 常驻通知栏控件：用 RemoteViews 自定义折叠 / 展开两套布局，配合 DecoratedCustomViewStyle。
@@ -29,16 +29,14 @@ import app.pengwa.pengWa
 object PengWaNotification {
     const val NOTIFICATION_ID = 1
     private const val CHANNEL_ID = "pengwa_ongoing"
-    private const val PREFS = "settings"
-    private const val KEY_ENABLED = "ongoing_notification"
+    private val enabledSetting = BooleanSetting("ongoing_notification")
     private const val DISMISS_REQUEST_CODE = 100
 
     fun isEnabled(context: Context): Boolean =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ENABLED, false)
+        enabledSetting.get(context)
 
     fun setEnabled(context: Context, enabled: Boolean) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit().putBoolean(KEY_ENABLED, enabled).apply()
+        enabledSetting.set(context, enabled)
         refresh(context)
     }
 
@@ -46,14 +44,8 @@ object PengWaNotification {
      * 监听"是否开启"的变化（开关切换、在通知栏划掉都会触发），返回取消监听的函数。
      * SharedPreferences 只弱引用监听器，所以监听器由返回的函数持有，调用方要保留这个函数。
      */
-    fun observeEnabled(context: Context, onChange: (Boolean) -> Unit): () -> Unit {
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val listener = SharedPreferences.OnSharedPreferenceChangeListener { shared, key ->
-            if (key == KEY_ENABLED) onChange(shared.getBoolean(KEY_ENABLED, false))
-        }
-        prefs.registerOnSharedPreferenceChangeListener(listener)
-        return { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
-    }
+    fun observeEnabled(context: Context, onChange: (Boolean) -> Unit): () -> Unit =
+        enabledSetting.observe(context, onChange)
 
     fun hasPermission(context: Context): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||

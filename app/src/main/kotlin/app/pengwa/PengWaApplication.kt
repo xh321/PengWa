@@ -1,6 +1,8 @@
 package app.pengwa
 
+import app.pengwa.analytics.AppAnalytics
 import android.app.Application
+import android.content.ComponentName
 import android.content.Context
 import android.os.Build
 import android.util.Log
@@ -10,6 +12,7 @@ import app.pengwa.exchange.ExchangeMode
 import app.pengwa.exchange.ExchangeModeState
 import app.pengwa.identity.IdentityRepository
 import app.pengwa.meeting.MeetingRecorder
+import app.pengwa.nfc.PengWaHostApduService
 import app.pengwa.nfc.NfcDiagnosticLog
 import app.pengwa.notification.PengWaNotification
 import kotlinx.coroutines.CoroutineScope
@@ -26,6 +29,8 @@ class PengWaApplication : Application() {
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
+    val analytics by lazy { AppAnalytics(this) }
+
     val identityRepository: IdentityRepository by lazy { IdentityRepository(this) }
     val contactStore: ContactStore by lazy { ContactStore(this) }
     val meetings: MeetingRecorder by lazy {
@@ -37,6 +42,8 @@ class PengWaApplication : Application() {
      * NFC 服务、蓝牙总控、NFC 前台调度都读它。
      */
     val exchangeMode = ExchangeModeState()
+
+    val nfcService by lazy { ComponentName(this, PengWaHostApduService::class.java) }
 
     val nfcDiagnostics by lazy {
         NfcDiagnosticLog(
@@ -60,6 +67,7 @@ class PengWaApplication : Application() {
         BleExchangeController(
             context = this,
             identityProvider = { identityRepository.load() },
+            onAnalytics = { analytics.track(it) },
             onPeer = { peer, how -> meetings.record(peer, "蓝牙：$how") },
         )
     }

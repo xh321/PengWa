@@ -1,29 +1,34 @@
 package app.pengwa.ui
 
+import app.pengwa.analytics.AnalyticsEvent
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.platform.LocalResources
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.pengwa.MainActivity
 import app.pengwa.BuildConfig
-import app.pengwa.R
 import app.pengwa.exchange.ExchangeMode
 import app.pengwa.pengWa
 import app.pengwa.ui.components.ExchangeRequestDialog
+import app.pengwa.ui.components.MeetingCelebrationOverlay
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -35,7 +40,6 @@ fun PengWaRoot(
     identityViewModel: IdentityViewModel = viewModel(),
 ) {
     val context = LocalContext.current
-    val resources = LocalResources.current
     val haptic = LocalHapticFeedback.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -43,7 +47,11 @@ fun PengWaRoot(
         scope.launch { snackbarHostState.showSnackbar(message) }
     }
     var selectedTab by rememberSaveable { mutableIntStateOf(MainActivity.TAB_ME) }
+    var showingDetail by remember { mutableStateOf(false) }
     var nfcRole by rememberSaveable { mutableStateOf(ExchangeMode.NfcDisplay) }
+    var meetingName by remember { mutableStateOf<String?>(null) }
+    var meetingVisible by remember { mutableStateOf(false) }
+    var meetingSequence by remember { mutableIntStateOf(0) }
 
     // 通知栏按钮要求切换到某一页
     LaunchedEffect(requestedTab) {
@@ -57,11 +65,15 @@ fun PengWaRoot(
         }
     }
 
-    // 碰到人了（NFC、蓝牙或二维码）：震一下并提示。新事件会顶掉还没消失的旧提示。
-    LaunchedEffect(resources) {
+    // 碰到人了（NFC、蓝牙或二维码）：震一下并播放一次庆祝。新事件会顶掉还没消失的旧提示。
+    LaunchedEffect(Unit) {
         context.pengWa.meetings.events.collectLatest { event ->
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-            snackbarHostState.showSnackbar(resources.getString(R.string.meeting_snackbar, event.name))
+            meetingSequence += 1
+            meetingName = event.name
+            meetingVisible = true
+            delay(3_600)
+            meetingVisible = false
         }
     }
 
@@ -78,32 +90,52 @@ fun PengWaRoot(
 
     // 还没设置显示名时，只显示首次设置页，不展示底部导航
     val hasIdentity = identityViewModel.identity != null
+    LaunchedEffect(selectedTab, hasIdentity, showingDetail) {
+        if (hasIdentity && !showingDetail) {
+            val event = when (selectedTab) {
+                MainActivity.TAB_ME -> AnalyticsEvent.HomeViewed
+                MainActivity.TAB_NEARBY -> AnalyticsEvent.NearbyViewed
+                MainActivity.TAB_CONTACTS -> AnalyticsEvent.ContactsViewed
+                else -> null
+            }
+            event?.let(context.pengWa.analytics::track)
+        }
+    }
     BackHandler(enabled = selectedTab == MainActivity.TAB_LAB) { selectedTab = MainActivity.TAB_ME }
 
-    PengWaScaffold(
-        selectedTab = selectedTab,
-        showNavigation = hasIdentity,
-        onSelect = { selectedTab = it },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-    ) { contentModifier ->
-        when {
-            !hasIdentity || selectedTab == MainActivity.TAB_ME -> HomeScreen(
-                viewModel = identityViewModel,
-                role = nfcRole,
-                onRoleChange = { nfcRole = it },
-                onMessage = showMessage,
-                onOpenLab = if (BuildConfig.DEBUG) ({ selectedTab = MainActivity.TAB_LAB }) else null,
-                modifier = contentModifier,
-            )
-            selectedTab == MainActivity.TAB_NEARBY -> NearbyScreen(modifier = contentModifier)
-            selectedTab == MainActivity.TAB_CONTACTS -> ContactsScreen(
-                onMessage = showMessage, modifier = contentModifier,
-                onExchange = { selectedTab = MainActivity.TAB_ME },
-            )
-            selectedTab == MainActivity.TAB_LAB && BuildConfig.DEBUG -> LabScreen(
-                modifier = contentModifier,
-                onClose = { selectedTab = MainActivity.TAB_ME },
-            )
+    Box(Modifier.fillMaxSize()) {
+        PengWaScaffold(
+            selectedTab = selectedTab,
+            showNavigation = hasIdentity && !showingDetail,
+            onSelect = { selectedTab = it },
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+        ) { contentModifier ->
+            when {
+                !hasIdentity || selectedTab == MainActivity.TAB_ME -> HomeScreen(
+                    viewModel = identityViewModel,
+                    onDetailVisibilityChanged = { showingDetail = it },
+                    role = nfcRole,
+                    onRoleChange = { nfcRole = it },
+                    onMessage = showMessage,
+                    onOpenLab = if (BuildConfig.DEBUG) ({ selectedTab = MainActivity.TAB_LAB }) else null,
+                    modifier = contentModifier,
+                )
+                selectedTab == MainActivity.TAB_NEARBY -> NearbyScreen(modifier = contentModifier)
+                selectedTab == MainActivity.TAB_CONTACTS -> ContactsScreen(
+                    onMessage = showMessage, modifier = contentModifier,
+                    onDetailVisibilityChanged = { showingDetail = it },
+                    onExchange = { selectedTab = MainActivity.TAB_ME },
+                )
+                selectedTab == MainActivity.TAB_LAB && BuildConfig.DEBUG -> LabScreen(
+                    modifier = contentModifier,
+                    onClose = { selectedTab = MainActivity.TAB_ME },
+                )
+            }
+        }
+        meetingName?.let { name ->
+            key(meetingSequence) {
+                MeetingCelebrationOverlay(name = name, visible = meetingVisible, onDismiss = { meetingVisible = false })
+            }
         }
     }
 }

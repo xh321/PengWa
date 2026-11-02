@@ -13,14 +13,13 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,6 +36,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import app.pengwa.R
+import app.pengwa.analytics.AnalyticsEvent
 import app.pengwa.exchange.ExchangeMode
 import app.pengwa.identity.Identity
 import app.pengwa.identity.NameError
@@ -54,11 +54,16 @@ fun HomeScreen(
     onMessage: (String) -> Unit,
     modifier: Modifier = Modifier,
     onOpenLab: (() -> Unit)? = null,
+    onDetailVisibilityChanged: (Boolean) -> Unit = {},
 ) {
     val identity = viewModel.identity
+    val analytics = LocalContext.current.pengWa.analytics
     var editing by rememberSaveable { mutableStateOf(false) }
     var showingCard by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
+
+    SideEffect { onDetailVisibilityChanged(identity != null && (editing || showingCard || showSettings)) }
+    DisposableEffect(Unit) { onDispose { onDetailVisibilityChanged(false) } }
 
     if (editing && identity != null) {
         CardEditor(viewModel, onClose = { editing = false }, modifier = modifier)
@@ -79,10 +84,34 @@ fun HomeScreen(
         return
     }
 
+    if (showSettings) {
+        SettingsScreen(onBack = { showSettings = false }, modifier = modifier)
+        return
+    }
+
+    if (showingCard) {
+        CardDetailsPage("我的卡片", onBack = { showingCard = false }, modifier = modifier,
+            onEdit = {
+                analytics.track(AnalyticsEvent.CardEditStarted)
+                viewModel.beginEdit()
+                editing = true
+            }) {
+            UserCardContent(identity)
+        }
+        return
+    }
+
     Column(modifier = modifier.fillMaxSize()) {
-        HomeHeader(identity, onEdit = { viewModel.beginEdit(); editing = true }, onSettings = { showSettings = true })
+        HomeHeader(identity, onEdit = {
+            analytics.track(AnalyticsEvent.CardEditStarted)
+            viewModel.beginEdit()
+            editing = true
+        }, onSettings = { showSettings = true })
         Row(Modifier.fillMaxWidth().padding(horizontal = PageGutter), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = { showingCard = true }) { Text("查看我的卡片") }
+            TextButton(onClick = {
+                analytics.track(AnalyticsEvent.OwnCardViewed)
+                showingCard = true
+            }) { Text("查看我的卡片") }
         }
         HomeBluetoothStatus()
         FaceToFacePage(
@@ -91,13 +120,6 @@ fun HomeScreen(
             onOpenLab = onOpenLab,
         )
     }
-
-    if (showingCard) androidx.compose.material3.AlertDialog(
-        onDismissRequest = { showingCard = false }, title = { Text("我的卡片") },
-        text = { Column(Modifier.verticalScroll(rememberScrollState())) { UserCardContent(identity) } },
-        confirmButton = { TextButton(onClick = { showingCard = false }) { Text("关闭") } },
-    )
-    if (showSettings) SettingsSheet(onDismiss = { showSettings = false })
 }
 
 @Composable
@@ -127,30 +149,6 @@ internal fun ExchangeSession(mode: ExchangeMode) {
     LifecycleResumeEffect(mode) {
         state.set(mode)
         onPauseOrDispose { state.set(ExchangeMode.None) }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun SettingsSheet(onDismiss: () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        SettingsContent(backgroundBroadcast = { BackgroundBroadcastToggle() }, notification = { NotificationToggle() })
-    }
-}
-
-@Composable
-internal fun SettingsContent(backgroundBroadcast: @Composable () -> Unit, notification: @Composable () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = PageGutter, end = PageGutter, bottom = 32.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Text(stringResource(R.string.settings_title), style = MaterialTheme.typography.titleLarge)
-        Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
-            Column(Modifier.padding(16.dp)) { backgroundBroadcast() }
-        }
-        Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
-            Column(Modifier.padding(16.dp)) { notification() }
-        }
     }
 }
 

@@ -56,6 +56,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import app.pengwa.R
+import app.pengwa.analytics.AnalyticsEvent
 import app.pengwa.exchange.ExchangeMode
 import app.pengwa.identity.Identity
 import app.pengwa.pengWa
@@ -81,13 +82,18 @@ fun FaceToFacePage(
 ) {
     val context = LocalContext.current
     val resources = LocalResources.current
+    val analytics = context.pengWa.analytics
     // 故意不用 rememberSaveable：离开这一页再回来，应该回到二维码而不是直接亮相机
     var scanning by remember { mutableStateOf(false) }
-    BackHandler(enabled = scanning) { scanning = false }
+    fun closeScanner() {
+        analytics.track(AnalyticsEvent.QrScanCancelled)
+        scanning = false
+    }
+    BackHandler(enabled = scanning) { closeScanner() }
 
     val mode by context.pengWa.exchangeMode.mode.collectAsStateWithLifecycle()
     val nfcState = rememberNfcState(role)
-    val wallet = remember(context) { NfcWallet(context) }
+    val wallet = remember(context) { NfcWallet(context, context.pengWa.nfcService) }
     var defaultWallet by remember(wallet) { mutableStateOf(wallet.isDefault()) }
     LifecycleResumeEffect(wallet) {
         defaultWallet = wallet.isDefault()
@@ -107,12 +113,21 @@ fun FaceToFacePage(
                 scanning = false
                 val peer = QrPayload.decode(text)
                 when {
-                    peer == null -> onMessage(resources.getString(R.string.qr_invalid))
-                    peer.id == identity.id -> onMessage("这是自己的二维码")
-                    else -> context.pengWa.bleExchange.discover(peer, initiate = true, source = "二维码")
+                    peer == null -> {
+                        analytics.track(AnalyticsEvent.QrScanInvalid)
+                        onMessage(resources.getString(R.string.qr_invalid))
+                    }
+                    peer.id == identity.id -> {
+                        analytics.track(AnalyticsEvent.QrScanSelf)
+                        onMessage("这是自己的二维码")
+                    }
+                    else -> {
+                        analytics.track(AnalyticsEvent.QrScanPeer)
+                        context.pengWa.bleExchange.discover(peer, initiate = true, source = "二维码")
+                    }
                 }
             },
-            onClose = { scanning = false },
+            onClose = ::closeScanner,
             modifier = modifier,
         )
         return
@@ -122,7 +137,16 @@ fun FaceToFacePage(
         identity = identity,
         role = role,
         nfcState = nfcState,
-        onRoleChange = onRoleChange,
+        onRoleChange = { selected ->
+            if (selected != role) {
+                when (selected) {
+                    ExchangeMode.NfcDisplay -> analytics.track(AnalyticsEvent.NfcDisplayModeSelected)
+                    ExchangeMode.NfcRead -> analytics.track(AnalyticsEvent.NfcReadModeSelected)
+                    else -> Unit
+                }
+            }
+            onRoleChange(selected)
+        },
         onOpenNfcSettings = { context.startActivity(Intent(Settings.ACTION_NFC_SETTINGS)) },
         defaultWallet = defaultWallet,
         showWalletPrompt = !walletPromptDismissed,
@@ -134,7 +158,11 @@ fun FaceToFacePage(
                     if (!wallet.openSettings()) onMessage(resources.getString(R.string.nfc_wallet_open_failed))
                 }
         },
-        onScan = { scanning = true },
+        onScan = {
+            analytics.track(AnalyticsEvent.QrScanModeSelected)
+            analytics.track(AnalyticsEvent.QrScanOpened)
+            scanning = true
+        },
         onOpenLab = onOpenLab,
         modifier = modifier,
     )
@@ -158,6 +186,10 @@ internal fun FaceToFacePageContent(
     var expanded by rememberSaveable { mutableStateOf(false) }
     BoxWithConstraints(modifier.fillMaxSize()) {
         val compact = maxHeight < 300.dp && maxWidth >= 480.dp
+        // Keep the art behind the exchange controls; short windows need the space for content.
+        if (maxHeight >= 440.dp) {
+            HomeBackdropArt(Modifier.align(Alignment.BottomEnd).padding(end = PageGutter, bottom = 76.dp))
+        }
         if (compact) {
             Row(Modifier.fillMaxSize().padding(horizontal = PageGutter, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {

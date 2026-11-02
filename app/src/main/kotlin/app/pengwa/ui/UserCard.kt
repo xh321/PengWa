@@ -20,6 +20,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
+import app.pengwa.analytics.AnalyticsEvent
 import app.pengwa.identity.*
 import app.pengwa.pengWa
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -34,6 +35,30 @@ internal fun CardAvatar(identity: Identity, modifier: Modifier = Modifier) {
     Box(modifier) {
         if (image == null) NameStamp(identity.displayName)
         else Image(image.asImageBitmap(), "头像", Modifier.size(56.dp).clip(CircleShape), contentScale = ContentScale.Crop)
+    }
+}
+
+/** A shared page shell keeps navigation reachable while long cards scroll. */
+@Composable
+internal fun CardDetailsPage(
+    title: String,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    onEdit: (() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    BackHandler(onBack = onBack)
+    Column(modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = onBack) { Text("返回") }
+            Text(title, Modifier.weight(1f).padding(horizontal = 8.dp), style = MaterialTheme.typography.titleLarge)
+            if (onEdit != null) TextButton(onClick = onEdit) { Text("编辑") }
+        }
+        Column(
+            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(app.pengwa.ui.theme.PageGutter),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            content = content,
+        )
     }
 }
 
@@ -89,8 +114,13 @@ private fun CardImage(value: String, description: String) {
 @Composable
 internal fun CardEditor(viewModel: IdentityViewModel, onClose: () -> Unit, modifier: Modifier = Modifier) {
     LaunchedEffect(viewModel) { if (viewModel.draft == null) viewModel.beginEdit() }
+    val analytics = LocalContext.current.pengWa.analytics
     val draft = viewModel.draft ?: return
-    CardEditorContent(draft, viewModel::updateDraft, viewModel::saveDraft, onClose, modifier)
+    CardEditorContent(
+        draft, viewModel::updateDraft, viewModel::saveDraft, onClose, modifier,
+        onCancel = { analytics.track(AnalyticsEvent.CardEditCancelled) },
+        onPreview = { analytics.track(AnalyticsEvent.CardEditorPreviewOpened) },
+    )
 }
 
 @Composable
@@ -100,6 +130,8 @@ internal fun CardEditorContent(
     onSave: () -> String?,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
+    onCancel: () -> Unit = {},
+    onPreview: () -> Unit = {},
 ) {
     var preview by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -135,7 +167,10 @@ internal fun CardEditorContent(
     Column(modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(if (preview) "卡片预览" else "编辑我的卡片", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
-            TextButton(onClick = { preview = !preview }, enabled = !loading) { Text(if (preview) "继续编辑" else "预览") }
+            TextButton(onClick = {
+                preview = !preview
+                if (preview) onPreview()
+            }, enabled = !loading) { Text(if (preview) "继续编辑" else "预览") }
         }
         if (preview) UserCardContent(draft) else {
             OutlinedTextField(draft.displayName, { onChange(draft.copy(displayName = it)); error = null }, label = { Text("显示名") }, singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -184,7 +219,7 @@ internal fun CardEditorContent(
         Button(enabled = !loading, onClick = { error = onSave(); if (error == null) onClose() }, modifier = Modifier.fillMaxWidth()) { Text("保存卡片") }
         TextButton(onClick = ::close, modifier = Modifier.fillMaxWidth(), enabled = !loading) { Text("取消") }
     }
-    if (confirmDiscard) AlertDialog(onDismissRequest = { confirmDiscard = false }, title = { Text("放弃本次编辑？") }, text = { Text("尚未保存的修改将被丢弃。") }, confirmButton = { TextButton(onClick = onClose) { Text("放弃") } }, dismissButton = { TextButton(onClick = { confirmDiscard = false }) { Text("继续编辑") } })
+    if (confirmDiscard) AlertDialog(onDismissRequest = { confirmDiscard = false }, title = { Text("放弃本次编辑？") }, text = { Text("尚未保存的修改将被丢弃。") }, confirmButton = { TextButton(onClick = { onCancel(); onClose() }) { Text("放弃") } }, dismissButton = { TextButton(onClick = { confirmDiscard = false }) { Text("继续编辑") } })
 }
 
 private fun BlockType.label(): String = when (this) { BlockType.Text -> "文字"; BlockType.Link -> "链接"; BlockType.Social -> "社交账号"; BlockType.Image -> "图片" }

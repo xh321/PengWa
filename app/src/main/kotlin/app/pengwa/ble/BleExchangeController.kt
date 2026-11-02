@@ -1,5 +1,6 @@
 package app.pengwa.ble
 
+import app.pengwa.analytics.AnalyticsEvent
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.content.BroadcastReceiver
@@ -42,6 +43,7 @@ class BleExchangeController(
     private val identityProvider: () -> Identity?,
     /** 对方卡片到手时回调；返回 true 表示算一次有效相遇（自己的卡片或刚碰过的返回 false）。 */
     private val onPeer: (peer: Identity, how: String) -> Boolean,
+    private val onAnalytics: (AnalyticsEvent) -> Unit = {},
 ) {
     private val appContext = context.applicationContext
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -95,6 +97,7 @@ class BleExchangeController(
             }
 
             override fun onExchanged(address: String, peer: Identity?, error: String?) {
+                onAnalytics(if (peer != null) AnalyticsEvent.ExchangeSucceeded else AnalyticsEvent.ExchangeFailed)
                 list.onExchanged(address, peer?.displayName, error, peer?.id?.let(::identityKey))
                 mainHandler.post {
                     if (peer != null) {
@@ -102,6 +105,7 @@ class BleExchangeController(
                         _discoveryStatus.value = "卡片交换完成"
                     } else { _discoveryStatus.value = error; log("交换失败：$error") }
                     discoveryPeer = null
+                    refresh()
                 }
                 schedulePublish()
             }
@@ -110,6 +114,8 @@ class BleExchangeController(
                 mainHandler.post {
                     if (peer.id == discoveryPeer && SystemClock.elapsedRealtime() < discoveryUntil && discoveryAutoAccept) {
                         manager.decideRequest(address, true)
+                        // Count the NFC authorization submission, not card-transfer success.
+                        onAnalytics(AnalyticsEvent.IncomingAutoAccepted)
                         receivingCards.add(address)
                         discoveryAutoAccept = false
                         discoveryUntil = SystemClock.elapsedRealtime() + 180_000L
@@ -121,10 +127,12 @@ class BleExchangeController(
 
             override fun onCardCompleted(address: String, peer: Identity) {
                 mainHandler.post {
+                    onAnalytics(AnalyticsEvent.CardReceived)
                     receivingCards.remove(address)
                     handlePeer(peer, "完整卡片交换完成")
                     if (discoveryPeer == peer.id) discoveryPeer = null
                     _discoveryStatus.value = "卡片交换完成"
+                    refresh()
                 }
             }
 
@@ -133,6 +141,7 @@ class BleExchangeController(
                     if (receivingCards.remove(address)) {
                         discoveryPeer = null
                         _discoveryStatus.value = "蓝牙连接中断，请重新识别对方后重试"
+                        refresh()
                     }
                     if (requests.cancel(address) != null) {
                         RequestNotifier.cancel(appContext, address)
@@ -183,6 +192,7 @@ class BleExchangeController(
         if (value == appForeground) return
         appForeground = value
         requests.snapshot().forEach { if (value) RequestNotifier.cancel(appContext, it.key) else RequestNotifier.show(appContext, it) }
+        refresh()
     }
 
     fun isBackgroundBroadcastEnabled(): Boolean = BroadcastSettings.isEnabled(appContext)
@@ -207,6 +217,10 @@ class BleExchangeController(
             allPermitted = BlePermissions.granted(appContext),
             advertisePermitted = BlePermissions.grantedForBroadcast(appContext),
             bluetoothOn = bluetoothOn,
+            // NFC 冷启动时 Compose 尚未设置页面角色；恢复到集邮册时也没有页面扫描。
+            // 保留本次识别，在前台独立完成发现，不要求用户再碰一次。
+            discoveryActive = appForeground && discoveryPeer != null &&
+                SystemClock.elapsedRealtime() < discoveryUntil,
         )
         runCatching {
             if (plan.advertise) {
@@ -225,12 +239,14 @@ class BleExchangeController(
             }
         }.onFailure { log("蓝牙操作失败：${it.message}") }
         _running.value = manager.isAdvertising || manager.isScanning
+        tryDiscovery()
     }
 
     /** NFC only identifies the peer. The reader initiates BLE; the display side accepts only that peer briefly. */
     fun discover(peer: Identity, initiate: Boolean, source: String = "NFC") {
         if (peer.id == identityProvider()?.id) { _discoveryStatus.value = "这是自己的卡片"; return }
         if (discoveryPeer == peer.id && SystemClock.elapsedRealtime() < discoveryUntil) return
+        onAnalytics(if (source == "NFC") AnalyticsEvent.NfcRecognized else AnalyticsEvent.QrRecognized)
         discoveryAutoAccept = source == "NFC" && !initiate
         if (initiate) lastDiscovery = peer to source
         discoveryPeer = peer.id
@@ -241,13 +257,14 @@ class BleExchangeController(
             !isBluetoothOn() -> "已发现对方，请开启蓝牙后重新碰一碰"
             else -> "已通过 $source 识别对方，正在连接蓝牙…"
         }
-        refresh()
-        tryDiscovery()
         val deadline = discoveryUntil
+        refresh()
         mainHandler.postDelayed({
             if (discoveryPeer != null && discoveryUntil == deadline) {
                 discoveryPeer = null
+                onAnalytics(if (source == "NFC") AnalyticsEvent.NfcDiscoveryTimedOut else AnalyticsEvent.QrDiscoveryTimedOut)
                 _discoveryStatus.value = "未能完成交换，请保持双方应用在前台并重新碰一碰"
+                refresh()
             }
         }, 30_000L)
     }
@@ -259,6 +276,9 @@ class BleExchangeController(
             return
         }
         discoveryPeer = null
+        if (peer.id != identityProvider()?.id) {
+            onAnalytics(if (source == "NFC") AnalyticsEvent.NfcDiscoveryRetried else AnalyticsEvent.QrDiscoveryRetried)
+        }
         discover(peer, true, source)
     }
 
@@ -274,6 +294,7 @@ class BleExchangeController(
         publish()
         // Connection/consent/transfer has its own deadline in the BLE manager.
         discoveryUntil = SystemClock.elapsedRealtime() + 180_000L
+        onAnalytics(AnalyticsEvent.ExchangeStarted)
         manager.requestExchange(peer.address, expectedId = id)
     }
 
@@ -283,15 +304,18 @@ class BleExchangeController(
     fun exchangeWith(address: String) {
         if (!list.beginExchange(address)) return
         publish()
+        onAnalytics(AnalyticsEvent.ExchangeStarted)
         manager.requestExchange(address)
     }
 
     // ------------------------------------------------------------------ 别人来申请我
 
     /** Main-thread request processing keeps prompt/disconnect ordering consistent. */
-    private fun submitIncoming(request: IncomingRequest): RequestReply =
-        when (val result = requests.submit(request)) {
+    private fun submitIncoming(request: IncomingRequest): RequestReply {
+        val alreadyPending = _incoming.value.any { it.key == request.key }
+        return when (val result = requests.submit(request)) {
             Submission.Prompt -> {
+                if (!alreadyPending && !request.simulated) onAnalytics(AnalyticsEvent.IncomingPrompted)
                 onRequestAdded(request)
                 RequestReply.Prompt
             }
@@ -302,9 +326,18 @@ class BleExchangeController(
                         DeclineReason.TooManyPending -> "待处理的申请太多，自动拒绝 ${request.peer.displayName}"
                     },
                 )
+                if (!request.simulated) {
+                    onAnalytics(
+                        when (result.reason) {
+                            DeclineReason.RecentlyDeclined -> AnalyticsEvent.IncomingCooldownDeclined
+                            DeclineReason.TooManyPending -> AnalyticsEvent.IncomingCapacityDeclined
+                        },
+                    )
+                }
                 RequestReply.Decline
             }
         }
+    }
 
     private fun onRequestAdded(request: IncomingRequest) {
         publishIncoming()
@@ -317,6 +350,10 @@ class BleExchangeController(
         val request = requests.decide(key, accept, SystemClock.elapsedRealtime()) ?: return
         RequestNotifier.cancel(appContext, key)
         val peer = if (request.simulated) request.peer else manager.decideRequest(key, accept)
+        // A consumed queue entry records the user's decision intent, not BLE completion.
+        if (!request.simulated) {
+            onAnalytics(if (accept) AnalyticsEvent.IncomingAccepted else AnalyticsEvent.IncomingDeclined)
+        }
         if (accept) {
             if (peer != null) handlePeer(peer, "我同意了对方的申请") else {
                 receivingCards.add(key)
@@ -333,6 +370,7 @@ class BleExchangeController(
     private fun expireOverdue() {
         requests.takeExpired(SystemClock.elapsedRealtime()).forEach {
             manager.expireRequest(it.key)
+            if (!it.simulated) onAnalytics(AnalyticsEvent.IncomingExpired)
             RequestNotifier.cancel(appContext, it.key)
             log("${it.peer.displayName} 的申请超时未处理")
         }
@@ -388,7 +426,7 @@ class BleExchangeController(
     }
 
     private fun publish() {
-        _nearby.value = list.snapshot()
+        _nearby.value = list.snapshotForDisplay()
     }
 
     private fun publishIncoming() {

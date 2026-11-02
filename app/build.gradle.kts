@@ -15,6 +15,10 @@ val keystoreProperties = Properties().apply {
     if (file.exists()) file.inputStream().use { load(it) }
 }
 
+fun analyticsString(value: String): String = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r") + "\""
+val aptabaseAppKey = providers.gradleProperty("aptabaseAppKey").orElse(providers.environmentVariable("APTABASE_APP_KEY")).orElse("")
+val aptabaseHost = providers.gradleProperty("aptabaseHost").orElse(providers.environmentVariable("APTABASE_HOST")).orElse("")
+
 android {
     namespace = "app.pengwa"
     // AndroidX 最新版要求 compileSdk >= 37；targetSdk 仍保持 36，不影响运行时行为
@@ -25,11 +29,16 @@ android {
         // 29：往自己创建的相册条目写照片不需要存储权限，省掉旧版本的一整套分支
         minSdk = 29
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        val ciRun = providers.environmentVariable("GITHUB_RUN_NUMBER").orNull?.toInt()
+        versionCode = providers.gradleProperty("appVersionCode").orNull?.toInt()
+            ?: ciRun?.let { 100_000 + it * 100 + (providers.environmentVariable("GITHUB_RUN_ATTEMPT").orNull?.toInt() ?: 1) }
+            ?: 1
+        versionName = providers.gradleProperty("appVersionName").orNull ?: "0.1.0"
         val revision = providers.environmentVariable("GITHUB_SHA").orNull
             ?.takeIf { it.matches(Regex("[0-9a-fA-F]{40,64}")) } ?: "local"
         buildConfigField("String", "BUILD_REVISION", "\"$revision\"")
+        buildConfigField("String", "APTABASE_APP_KEY", analyticsString(aptabaseAppKey.get()))
+        buildConfigField("String", "APTABASE_HOST", analyticsString(aptabaseHost.get()))
     }
 
     signingConfigs {
@@ -48,6 +57,10 @@ android {
 
     buildTypes {
         debug {
+            val run = providers.environmentVariable("GITHUB_RUN_NUMBER").orNull?.toInt()
+            if (run != null) {
+                versionNameSuffix = "-nightly.$run"
+            }
             // 调试版可与正式版共存
             applicationIdSuffix = ".debug"
         }
@@ -60,6 +73,14 @@ android {
                 "proguard-rules.pro",
             )
         }
+    }
+
+    // 直接分发 APK 时压缩 DEX，减小下载文件；安装时由系统解压。
+    // DEX 设置不影响 AAB；保留全部架构与功能。
+    packaging {
+        dex.useLegacyPackaging = true
+        // 压缩原生库并移除 APK 内的页对齐填充；安装时由系统解压。
+        jniLibs.useLegacyPackaging = true
     }
 
     compileOptions {
@@ -86,6 +107,14 @@ android {
 }
 
 dependencies {
+    implementation("com.github.aptabase:aptabase-kotlin:0.1.0")
+    implementation(project(":core:model"))
+    implementation(project(":core:protocol"))
+    implementation(project(":core:data"))
+    implementation(project(":core:bluetooth"))
+    implementation(project(":core:designsystem"))
+    implementation(project(":core:nfc"))
+    implementation(project(":core:media"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -93,7 +122,6 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
 
     // 二维码：ZXing core 同时负责生成和识别；CameraX 只负责取景和送帧
-    implementation(libs.zxing.core)
     implementation(libs.androidx.camera.core)
     implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.camera.lifecycle)

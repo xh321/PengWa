@@ -20,7 +20,9 @@ import androidx.compose.ui.res.stringResource
 import app.pengwa.ui.components.PengWaIcon
 import app.pengwa.ui.components.PengWaIcons
 import app.pengwa.R
+import app.pengwa.analytics.AnalyticsEvent
 import app.pengwa.photo.PhotoStorage
+import app.pengwa.pengWa
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -37,6 +39,7 @@ fun CameraButton(onMessage: (String) -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val resources = LocalResources.current
     val scope = rememberCoroutineScope()
+    val analytics = context.pengWa.analytics
     // 相机在前台时本应用可能被系统回收；保存临时文件路径，回来后才能收尾
     var pendingPath by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -46,10 +49,12 @@ fun CameraButton(onMessage: (String) -> Unit, modifier: Modifier = Modifier) {
         pendingPath = null
         if (!taken) {
             PhotoStorage.discard(file)
+            analytics.track(AnalyticsEvent.PhotoCaptureCancelled)
             return@rememberLauncherForActivityResult
         }
         scope.launch {
             val saved = withContext(Dispatchers.IO) { PhotoStorage.saveToGallery(context, file) }
+            analytics.track(if (saved) AnalyticsEvent.PhotoCaptureSaved else AnalyticsEvent.PhotoCaptureFailed)
             onMessage(resources.getString(if (saved) R.string.photo_saved else R.string.photo_create_failed))
         }
     }
@@ -63,16 +68,21 @@ fun CameraButton(onMessage: (String) -> Unit, modifier: Modifier = Modifier) {
             pendingPath = null
             PhotoStorage.discard(file)
             onMessage(resources.getString(R.string.camera_not_found))
+            analytics.track(AnalyticsEvent.PhotoCaptureFailed)
         }
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) launchCamera() else onMessage(resources.getString(R.string.camera_permission_denied))
+        if (granted) launchCamera() else {
+            analytics.track(AnalyticsEvent.PhotoCaptureFailed)
+            onMessage(resources.getString(R.string.camera_permission_denied))
+        }
     }
 
     CameraButtonContent(
         modifier = modifier,
         onClick = {
+            analytics.track(AnalyticsEvent.PhotoCaptureStarted)
             if (hasCameraPermission(context)) launchCamera() else permissionLauncher.launch(Manifest.permission.CAMERA)
         },
     )

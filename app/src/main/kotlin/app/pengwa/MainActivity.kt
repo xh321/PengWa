@@ -1,5 +1,6 @@
 package app.pengwa
 
+import app.pengwa.analytics.AnalyticsEvent
 import android.content.Intent
 import android.nfc.NfcAdapter
 import android.nfc.Tag
@@ -29,10 +30,25 @@ class MainActivity : ComponentActivity() {
     private var requestedTab by mutableStateOf<Int?>(null)
 
     private val nfcAdapter: NfcAdapter? by lazy { NfcAdapter.getDefaultAdapter(this) }
-    private val nfcExchanger by lazy { NfcTagExchanger(this) }
+    private val nfcExchanger by lazy {
+        NfcTagExchanger(
+            identityProvider = { pengWa.identityRepository.load() },
+            modeProvider = { pengWa.exchangeMode.current },
+            diagnostics = pengWa.nfcDiagnostics,
+            onPeer = { pengWa.bleExchange.discover(it, initiate = true) },
+            onFailure = {
+                pengWa.bleExchange.discoveryFailed("NFC 识别失败，请确认双方使用新版应用后重新碰一碰")
+            },
+        )
+    }
 
     private val nfcMode by lazy {
-        NfcModeController(this) { tag ->
+        NfcModeController(
+            activity = this,
+            service = pengWa.nfcService,
+            diagnostics = pengWa.nfcDiagnostics,
+            inspectRouting = BuildConfig.DEBUG,
+        ) { tag ->
             runOnUiThread {
                 val accepted = lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) &&
                     pengWa.exchangeMode.isActive(ExchangeMode.NfcRead)
@@ -44,12 +60,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (savedInstanceState == null) pengWa.analytics.track(AnalyticsEvent.AppStarted)
         pengWa.nfcDiagnostics.record("Activity created restored=${savedInstanceState != null}")
         enableEdgeToEdge()
         if (savedInstanceState == null) {
             requestedTab = tabFrom(intent)
-            handleNdefLaunch(intent)
         }
+        handleNdefLaunch(intent)
         // 只有扩列页在前台时，才接收别人的卡；切走或退到后台立即关闭
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.RESUMED) {
@@ -91,6 +108,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        setIntent(intent)
         tabFrom(intent)?.let { requestedTab = it }
         handleNdefLaunch(intent)
     }
@@ -99,8 +117,15 @@ class MainActivity : ComponentActivity() {
         if (intent.action == NfcAdapter.ACTION_NDEF_DISCOVERED) {
             pengWa.nfcDiagnostics.record("NDEF launch received")
         }
-        val peer = NdefLaunchParser.peerFrom(intent) ?: return
+        val peer = NdefLaunchParser.peerFrom(intent) ?: run {
+            if (intent.action == NfcAdapter.ACTION_NDEF_DISCOVERED) {
+                pengWa.nfcDiagnostics.record("NDEF launch ignored: missing or invalid discovery payload")
+            }
+            return
+        }
         pengWa.bleExchange.discover(peer, initiate = true)
+        // 已消费的 NFC Intent 不应在 Activity 重建时再次发起交换。
+        intent.removeExtra(NfcAdapter.EXTRA_NDEF_MESSAGES)
         pengWa.nfcDiagnostics.record("NDEF launch identified; starting BLE")
     }
 
