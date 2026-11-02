@@ -5,6 +5,7 @@ import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.BorderStroke
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
@@ -38,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -51,7 +53,6 @@ import app.pengwa.pengWa
 import app.pengwa.nfc.NfcWallet
 import app.pengwa.qr.QrEncoder
 import app.pengwa.qr.QrPayload
-import app.pengwa.ui.theme.PageGutter
 
 /**
  * NFC 与二维码共用的面对面交换页，扫一扫一键打开相机。
@@ -139,13 +140,14 @@ internal fun FaceToFacePageContent(
         val compact = maxHeight < 300.dp && maxWidth >= 480.dp
         val codeSize = minOf(200.dp, maxHeight - 40.dp).coerceAtLeast(48.dp)
         Column(
-            Modifier.fillMaxSize().padding(horizontal = PageGutter, vertical = 12.dp)
+            Modifier.fillMaxSize().padding(horizontal = 4.dp, vertical = 12.dp)
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            ExchangeQrCard(identity, onExpand = { expanded = true }, showHint = !compact, codeSize = codeSize)
-            NfcStatus(nfcState, onOpenNfcSettings, onOpenLab = onOpenLab)
+            ExchangeQrCard(identity, onExpand = { expanded = true }, showHint = !compact, codeSize = codeSize) {
+                NfcStatus(nfcState, onOpenNfcSettings, onOpenLab = onOpenLab)
+            }
             NfcWalletInstructions(nfcState, defaultWallet, onRequestWallet)
         }
     }
@@ -186,17 +188,31 @@ private fun WalletHelp(onRequestWallet: () -> Unit) {
 }
 
 @Composable
-private fun ExchangeQrCard(identity: Identity, onExpand: () -> Unit, modifier: Modifier = Modifier, showHint: Boolean = true, codeSize: Dp = 200.dp) {
+private fun ExchangeQrCard(
+    identity: Identity,
+    onExpand: () -> Unit,
+    modifier: Modifier = Modifier,
+    showHint: Boolean = true,
+    codeSize: Dp = 200.dp,
+    footer: @Composable () -> Unit,
+) {
     Surface(
-        onClick = onExpand, modifier = modifier.widthIn(max = if (showHint) 340.dp else codeSize + 16.dp).fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Column(Modifier.padding(if (showHint) 12.dp else 8.dp), horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            QrCodeView(remember(identity) { QrPayload.encode(identity) }, if (showHint) Modifier.widthIn(max = 200.dp).fillMaxWidth() else Modifier.size(codeSize))
-            if (showHint) Text(stringResource(R.string.qr_hint), style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+            Column(
+                Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onExpand),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                QrCodeView(remember(identity) { QrPayload.encode(identity) }, if (showHint) Modifier.widthIn(max = 200.dp).fillMaxWidth() else Modifier.size(codeSize))
+                if (showHint) Text(stringResource(R.string.qr_hint), modifier = Modifier.widthIn(max = 340.dp), style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+            }
+            footer()
         }
     }
 }
