@@ -140,7 +140,7 @@ internal fun FaceToFacePageContent(
     var expanded by rememberSaveable { mutableStateOf(false) }
     BoxWithConstraints(modifier.fillMaxSize()) {
         val compact = maxHeight < 300.dp && maxWidth >= 480.dp
-        val codeSize = minOf(200.dp, maxHeight - 40.dp).coerceAtLeast(48.dp)
+        val codeSize = minOf(240.dp, maxHeight - 40.dp).coerceAtLeast(48.dp)
         Column(
             Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 12.dp)
                 .verticalScroll(rememberScrollState()),
@@ -195,7 +195,7 @@ private fun ExchangeQrCard(
     onExpand: () -> Unit,
     modifier: Modifier = Modifier,
     showHint: Boolean = true,
-    codeSize: Dp = 200.dp,
+    codeSize: Dp = 240.dp,
     footer: @Composable () -> Unit,
 ) {
     Surface(
@@ -210,7 +210,7 @@ private fun ExchangeQrCard(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                QrCodeView(remember(identity) { QrPayload.encode(identity) }, if (showHint) Modifier.widthIn(max = 200.dp).fillMaxWidth() else Modifier.size(codeSize))
+                QrCodeView(remember(identity) { QrPayload.encode(identity) }, if (showHint) Modifier.widthIn(max = 240.dp).fillMaxWidth() else Modifier.size(codeSize))
                 if (showHint) Text(stringResource(R.string.qr_hint), modifier = Modifier.widthIn(max = 340.dp), style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
             }
