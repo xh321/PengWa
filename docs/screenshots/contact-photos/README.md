@@ -2,7 +2,7 @@
 
 集邮册 → 点开娃友 → 名片下方显示照片数量、空状态、拍照与从相册添加入口。添加后显示横向滚动的缩略图，点按查看大图；移除需要二次确认。
 
-原图按娃友 UUID 保存在 `files/contact_photos/<UUID>/`，不重新编码，不随名片交换。预览在 IO 线程按尺寸解码并处理照片方向。移除不影响相册原文件。此处拍摄仅保存在应用中，卸载或清除数据会删除；列表右下角原有拍照入口仍保存到 `Pictures/PengWa`。
+原图按娃友 UUID 保存在 `files/contact_photos/<UUID>/`，不重新编码，不随名片交换。照片展示复用应用共享的 Coil ImageLoader，异步加载并处理照片方向；缩略图和大图分别按 320、1600 像素的方形边界以 FIT 精确缩放，绘制继续使用原有 Crop/Fit。移除不影响相册原文件。此处拍摄仅保存在应用中，卸载或清除数据会删除；列表右下角原有拍照入口仍保存到 `Pictures/PengWa`。
 
 ## 设备、数据与复现
 
@@ -43,3 +43,29 @@
 - 使用现有 Material 主题，按钮至少 48dp 触控高度。详情及大图弹窗支持纵向滚动。
 - 参照 [Android Photo Picker 官方说明](https://developer.android.com/training/data-storage/shared/photo-picker)；UI/UX Pro Max 触控查询匹配 Android 48dp 和相邻控件留白规则。
 - 未实测真实手机厂商相机兼容性、拍照期间被系统杀进程、磁盘写满、云端媒体下载失败；不据模拟器结果宣称这些项已通过。
+
+## 联系人照片复用 Coil
+
+基于 `main @ 695c210`，仅替换 `ContactPhotoSection.kt` 中手写 Bitmap、解码协程与加载状态，复用现有 Coil 依赖和共享 ImageLoader。保留原文件导入、私有存储、删除、加载/失败文案和现有布局；没有引入网络图片组件。
+
+### 本次运行验证
+
+- AVD `PengWaSettingsPage`，`emulator-5580`，`sdk_gphone64_x86_64`，Android 16 / API 36，1080 × 2400、420 dpi。
+- 前后均安装并运行 Debug APK，使用 `UiPreviewActivity --es screen details` 的固定测试联系人，UUID 为 `00000000-0000-0000-0000-000000000002`。
+- 测试目录 `files/contact_photos/<UUID>/` 中放入 `2.photo`（2400 × 1200 的几何图形 PNG）和 `1.photo`（不可解码文本）。只使用合成数据，无真实个人信息。
+- 复现：通过 `adb push` 将测试文件放入 `/data/local/tmp/`，再用 `adb shell run-as app.pengwa.debug` 复制到上述目录；运行 `adb shell am start -W -n app.pengwa.debug/app.pengwa.ui.UiPreviewActivity --es screen details`。
+- 用 `adb shell cmd uimode night no/yes` 切换主题；检查列表正常缩略图和损坏文件提示，点正常缩略图查看大图。点损坏照片的空白区域也可查看错误弹窗。
+- 验证移除需二次确认；依次移除损坏照片和正常照片后，列表分别显示一张和零张，且通过 `run-as ... ls` 确认对应私有文件被删除。
+- `:app:assembleDebug :app:lintDebug` 通过。安装后冷启动成功；本次设备的 `AndroidRuntime:E` 日志为空。
+- 本次未重测拍照、相册导入、EXIF 旋转、超大原图内存峰值或真机兼容性。瞬时加载占位未单独截图，不据稳定态截图宣称已验证其时序；未测量缓存命中率或性能提升。
+
+### 本次前后截图（供 PR 描述使用）
+
+| 页面 / 状态 | 修改前 | 修改后 |
+| --- | --- | --- |
+| 照片列表、正常与损坏照片，浅色 | ![前](../contact-photo-coil/before-details-light.png) | ![后](../contact-photo-coil/after-details-light.png) |
+| 照片列表、正常与损坏照片，深色 | ![前](../contact-photo-coil/before-details-dark.png) | ![后](../contact-photo-coil/after-details-dark.png) |
+| 查看大图，浅色 | ![前](../contact-photo-coil/before-view-light.png) | ![后](../contact-photo-coil/after-view-light.png) |
+| 查看大图，深色 | ![前](../contact-photo-coil/before-view-dark.png) | ![后](../contact-photo-coil/after-view-dark.png) |
+
+补充状态：[损坏照片弹窗](../contact-photo-coil/after-error-view-dark.png)、[二次确认](../contact-photo-coil/after-remove-confirm-dark.png)、[移除损坏照片后](../contact-photo-coil/after-removed-corrupt-dark.png)、[全部移除后的空状态](../contact-photo-coil/after-empty-dark.png)。
