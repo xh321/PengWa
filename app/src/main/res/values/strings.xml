@@ -28,13 +28,13 @@
     <string name="name_error_invalid_char">名字里有不支持的字符（换行、零宽字符等）</string>
 
     <!-- 集邮册 -->
-    <string name="contacts_empty">还没有碰到过娃友\n碰一碰，就会出现在这里</string>
+    <string name="contacts_empty">还没有碰到过娃友\n扫码或通过附近娃娃交换名片</string>
 
     <!-- 实验室（仅调试版） -->
     <string name="lab_title">实验室（仅调试版）</string>
-    <string name="lab_back">返回碰一碰</string>
+    <string name="lab_back">返回主页</string>
     <string name="lab_nfc">NFC 诊断</string>
-    <string name="lab_nfc_help">先返回主页复现问题，再连点碰一碰图标 5 次进入这里复制日志。显示最近 60 条，复制最近 400 条和设备信息；退出进程后清空。日志不包含姓名、ID 或名片原文。</string>
+    <string name="lab_nfc_help">先返回主页复现问题，再连点 NFC 图标 5 次进入这里复制日志。显示最近 60 条，复制最近 400 条和设备信息；退出进程后清空。日志不包含姓名、ID 或名片原文。</string>
     <string name="lab_nfc_copy">复制 NFC 日志</string>
     <string name="lab_nfc_clear">清空日志</string>
     <string name="lab_ble">蓝牙交换</string>
@@ -67,17 +67,16 @@
     <string name="camera_grant">允许使用相机</string>
 
     <!-- NFC 与相遇 -->
-    <string name="nfc_ready">碰一碰，交换名片</string>
-    <string name="nfc_auto_hint">双方打开此页，将手机背面 NFC 区域贴近\n即可自动交换名片</string>
-    <string name="nfc_enable_hint">开启 NFC 后，将手机背面 NFC 区域贴近\n即可自动交换名片</string>
+    <string name="nfc_loading_card">正在联网加载名片…</string>
+    <string name="nfc_unconfigured">当前版本尚未配置在线名片服务。</string>
+    <string name="nfc_write_tag">写入 NFC</string>
+    <string name="nfc_ready">NFC 名片标签</string>
+    <string name="nfc_auto_hint">将手机贴近对方的名片标签，即可自动打开名片。</string>
+    <string name="nfc_enable_hint">开启 NFC 后，主页会自动读取名片标签。</string>
     <string name="nfc_alternative_hint">可以扫对方二维码，或前往“附近娃娃”交换名片。</string>
-    <string name="nfc_wallet_help_title">NFC 钱包兼容提示</string>
-    <string name="nfc_wallet_help">部分手机的默认钱包可能优先响应 NFC。若只响未识别或弹出钱包，可切换默认钱包为碰碰娃后重试。使用原钱包刷卡前，请手动切回。</string>
-    <string name="nfc_wallet_set_default">设为默认钱包</string>
-    <string name="nfc_wallet_open_failed">无法打开设置，请在系统设置中搜索“NFC”或“默认钱包”。</string>
-    <string name="nfc_status_icon">碰一碰状态</string>
-    <string name="nfc_unsupported">此设备不支持碰一碰</string>
-    <string name="nfc_disabled">碰一碰未开启</string>
+    <string name="nfc_status_icon">NFC 标签状态</string>
+    <string name="nfc_unsupported">此设备不支持 NFC</string>
+    <string name="nfc_disabled">NFC 未开启</string>
     <string name="nfc_open_settings">去开启</string>
     <string name="hce_service_description">碰碰娃名片</string>
     <string name="hce_aid_group_description">两边都装了碰碰娃时，碰一下互换名片</string>
@@ -109,7 +108,7 @@
     <string name="bt_retry">重试</string>
     <string name="bt_failed">交换失败</string>
 
-    <!-- 收到交换申请（蓝牙需要被申请的一方同意；NFC 和二维码不需要） -->
+    <!-- 收到蓝牙交换申请（包括扫描二维码后发起的申请） -->
     <string name="request_title">%1$s 想和你交换卡片</string>
     <string name="request_body">对方在附近，通过蓝牙向你申请交换（ID %1$s）。\n同意后你们会互相收到对方的卡片。</string>
     <string name="request_notif_text">来自附近的蓝牙 · 同意后才会交换</string>

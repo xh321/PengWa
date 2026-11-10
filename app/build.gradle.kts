@@ -40,6 +40,16 @@ android {
         buildConfigField("String", "BUILD_REVISION", "\"$revision\"")
         buildConfigField("String", "APTABASE_APP_KEY", analyticsString(aptabaseAppKey.get()))
         buildConfigField("String", "APTABASE_HOST", analyticsString(aptabaseHost.get()))
+        val cardOrigin = providers.gradleProperty("cardOrigin")
+            .orElse(providers.environmentVariable("PENGWA_CARD_ORIGIN")).orElse("").get().trimEnd('/')
+        if (cardOrigin.isNotEmpty()) {
+            val uri = URI(cardOrigin)
+            require(uri.scheme == "https" && uri.host != null && uri.userInfo == null &&
+                uri.query == null && uri.fragment == null && uri.rawPath.isEmpty()) {
+                "cardOrigin must be an HTTPS origin without credentials, path, query or fragment"
+            }
+        }
+        buildConfigField("String", "CARD_ORIGIN", analyticsString(cardOrigin))
         val updateProxy = providers.gradleProperty("updateProxyBaseUrl").orNull ?: "https://gh-proxy.com/"
         val proxyUri = URI(updateProxy)
         require(proxyUri.scheme == "https" && proxyUri.host != null && proxyUri.userInfo == null &&

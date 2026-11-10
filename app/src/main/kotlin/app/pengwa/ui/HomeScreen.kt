@@ -15,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -22,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,7 +50,7 @@ import app.pengwa.ui.components.PengWaIcon
 import app.pengwa.ui.components.PengWaIcons
 import app.pengwa.ui.theme.PageGutter
 
-/** 我的名片：碰一碰与扫码共用一页，附近娃娃由底部导航进入。 */
+/** 我的名片：NFC 标签与扫码共用一页，附近娃娃由底部导航进入。 */
 @Composable
 fun HomeScreen(
     viewModel: IdentityViewModel,
@@ -61,13 +63,20 @@ fun HomeScreen(
     val identity = viewModel.identity
     val analytics = LocalContext.current.pengWa.analytics
     // Leaving the home destination starts with the QR code, without restoring the camera.
+    var onlinePeer by remember { mutableStateOf<Identity?>(null) }
     var scanning by remember { mutableStateOf(false) }
     var editing by rememberSaveable { mutableStateOf(false) }
     var showingCard by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var showGuide by rememberSaveable { mutableStateOf(false) }
 
-    SideEffect { onDetailVisibilityChanged(identity != null && (editing || showingCard || showSettings)) }
+    LaunchedEffect(viewModel.onlineSyncFailed) {
+        if (viewModel.onlineSyncFailed) {
+            onMessage("本机名片已保存，在线名片暂未更新。重新打开应用后会重试。")
+            viewModel.dismissOnlineSyncError()
+        }
+    }
+    SideEffect { onDetailVisibilityChanged(identity != null && (editing || showingCard || showSettings || onlinePeer != null)) }
     DisposableEffect(Unit) { onDispose { onDetailVisibilityChanged(false) } }
 
     if (showGuide) {
@@ -103,15 +112,24 @@ fun HomeScreen(
         return
     }
 
+    onlinePeer?.let { peer ->
+        CardDetailsPage("在线名片", onBack = { onlinePeer = null }, modifier = modifier) {
+            UserCardContent(peer)
+        }
+        return
+    }
+
     if (showingCard) {
-        CardDetailsPage("我的卡片", onBack = { showingCard = false }, modifier = modifier,
+        MyProfilePage(
+            identity = identity,
+            onBack = { showingCard = false },
             onEdit = {
                 analytics.track(AnalyticsEvent.CardEditStarted)
                 viewModel.beginEdit()
                 editing = true
-            }) {
-            UserCardContent(identity)
-        }
+            },
+            modifier = modifier,
+        )
         return
     }
 
@@ -139,7 +157,33 @@ fun HomeScreen(
             onMessage = onMessage, modifier = Modifier.weight(1f),
             onOpenLab = onOpenLab,
             scanning = scanning, onScanningChange = { scanning = it },
+            onReadCard = { onlinePeer = it },
         )
+    }
+}
+
+@Composable
+internal fun MyProfilePage(
+    identity: Identity,
+    onBack: () -> Unit,
+    onEdit: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var writingTag by remember { mutableStateOf(false) }
+    CardDetailsPage(
+        title = stringResource(R.string.my_card),
+        onBack = onBack,
+        onEdit = onEdit,
+        modifier = modifier,
+    ) {
+        UserCardContent(identity) {
+            OutlinedButton(onClick = { writingTag = true }) {
+                Text(stringResource(R.string.nfc_write_tag))
+            }
+        }
+    }
+    if (writingTag) {
+        WriteCardTagDialog(identity, rememberNfcState() == NfcState.Ready, onDismiss = { writingTag = false })
     }
 }
 

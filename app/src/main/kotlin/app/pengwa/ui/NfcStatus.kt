@@ -1,6 +1,9 @@
 package app.pengwa.ui
 
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.nfc.NfcAdapter
 import android.os.SystemClock
 import androidx.compose.foundation.layout.*
@@ -13,23 +16,26 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import app.pengwa.R
 import app.pengwa.BuildConfig
 
 internal enum class NfcState { Unsupported, Disabled, Ready }
 
-/** 钱包选择是兼容性建议，不是进入 NFC 会话的前置条件。 */
 internal fun nfcStateFor(
     available: Boolean, enabled: Boolean,
 ): NfcState = when {
@@ -52,6 +58,17 @@ internal fun rememberNfcState(): NfcState {
         onPauseOrDispose { }
     }
 
+    DisposableEffect(context) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                state = nfcState(context)
+            }
+        }
+        ContextCompat.registerReceiver(
+            context, receiver, IntentFilter(NfcAdapter.ACTION_ADAPTER_STATE_CHANGED), ContextCompat.RECEIVER_EXPORTED,
+        )
+        onDispose { context.unregisterReceiver(receiver) }
+    }
     return state
 }
 
@@ -59,13 +76,15 @@ internal fun rememberNfcState(): NfcState {
 internal fun NfcStatus(
     state: NfcState,
     onOpenSettings: () -> Unit,
+    configured: Boolean,
+    loadingCard: Boolean,
     modifier: Modifier = Modifier,
     onOpenLab: (() -> Unit)? = null,
 ) {
     val taps = remember { DebugTapCounter() }
     val statusColors = LocalStatusColors.current
     val color = when (state) {
-        NfcState.Ready -> MaterialTheme.colorScheme.primary
+        NfcState.Ready -> if (configured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
         NfcState.Disabled -> statusColors.warning
         NfcState.Unsupported -> MaterialTheme.colorScheme.onSurfaceVariant
     }
@@ -77,12 +96,12 @@ internal fun NfcStatus(
         if (BuildConfig.DEBUG && onOpenLab != null) {
             IconButton(
                 onClick = { if (taps.tap(SystemClock.elapsedRealtime())) onOpenLab() },
-                modifier = Modifier.size(112.dp, 72.dp),
+                modifier = Modifier.size(56.dp),
             ) {
-                TouchPhones(color, Modifier, stringResource(R.string.nfc_status_icon))
+                PengWaIcon(PengWaIcons.Tap, Modifier.size(32.dp), stringResource(R.string.nfc_status_icon), tint = color)
             }
         } else {
-            TouchPhones(color)
+            PengWaIcon(PengWaIcons.Tap, Modifier.size(32.dp), tint = color)
         }
         Text(
             text = stringResource(when (state) {
@@ -94,12 +113,14 @@ internal fun NfcStatus(
             textAlign = TextAlign.Center,
         )
         Text(
-            text = stringResource(when (state) {
-                NfcState.Ready -> R.string.nfc_auto_hint
-                NfcState.Disabled -> R.string.nfc_enable_hint
-                NfcState.Unsupported -> R.string.nfc_alternative_hint
+            text = stringResource(when {
+                state == NfcState.Disabled -> R.string.nfc_enable_hint
+                state == NfcState.Unsupported -> R.string.nfc_alternative_hint
+                !configured -> R.string.nfc_unconfigured
+                loadingCard -> R.string.nfc_loading_card
+                else -> R.string.nfc_auto_hint
             }),
-            modifier = Modifier.widthIn(max = 340.dp),
+            modifier = Modifier.widthIn(max = 340.dp).semantics { liveRegion = LiveRegionMode.Polite },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -107,27 +128,5 @@ internal fun NfcStatus(
         if (state == NfcState.Disabled) {
             TextButton(onClick = onOpenSettings) { Text(stringResource(R.string.nfc_open_settings)) }
         }
-    }
-}
-
-/** Two phones leaning together; decorative because the adjacent text explains the gesture. */
-@Composable
-private fun TouchPhones(
-    color: androidx.compose.ui.graphics.Color,
-    modifier: Modifier = Modifier,
-    contentDescription: String? = null,
-) {
-    Box(modifier.size(112.dp, 72.dp), contentAlignment = Alignment.Center) {
-        PengWaIcon(
-            PengWaIcons.Phone,
-            Modifier.align(Alignment.CenterStart).offset(x = 2.dp).size(64.dp).rotate(16f),
-            contentDescription = contentDescription,
-            tint = color,
-        )
-        PengWaIcon(
-            PengWaIcons.Phone,
-            Modifier.align(Alignment.CenterEnd).offset(x = (-2).dp).size(64.dp).rotate(-16f),
-            tint = color,
-        )
     }
 }

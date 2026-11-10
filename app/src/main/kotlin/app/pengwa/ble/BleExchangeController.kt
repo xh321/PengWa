@@ -298,8 +298,8 @@ class BleExchangeController(
         discoveryInitiator = initiate
         discoveryUntil = SystemClock.elapsedRealtime() + 30_000L
         _discoveryStatus.value = when {
-            !BlePermissions.granted(appContext) -> "已发现对方，请授权蓝牙后重新碰一碰"
-            !isBluetoothOn() -> "已发现对方，请开启蓝牙后重新碰一碰"
+            !BlePermissions.granted(appContext) -> "已发现对方，请授权蓝牙后重新扫码"
+            !isBluetoothOn() -> "已发现对方，请开启蓝牙后重新扫码"
             else -> "已通过 $source 识别对方，正在连接蓝牙…"
         }
         val deadline = discoveryUntil
@@ -308,7 +308,7 @@ class BleExchangeController(
             if (discoveryPeer != null && discoveryUntil == deadline) {
                 discoveryPeer = null
                 onAnalytics(if (source == "NFC") AnalyticsEvent.NfcDiscoveryTimedOut else AnalyticsEvent.QrDiscoveryTimedOut)
-                _discoveryStatus.value = "未能完成交换，请保持双方应用在前台并重新碰一碰"
+                _discoveryStatus.value = "未能完成交换，请保持双方应用在前台并重新扫码"
                 refresh()
             }
         }, 30_000L)
@@ -317,7 +317,7 @@ class BleExchangeController(
     fun retryDiscovery() {
         if (list.snapshot().any { it.state == PeerState.Exchanging || it.state == PeerState.Waiting }) return
         val (peer, source) = lastDiscovery ?: run {
-            _discoveryStatus.value = "请重新碰一碰，或让对方重新扫描二维码"
+            _discoveryStatus.value = "请重新扫码，或让对方发起交换申请"
             return
         }
         discoveryPeer = null
@@ -326,8 +326,6 @@ class BleExchangeController(
         }
         discover(peer, true, source)
     }
-
-    fun discoveryFailed(message: String) { _discoveryStatus.value = message }
 
     private fun tryDiscovery() {
         val id = discoveryPeer ?: return

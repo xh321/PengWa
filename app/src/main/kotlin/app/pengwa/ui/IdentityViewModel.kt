@@ -7,6 +7,8 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
+import java.io.IOException
 import app.pengwa.analytics.AnalyticsEvent
 import app.pengwa.identity.OnboardingStep
 import app.pengwa.identity.Identity
@@ -22,6 +24,11 @@ class IdentityViewModel(application: Application) : AndroidViewModel(application
 
     var identity: Identity? by mutableStateOf(repository.load())
         private set
+
+    var onlineSyncFailed by mutableStateOf(false)
+        private set
+
+    fun dismissOnlineSyncError() { onlineSyncFailed = false }
 
     var draft: Identity? by mutableStateOf(null)
         private set
@@ -67,6 +74,7 @@ class IdentityViewModel(application: Application) : AndroidViewModel(application
         return runCatching {
             repository.saveCard(normalized, onboardingStep = if (onboarding) OnboardingStep.PreviewCard else null)
             identity = repository.load()
+            syncOnlineCard()
             getApplication<Application>().pengWa.bleExchange.refresh()
             if (onboarding) onboardingStep = OnboardingStep.PreviewCard
             PengWaNotification.refresh(getApplication())
@@ -82,8 +90,22 @@ class IdentityViewModel(application: Application) : AndroidViewModel(application
         val creating = identity == null
         repository.saveDisplayName(normalizeDisplayName(raw))
         identity = repository.load()
+        syncOnlineCard()
         PengWaNotification.refresh(getApplication()) // 通知栏上的名字同步更新
         if (creating) analytics.track(AnalyticsEvent.CardCreated)
         return null
     }
+
+    private fun syncOnlineCard() {
+        viewModelScope.launch {
+            val current = repository.load() ?: return@launch
+            try {
+                getApplication<Application>().pengWa.onlineCards.updateIfPublished(current)
+                onlineSyncFailed = false
+            } catch (_: IOException) {
+                onlineSyncFailed = true
+            }
+        }
+    }
+
 }

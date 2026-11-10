@@ -68,7 +68,7 @@ internal fun CardDetailsPage(
 }
 
 @Composable
-internal fun UserCardContent(identity: Identity) {
+internal fun UserCardContent(identity: Identity, actions: @Composable () -> Unit = {}) {
     val uriHandler = LocalUriHandler.current
     var error by remember { mutableStateOf<String?>(null) }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -76,6 +76,7 @@ internal fun UserCardContent(identity: Identity) {
             CardAvatar(identity)
             Text(identity.displayName, style = MaterialTheme.typography.titleLarge)
         }
+        actions()
         CardMasonry(identity.card.blocks) {
             identity.card.blocks.forEach { block ->
                 if (block.type == BlockType.Image) {
@@ -130,11 +131,13 @@ private fun rememberCardImagePainter(value: String): AsyncImagePainter {
 @Composable
 internal fun CardEditor(viewModel: IdentityViewModel, onClose: () -> Unit, modifier: Modifier = Modifier) {
     LaunchedEffect(viewModel) { if (viewModel.draft == null) viewModel.beginEdit() }
-    val analytics = LocalContext.current.pengWa.analytics
+    val app = LocalContext.current.pengWa
+    val analytics = app.analytics
     val draft = viewModel.draft ?: return
     CardEditorContent(
         draft, viewModel::updateDraft, viewModel::saveDraft, onClose, modifier,
         onCancel = { analytics.track(AnalyticsEvent.CardEditCancelled) },
+        online = app.onlineCards.hasLink(),
         onPreview = { analytics.track(AnalyticsEvent.CardEditorPreviewOpened) },
     )
 }
@@ -149,6 +152,7 @@ internal fun CardEditorContent(
     onboarding: Boolean = false,
     onCancel: () -> Unit = {},
     onPreview: () -> Unit = {},
+    online: Boolean = false,
 ) {
     var preview by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -190,6 +194,10 @@ internal fun CardEditorContent(
             }, enabled = !loading) { Text(if (preview) "继续编辑" else "预览") }
         }
         if (onboarding && !preview) Text("先填一个让娃友认出你的名字。头像、自我介绍和社媒都可选，以后也能随时修改。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (online && !preview) Text(
+            "保存后会同步到在线名片，持有链接的人可以看到更新。",
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         if (preview) UserCardContent(draft) else {
             OutlinedTextField(draft.displayName, { onChange(draft.copy(displayName = it)); error = null }, label = { Text("显示名") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -230,7 +238,7 @@ internal fun CardEditorContent(
                     }) { Text("+ ${type.label()}") }
                 }
             }
-            Text("图片会压缩为小图。扫码、附近蓝牙和 NFC 只用于识别，完整卡片通过蓝牙交换。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("图片会压缩为小图。扫码和附近娃娃通过蓝牙交换，NFC 标签可打开在线名片。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }

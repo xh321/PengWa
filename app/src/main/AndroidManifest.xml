@@ -37,13 +37,10 @@
         android:name="android.hardware.camera.autofocus"
         android:required="false" />
 
-    <!-- NFC 碰一碰：没有 NFC / 卡模拟的设备仍可安装，只是用不了该功能 -->
+    <!-- NFC 标签读写：没有 NFC 的设备仍可安装 -->
     <uses-permission android:name="android.permission.NFC" />
     <uses-feature
         android:name="android.hardware.nfc"
-        android:required="false" />
-    <uses-feature
-        android:name="android.hardware.nfc.hce"
         android:required="false" />
 
     <!-- 后台蓝牙广播：靠前台服务保活。Android 14+ 要求同时声明服务类型对应的权限；
@@ -89,19 +86,6 @@
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
 
-        <!-- NFC 卡模拟：被对方碰到时由系统拉起 -->
-        <service
-            android:name=".nfc.PengWaHostApduService"
-            android:exported="true"
-            android:permission="android.permission.BIND_NFC_SERVICE">
-            <intent-filter>
-                <action android:name="android.nfc.cardemulation.action.HOST_APDU_SERVICE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.nfc.cardemulation.host_apdu_service"
-                android:resource="@xml/apdu_service" />
-        </service>
-
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -109,14 +93,6 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-
-            <!-- 别人的手机读到我们模拟的 NDEF 标签后，系统据此直接拉起本 App，不经过网站。
-                 意图内容来自外部，解析时会校验（NdefLaunchParser）。 -->
-            <intent-filter>
-                <action android:name="android.nfc.action.NDEF_DISCOVERED" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="application/vnd.pengwa.card" />
             </intent-filter>
         </activity>
     </application>

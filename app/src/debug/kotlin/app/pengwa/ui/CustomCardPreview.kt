@@ -73,7 +73,7 @@ internal fun CustomCardPreview(screen: String) {
     PreviewSurface {
         when (screen) {
             "my-card" -> Box(Modifier.systemBarsPadding()) {
-                CardDetailsPage("我的卡片", onBack = {}, onEdit = {}) { UserCardContent(identity) }
+                MyProfilePage(identity, onBack = {}, onEdit = {})
             }
             "card-editor", "card-images-editor", "card-masonry-editor", "card-social-editor" -> Box(Modifier.systemBarsPadding()) {
                 CardEditorContent(identity, { identity = it }, { CardCodec.validate(identity.card) }, {})
