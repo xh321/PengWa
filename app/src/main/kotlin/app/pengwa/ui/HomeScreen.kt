@@ -15,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -119,14 +120,16 @@ fun HomeScreen(
     }
 
     if (showingCard) {
-        CardDetailsPage("我的卡片", onBack = { showingCard = false }, modifier = modifier,
+        MyProfilePage(
+            identity = identity,
+            onBack = { showingCard = false },
             onEdit = {
                 analytics.track(AnalyticsEvent.CardEditStarted)
                 viewModel.beginEdit()
                 editing = true
-            }) {
-            UserCardContent(identity)
-        }
+            },
+            modifier = modifier,
+        )
         return
     }
 
@@ -156,6 +159,31 @@ fun HomeScreen(
             scanning = scanning, onScanningChange = { scanning = it },
             onReadCard = { onlinePeer = it },
         )
+    }
+}
+
+@Composable
+internal fun MyProfilePage(
+    identity: Identity,
+    onBack: () -> Unit,
+    onEdit: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var writingTag by remember { mutableStateOf(false) }
+    CardDetailsPage(
+        title = stringResource(R.string.my_card),
+        onBack = onBack,
+        onEdit = onEdit,
+        modifier = modifier,
+    ) {
+        UserCardContent(identity) {
+            OutlinedButton(onClick = { writingTag = true }) {
+                Text(stringResource(R.string.nfc_write_tag))
+            }
+        }
+    }
+    if (writingTag) {
+        WriteCardTagDialog(identity, rememberNfcState() == NfcState.Ready, onDismiss = { writingTag = false })
     }
 }
 

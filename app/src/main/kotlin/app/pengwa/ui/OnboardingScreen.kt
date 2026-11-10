@@ -124,7 +124,11 @@ private fun ExchangeLesson.illustration(): IllustratedLesson = when (this) {
     ExchangeLesson.Nfc -> IllustratedLesson(
         R.drawable.onboarding_nfc_tag,
         "手机背面贴近一枚实体 NFC 名片标签。",
-        listOf("在主页点“写入 NFC”，将名片链接写入可写标签", "对方点“读取 NFC”，将手机贴近标签", "联网打开名片，也可通过手机系统打开网页"),
+        listOf(
+            "打开“我的名片”，点“写入 NFC”，将链接写入可写标签",
+            "对方打开主页，将手机贴近标签",
+            "自动联网打开名片，也可通过手机系统打开网页",
+        ),
     )
 }
 

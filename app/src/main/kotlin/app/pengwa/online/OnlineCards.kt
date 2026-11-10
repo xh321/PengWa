@@ -37,6 +37,8 @@ internal class OnlineCards(context: Context) {
         return Owner(UUID.fromString(id), secret)
     }
 
+    fun isOwnCard(id: UUID) = owner()?.id == id
+
     fun hasLink() = owner() != null
 
     suspend fun publish(identity: Identity): String = withContext(Dispatchers.IO) {

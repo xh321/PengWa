@@ -10,20 +10,37 @@ import android.nfc.tech.NdefFormatable
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ReceiveChannel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.buffer
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
-/** The caller keeps this one-shot session in a resumed Activity. */
+/** Collect or write only while the owning Activity is resumed. */
 class CardTagSession(private val activity: Activity) {
-    suspend fun read(): String? = withTag { tag ->
-        Ndef.get(tag)?.use { ndef ->
-            ndef.connect()
-            ndef.ndefMessage?.records?.firstNotNullOfOrNull { it.toUri()?.toString() }
+    fun links(accept: (String) -> Boolean): Flow<String> = flow {
+        withReader(NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS) { adapter, tags ->
+            for (tag in tags) {
+                // Reader mode has already checked NDEF and cached the message during discovery.
+                val link = Ndef.get(tag)?.cachedNdefMessage?.records?.firstNotNullOfOrNull {
+                    it.toUri()?.toString()?.takeIf(accept)
+                } ?: continue
+                adapter.ignore(tag, REMOVAL_DEBOUNCE_MS, null, null)
+                emit(link)
+            }
         }
+    }.buffer(0)
+
+    suspend fun write(link: String) = withReader { _, tags ->
+        val tag = tags.receive()
+        withContext(Dispatchers.IO) { writeTag(tag, link) }
     }
 
-    suspend fun write(link: String) = withTag { tag ->
+    private suspend fun writeTag(tag: Tag, link: String) {
         val message = NdefMessage(NdefRecord.createUri(link))
         val ndef = Ndef.get(tag)
         if (ndef != null) {
@@ -45,23 +62,31 @@ class CardTagSession(private val activity: Activity) {
         }
     }
 
-    private suspend fun <T> withTag(action: suspend (Tag) -> T): T {
+    private suspend fun <T> withReader(
+        flags: Int = 0,
+        action: suspend (NfcAdapter, ReceiveChannel<Tag>) -> T,
+    ): T = readerMutex.withLock {
         val adapter = NfcAdapter.getDefaultAdapter(activity) ?: throw CardTagException.Unsupported
         if (!adapter.isEnabled) throw CardTagException.Disabled
         val tags = Channel<Tag>(1)
         adapter.enableReaderMode(
             activity, { tags.trySend(it) },
-            NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_NFC_B or
+            flags or NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_NFC_B or
                 NfcAdapter.FLAG_READER_NFC_F or NfcAdapter.FLAG_READER_NFC_V,
             null,
         )
         try {
-            val tag = tags.receive()
-            return withContext(Dispatchers.IO) { action(tag) }
+            action(adapter, tags)
         } finally {
-            tags.close()
+            tags.cancel()
             adapter.disableReaderMode(activity)
         }
+    }
+
+    private companion object {
+        // A late cleanup from the home reader must never disable the Profile writer.
+        val readerMutex = Mutex()
+        const val REMOVAL_DEBOUNCE_MS = 600
     }
 }
 

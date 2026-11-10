@@ -67,12 +67,12 @@
     <string name="camera_grant">允许使用相机</string>
 
     <!-- NFC 与相遇 -->
-    <string name="nfc_read_tag">读取 NFC</string>
+    <string name="nfc_loading_card">正在联网加载名片…</string>
+    <string name="nfc_unconfigured">当前版本尚未配置在线名片服务。</string>
     <string name="nfc_write_tag">写入 NFC</string>
-    <string name="nfc_manage_link">管理链接</string>
     <string name="nfc_ready">NFC 名片标签</string>
-    <string name="nfc_auto_hint">碰实体标签即可打开在线名片。</string>
-    <string name="nfc_enable_hint">开启 NFC 后即可读取或写入名片标签。</string>
+    <string name="nfc_auto_hint">将手机贴近对方的名片标签，即可自动打开名片。</string>
+    <string name="nfc_enable_hint">开启 NFC 后，主页会自动读取名片标签。</string>
     <string name="nfc_alternative_hint">可以扫对方二维码，或前往“附近娃娃”交换名片。</string>
     <string name="nfc_status_icon">NFC 标签状态</string>
     <string name="nfc_unsupported">此设备不支持 NFC</string>

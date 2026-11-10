@@ -31,9 +31,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -47,13 +49,21 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import app.pengwa.R
 import app.pengwa.analytics.AnalyticsEvent
 import app.pengwa.identity.Identity
+import app.pengwa.nfc.CardTagException
+import app.pengwa.nfc.CardTagSession
 import app.pengwa.exchange.ExchangeMode
 import app.pengwa.pengWa
 import app.pengwa.qr.QrEncoder
 import app.pengwa.qr.QrPayload
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.mapNotNull
 
 /**
  * NFC 与二维码共用的面对面交换页，扫一扫一键打开相机。
@@ -78,12 +88,8 @@ fun FaceToFacePage(
     }
     BackHandler(enabled = scanning) { closeScanner() }
 
-    val nfcState = rememberNfcState()
-    val onlineCards = context.pengWa.onlineCards
-    var writingTag by remember { mutableStateOf<Boolean?>(null) }
-    ExchangeSession(if (scanning || writingTag != null) ExchangeMode.None else ExchangeMode.Bluetooth)
-
-    BrightnessLock(enabled = !scanning && writingTag == null)
+    ExchangeSession(if (scanning) ExchangeMode.None else ExchangeMode.Bluetooth)
+    BrightnessLock(enabled = !scanning)
 
     if (scanning) {
         QrScanner(
@@ -111,6 +117,52 @@ fun FaceToFacePage(
         return
     }
 
+    val nfcState = rememberNfcState()
+    val cards = context.pengWa.onlineCards
+    val diagnostics = context.pengWa.nfcDiagnostics
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val activity = context.findActivity()
+    val showMessage by rememberUpdatedState(onMessage)
+    val showCard by rememberUpdatedState(onReadCard)
+    var loadingCard by remember { mutableStateOf(false) }
+    LaunchedEffect(activity, lifecycle, nfcState, cards) {
+        if (activity == null || nfcState != NfcState.Ready || !cards.links.configured) return@LaunchedEffect
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            try {
+                diagnostics.record("Home card reader started")
+                CardTagSession(activity).links { cards.links.idFrom(it) != null }
+                    .mapNotNull { link ->
+                        val id = checkNotNull(cards.links.idFrom(link))
+                        if (cards.isOwnCard(id)) {
+                            showMessage("这是你的名片标签。")
+                            return@mapNotNull null
+                        }
+                        loadingCard = true
+                        try {
+                            cards.read(id).also { if (it == null) showMessage("这张名片不存在或已停用。") }
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+                        } catch (failure: Exception) {
+                            diagnostics.record("Card load failed type=${failure.javaClass.simpleName}")
+                            showMessage("无法加载名片，请检查网络后再碰一次。")
+                            null
+                        } finally {
+                            loadingCard = false
+                        }
+                    }
+                    .firstOrNull()
+                    ?.let { showCard(it) }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: CardTagException.Disabled) {
+                // The adapter-state broadcast will update the UI and restart polling if needed.
+            } catch (failure: Exception) {
+                diagnostics.record("Home card reader failed type=${failure.javaClass.simpleName}")
+                showMessage("暂时无法读取 NFC，请返回主页重试。")
+            }
+        }
+    }
+
     FaceToFacePageContent(
         identity = identity,
         nfcState = nfcState,
@@ -118,21 +170,11 @@ fun FaceToFacePage(
             runCatching { context.startActivity(Intent(Settings.ACTION_NFC_SETTINGS)) }
                 .onFailure { onMessage("请在系统设置中搜索 NFC。") }
         },
-        onReadTag = {
-            if (onlineCards.links.configured) writingTag = false
-            else onMessage("当前版本尚未配置在线名片服务。")
-        },
-        onWriteTag = { writingTag = true },
-        canManageLink = onlineCards.hasLink(),
+        nfcConfigured = cards.links.configured,
+        loadingCard = loadingCard,
         onOpenLab = onOpenLab,
         modifier = modifier,
     )
-    writingTag?.let { writing ->
-        CardTagDialog(
-            identity, writing, nfcState == NfcState.Ready,
-            onDismiss = { writingTag = null }, onCard = onReadCard,
-        )
-    }
 }
 
 @Composable
@@ -142,9 +184,8 @@ internal fun FaceToFacePageContent(
     onOpenNfcSettings: () -> Unit,
     modifier: Modifier = Modifier,
     onOpenLab: (() -> Unit)? = null,
-    onReadTag: () -> Unit = {},
-    onWriteTag: () -> Unit = {},
-    canManageLink: Boolean = false,
+    nfcConfigured: Boolean = true,
+    loadingCard: Boolean = false,
     bluetoothStatus: @Composable () -> Unit = { HomeBluetoothStatus() },
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
@@ -168,7 +209,7 @@ internal fun FaceToFacePageContent(
                 codeSize = codeSize,
             ) {
                 bluetoothStatus()
-                NfcStatus(nfcState, onOpenNfcSettings, onReadTag, onWriteTag, canManageLink, onOpenLab = onOpenLab)
+                NfcStatus(nfcState, onOpenNfcSettings, nfcConfigured, loadingCard, onOpenLab = onOpenLab)
             }
         }
     }

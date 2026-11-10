@@ -1,6 +1,9 @@
 package app.pengwa.ui
 
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.nfc.NfcAdapter
 import android.os.SystemClock
 import androidx.compose.foundation.layout.*
@@ -10,10 +13,10 @@ import app.pengwa.ui.components.PengWaIcons
 import app.pengwa.ui.theme.LocalStatusColors
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,6 +26,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import app.pengwa.R
 import app.pengwa.BuildConfig
@@ -51,6 +58,17 @@ internal fun rememberNfcState(): NfcState {
         onPauseOrDispose { }
     }
 
+    DisposableEffect(context) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                state = nfcState(context)
+            }
+        }
+        ContextCompat.registerReceiver(
+            context, receiver, IntentFilter(NfcAdapter.ACTION_ADAPTER_STATE_CHANGED), ContextCompat.RECEIVER_EXPORTED,
+        )
+        onDispose { context.unregisterReceiver(receiver) }
+    }
     return state
 }
 
@@ -58,16 +76,15 @@ internal fun rememberNfcState(): NfcState {
 internal fun NfcStatus(
     state: NfcState,
     onOpenSettings: () -> Unit,
-    onReadTag: () -> Unit,
-    onWriteTag: () -> Unit,
-    canManageLink: Boolean,
+    configured: Boolean,
+    loadingCard: Boolean,
     modifier: Modifier = Modifier,
     onOpenLab: (() -> Unit)? = null,
 ) {
     val taps = remember { DebugTapCounter() }
     val statusColors = LocalStatusColors.current
     val color = when (state) {
-        NfcState.Ready -> MaterialTheme.colorScheme.primary
+        NfcState.Ready -> if (configured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
         NfcState.Disabled -> statusColors.warning
         NfcState.Unsupported -> MaterialTheme.colorScheme.onSurfaceVariant
     }
@@ -96,26 +113,18 @@ internal fun NfcStatus(
             textAlign = TextAlign.Center,
         )
         Text(
-            text = stringResource(when (state) {
-                NfcState.Ready -> R.string.nfc_auto_hint
-                NfcState.Disabled -> R.string.nfc_enable_hint
-                NfcState.Unsupported -> R.string.nfc_alternative_hint
+            text = stringResource(when {
+                state == NfcState.Disabled -> R.string.nfc_enable_hint
+                state == NfcState.Unsupported -> R.string.nfc_alternative_hint
+                !configured -> R.string.nfc_unconfigured
+                loadingCard -> R.string.nfc_loading_card
+                else -> R.string.nfc_auto_hint
             }),
-            modifier = Modifier.widthIn(max = 340.dp),
+            modifier = Modifier.widthIn(max = 340.dp).semantics { liveRegion = LiveRegionMode.Polite },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
-            OutlinedButton(onClick = onReadTag, enabled = state == NfcState.Ready) {
-                Text(stringResource(R.string.nfc_read_tag))
-            }
-            OutlinedButton(onClick = onWriteTag, enabled = state == NfcState.Ready || canManageLink) {
-                Text(stringResource(
-                    if (state != NfcState.Ready && canManageLink) R.string.nfc_manage_link else R.string.nfc_write_tag,
-                ))
-            }
-        }
         if (state == NfcState.Disabled) {
             TextButton(onClick = onOpenSettings) { Text(stringResource(R.string.nfc_open_settings)) }
         }

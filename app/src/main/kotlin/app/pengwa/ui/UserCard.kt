@@ -68,7 +68,7 @@ internal fun CardDetailsPage(
 }
 
 @Composable
-internal fun UserCardContent(identity: Identity) {
+internal fun UserCardContent(identity: Identity, actions: @Composable () -> Unit = {}) {
     val uriHandler = LocalUriHandler.current
     var error by remember { mutableStateOf<String?>(null) }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -76,6 +76,7 @@ internal fun UserCardContent(identity: Identity) {
             CardAvatar(identity)
             Text(identity.displayName, style = MaterialTheme.typography.titleLarge)
         }
+        actions()
         CardMasonry(identity.card.blocks) {
             identity.card.blocks.forEach { block ->
                 if (block.type == BlockType.Image) {
