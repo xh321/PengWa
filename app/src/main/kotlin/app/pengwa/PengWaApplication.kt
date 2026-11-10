@@ -1,7 +1,6 @@
 package app.pengwa
 
 import android.app.Application
-import android.content.ComponentName
 import android.content.Context
 import android.os.Build
 import android.util.Log
@@ -11,7 +10,6 @@ import app.pengwa.exchange.ExchangeMode
 import app.pengwa.exchange.ExchangeModeState
 import app.pengwa.identity.IdentityRepository
 import app.pengwa.meeting.MeetingRecorder
-import app.pengwa.nfc.PengWaHostApduService
 import app.pengwa.nfc.NfcDiagnosticLog
 import app.pengwa.notification.PengWaNotification
 import kotlinx.coroutines.CoroutineScope
@@ -43,11 +41,11 @@ class PengWaApplication : Application(), coil3.SingletonImageLoader.Factory {
 
     /**
      * 当前前台目的地（我的名片 / 附近娃娃 / 都不是）。我的名片同时提供 NFC 与扫码。
-     * NFC 服务、蓝牙总控、NFC 前台调度都读它。
+     * 蓝牙总控读取该状态，以决定是否启用前台交换。
      */
     val exchangeMode = ExchangeModeState()
 
-    val nfcService by lazy { ComponentName(this, PengWaHostApduService::class.java) }
+    internal val onlineCards by lazy { app.pengwa.online.OnlineCards(this) }
 
     val nfcDiagnostics by lazy {
         NfcDiagnosticLog(
@@ -92,11 +90,21 @@ class PengWaApplication : Application(), coil3.SingletonImageLoader.Factory {
         super.onCreate()
         // 进程被系统杀掉后重新启动时，恢复用户开启的常驻通知
         storageReady
+        applicationScope.launch {
+            storageReady.await()
+            identityRepository.load()?.let { identity ->
+                try {
+                    onlineCards.updateIfPublished(identity)
+                } catch (error: java.io.IOException) {
+                    Log.w("PengWaOnlineCard", "Online card sync will retry after the next edit or app restart")
+                }
+            }
+        }
         mainScope.launch { storageReady.await(); PengWaNotification.refresh(this@PengWaApplication) }
         // 主页与附近娃娃启用前台蓝牙；离开前台交换会话就停
         mainScope.launch {
             storageReady.await()
-            exchangeMode.mode.collect { bleExchange.setPageActive(it == ExchangeMode.Bluetooth || it == ExchangeMode.NfcDisplay || it == ExchangeMode.NfcRead) }
+            exchangeMode.mode.collect { bleExchange.setPageActive(it == ExchangeMode.Bluetooth) }
         }
     }
 }

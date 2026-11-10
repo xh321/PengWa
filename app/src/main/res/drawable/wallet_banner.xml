@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Android 12 及以下的钱包横幅要求 260×96dp，因此允许超出普通矢量图标尺寸建议。 -->
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools" tools:ignore="VectorRaster"
-    android:width="260dp" android:height="96dp"
-    android:viewportWidth="260" android:viewportHeight="96">
-    <path android:fillColor="#E9DEF8" android:pathData="M0,0h260v96h-260z" />
-    <path android:fillColor="#675080" android:pathData="M114,48m-24,0a24,24 0,1 1,48 0a24,24 0,1 1,-48 0M146,48m-24,0a24,24 0,1 1,48 0a24,24 0,1 1,-48 0" />
-</vector>

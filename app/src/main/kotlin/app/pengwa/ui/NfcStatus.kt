@@ -10,6 +10,7 @@ import app.pengwa.ui.components.PengWaIcons
 import app.pengwa.ui.theme.LocalStatusColors
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -17,7 +18,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -29,7 +29,6 @@ import app.pengwa.BuildConfig
 
 internal enum class NfcState { Unsupported, Disabled, Ready }
 
-/** 钱包选择是兼容性建议，不是进入 NFC 会话的前置条件。 */
 internal fun nfcStateFor(
     available: Boolean, enabled: Boolean,
 ): NfcState = when {
@@ -59,6 +58,9 @@ internal fun rememberNfcState(): NfcState {
 internal fun NfcStatus(
     state: NfcState,
     onOpenSettings: () -> Unit,
+    onReadTag: () -> Unit,
+    onWriteTag: () -> Unit,
+    canManageLink: Boolean,
     modifier: Modifier = Modifier,
     onOpenLab: (() -> Unit)? = null,
 ) {
@@ -77,12 +79,12 @@ internal fun NfcStatus(
         if (BuildConfig.DEBUG && onOpenLab != null) {
             IconButton(
                 onClick = { if (taps.tap(SystemClock.elapsedRealtime())) onOpenLab() },
-                modifier = Modifier.size(112.dp, 72.dp),
+                modifier = Modifier.size(56.dp),
             ) {
-                TouchPhones(color, Modifier, stringResource(R.string.nfc_status_icon))
+                PengWaIcon(PengWaIcons.Tap, Modifier.size(32.dp), stringResource(R.string.nfc_status_icon), tint = color)
             }
         } else {
-            TouchPhones(color)
+            PengWaIcon(PengWaIcons.Tap, Modifier.size(32.dp), tint = color)
         }
         Text(
             text = stringResource(when (state) {
@@ -104,30 +106,18 @@ internal fun NfcStatus(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
+            OutlinedButton(onClick = onReadTag, enabled = state == NfcState.Ready) {
+                Text(stringResource(R.string.nfc_read_tag))
+            }
+            OutlinedButton(onClick = onWriteTag, enabled = state == NfcState.Ready || canManageLink) {
+                Text(stringResource(
+                    if (state != NfcState.Ready && canManageLink) R.string.nfc_manage_link else R.string.nfc_write_tag,
+                ))
+            }
+        }
         if (state == NfcState.Disabled) {
             TextButton(onClick = onOpenSettings) { Text(stringResource(R.string.nfc_open_settings)) }
         }
-    }
-}
-
-/** Two phones leaning together; decorative because the adjacent text explains the gesture. */
-@Composable
-private fun TouchPhones(
-    color: androidx.compose.ui.graphics.Color,
-    modifier: Modifier = Modifier,
-    contentDescription: String? = null,
-) {
-    Box(modifier.size(112.dp, 72.dp), contentAlignment = Alignment.Center) {
-        PengWaIcon(
-            PengWaIcons.Phone,
-            Modifier.align(Alignment.CenterStart).offset(x = 2.dp).size(64.dp).rotate(16f),
-            contentDescription = contentDescription,
-            tint = color,
-        )
-        PengWaIcon(
-            PengWaIcons.Phone,
-            Modifier.align(Alignment.CenterEnd).offset(x = (-2).dp).size(64.dp).rotate(-16f),
-            tint = color,
-        )
     }
 }

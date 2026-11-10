@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,7 +49,7 @@ import app.pengwa.ui.components.PengWaIcon
 import app.pengwa.ui.components.PengWaIcons
 import app.pengwa.ui.theme.PageGutter
 
-/** 我的名片：碰一碰与扫码共用一页，附近娃娃由底部导航进入。 */
+/** 我的名片：NFC 标签与扫码共用一页，附近娃娃由底部导航进入。 */
 @Composable
 fun HomeScreen(
     viewModel: IdentityViewModel,
@@ -61,13 +62,20 @@ fun HomeScreen(
     val identity = viewModel.identity
     val analytics = LocalContext.current.pengWa.analytics
     // Leaving the home destination starts with the QR code, without restoring the camera.
+    var onlinePeer by remember { mutableStateOf<Identity?>(null) }
     var scanning by remember { mutableStateOf(false) }
     var editing by rememberSaveable { mutableStateOf(false) }
     var showingCard by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var showGuide by rememberSaveable { mutableStateOf(false) }
 
-    SideEffect { onDetailVisibilityChanged(identity != null && (editing || showingCard || showSettings)) }
+    LaunchedEffect(viewModel.onlineSyncFailed) {
+        if (viewModel.onlineSyncFailed) {
+            onMessage("本机名片已保存，在线名片暂未更新。重新打开应用后会重试。")
+            viewModel.dismissOnlineSyncError()
+        }
+    }
+    SideEffect { onDetailVisibilityChanged(identity != null && (editing || showingCard || showSettings || onlinePeer != null)) }
     DisposableEffect(Unit) { onDispose { onDetailVisibilityChanged(false) } }
 
     if (showGuide) {
@@ -100,6 +108,13 @@ fun HomeScreen(
 
     if (showSettings) {
         SettingsScreen(onBack = { showSettings = false }, onShowGuide = { showSettings = false; showGuide = true }, modifier = modifier)
+        return
+    }
+
+    onlinePeer?.let { peer ->
+        CardDetailsPage("在线名片", onBack = { onlinePeer = null }, modifier = modifier) {
+            UserCardContent(peer)
+        }
         return
     }
 
@@ -139,6 +154,7 @@ fun HomeScreen(
             onMessage = onMessage, modifier = Modifier.weight(1f),
             onOpenLab = onOpenLab,
             scanning = scanning, onScanningChange = { scanning = it },
+            onReadCard = { onlinePeer = it },
         )
     }
 }

@@ -65,4 +65,4 @@ internal fun ContactDetailsScreenshots() { ContactDetailsPreview() }
 @androidx.compose.ui.tooling.preview.Preview(name = "横屏", widthDp = 720, heightDp = 360, locale = "zh-rCN")
 @androidx.compose.ui.tooling.preview.Preview(name = "平板", widthDp = 800, heightDp = 1024, locale = "zh-rCN")
 @Composable
-internal fun ResponsiveScreenshots() { FaceToFacePagePreview(NfcPreviewState("自动碰一碰", NfcState.Ready, defaultWallet = true)) }
+internal fun ResponsiveScreenshots() { FaceToFacePagePreview(NfcPreviewState("NFC 标签", NfcState.Ready)) }

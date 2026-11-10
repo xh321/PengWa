@@ -48,16 +48,13 @@ internal fun PreviewSurface(content: @Composable () -> Unit) {
     }
 }
 
-internal data class NfcPreviewState(val name: String, val state: NfcState, val defaultWallet: Boolean = false)
+internal data class NfcPreviewState(val name: String, val state: NfcState)
 
 internal class NfcPreviewProvider : PreviewParameterProvider<NfcPreviewState> {
     override val values = sequenceOf(
-        NfcPreviewState("就绪 · 钱包提示", NfcState.Ready),
-        NfcPreviewState("就绪 · 已是默认钱包", NfcState.Ready, defaultWallet = true),
-        NfcPreviewState("仅支持读取", NfcState.Ready, defaultWallet = true),
+        NfcPreviewState("NFC 已开启", NfcState.Ready),
         NfcPreviewState("NFC 未开启", NfcState.Disabled),
         NfcPreviewState("不支持 NFC", NfcState.Unsupported),
-        NfcPreviewState("无 HCE 自动保持读取", NfcState.Ready, defaultWallet = true),
     )
 
     override fun getDisplayName(index: Int): String = values.elementAt(index).name
@@ -66,15 +63,10 @@ internal class NfcPreviewProvider : PreviewParameterProvider<NfcPreviewState> {
 @PengWaPreviews
 @Composable
 internal fun FaceToFacePagePreview(@PreviewParameter(NfcPreviewProvider::class) sample: NfcPreviewState) {
-    var walletPromptDismissed by remember(sample) { mutableStateOf(false) }
     PreviewHome {
         FaceToFacePageContent(
             identity = Identity(UUID(0L, 1L), "小棉花"),
             nfcState = sample.state,
-            defaultWallet = sample.defaultWallet,
-            showWalletPrompt = !walletPromptDismissed,
-            onDismissWalletPrompt = { walletPromptDismissed = true },
-            onRequestWallet = { walletPromptDismissed = true },
             onOpenNfcSettings = {},
             bluetoothStatus = { HomeBluetoothNotice("交换卡片需要蓝牙授权") },
         )

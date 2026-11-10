@@ -101,7 +101,7 @@ private fun OnboardingProgress(current: OnboardingStep) {
 }
 
 private enum class ExchangeLesson(val label: String, val icon: Int) {
-    Qr("扫码", PengWaIcons.Qr), Nearby("附近", PengWaIcons.Nearby), Nfc("碰一碰", PengWaIcons.Tap),
+    Qr("扫码", PengWaIcons.Qr), Nearby("附近", PengWaIcons.Nearby), Nfc("NFC 标签", PengWaIcons.Tap),
 }
 
 private data class IllustratedLesson(
@@ -122,9 +122,9 @@ private fun ExchangeLesson.illustration(): IllustratedLesson = when (this) {
         listOf("两人打开“附近娃娃”", "找到对方，点“申请交换”", "对方点“同意”，完成后入册"),
     )
     ExchangeLesson.Nfc -> IllustratedLesson(
-        R.drawable.onboarding_nfc,
-        "两位娃友将手机背面的 NFC 感应区域贴近，出现确认标记后互换卡片。",
-        listOf("两人打开主页，无需选择模式", "开启 NFC，手机背面贴近", "等“交换完成”，到集邮册查看"),
+        R.drawable.onboarding_nfc_tag,
+        "手机背面贴近一枚实体 NFC 名片标签。",
+        listOf("在主页点“写入 NFC”，将名片链接写入可写标签", "对方点“读取 NFC”，将手机贴近标签", "联网打开名片，也可通过手机系统打开网页"),
     )
 }
 
@@ -145,7 +145,11 @@ internal fun ExchangeGuide(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text("一起扩列吧", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
-        Text("两人打开碰碰娃，开启蓝牙并按提示授权。第一次扩列，推荐扫码。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            if (lesson == ExchangeLesson.Nfc) "把在线名片写入实体标签，娃友碰一下就能打开。"
+            else "两人打开碰碰娃，开启蓝牙并按提示授权。第一次扩列，推荐扫码。",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ExchangeLesson.entries.forEach { item ->
                 FilterChip(
@@ -171,13 +175,13 @@ internal fun ExchangeGuide(
             }
         }
         if (lesson == ExchangeLesson.Nfc) Text(
-            "碰一碰没反应，或手机不支持 NFC？换扫码试试。",
+            "手机不支持 NFC？可以使用扫码交换名片。",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         completionOption()
         Button(enabled = finishEnabled, onClick = { onFinish(if (lesson == ExchangeLesson.Nearby) MainActivity.TAB_NEARBY else MainActivity.TAB_ME) }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
-            Text(when (lesson) { ExchangeLesson.Qr -> "去主页，试试扫码"; ExchangeLesson.Nearby -> "去附近，找娃友"; ExchangeLesson.Nfc -> "去主页，试试碰一碰" })
+            Text(when (lesson) { ExchangeLesson.Qr -> "去主页，试试扫码"; ExchangeLesson.Nearby -> "去附近，找娃友"; ExchangeLesson.Nfc -> "去主页，试试 NFC 标签" })
         }
         Text("在主页设置里，随时重看“扩列图解”。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         TextButton(enabled = finishEnabled, onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("返回") }
